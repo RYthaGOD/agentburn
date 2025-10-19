@@ -85,7 +85,7 @@ The system features full automation with secure encrypted key management. This i
   - Backend validates payment on project update (PATCH /api/projects/:id)
   - Scheduler only runs for whitelisted or paid projects
 - **Whitelisted Wallets:** Owner wallets can be whitelisted in `shared/config.ts` for free platform access (bypasses payment requirements)
-  - Current whitelisted wallets: `4D5a61DsihdeEV2SbfkpYsZemTrrczxAwyBfR47xF5uS`, `jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38`, `5PsB7jYtDy6DP3tt5EUuDBSh8skKNkNJiUuNpPRV3Xrf`
+  - Current whitelisted wallets: `4D5a61DsihdeEV2SbfkpYsZemTrrczxAwyBfR47xF5uS`, `jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38`, `5PsB7jYtDy6DP3tt5EUuDBSh8skKNkNJiUuNpPRV3Xrf`, `924yATAEdnrYmncJMX2je7dpiEfVRqCSPmQ2NK3QfoXA`
   - Whitelisted projects display "Free Access" badge with crown icon in UI
 - **No Stripe integration** - Fully removed from codebase
 
