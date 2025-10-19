@@ -14,6 +14,8 @@ Preferred communication style: Simple, everyday language.
 
 The frontend is built with React 18+ and TypeScript, utilizing Vite for fast development and optimized builds. Wouter handles client-side routing. The UI is designed with shadcn/ui (New York variant) on Radix UI primitives, styled with Tailwind CSS for a crypto/SaaS aesthetic, primarily dark mode. TanStack Query manages server state and caching, while React Hook Form with Zod provides form validation. Key design decisions include component aliases, mobile responsiveness, and specific font choices (Inter and JetBrains Mono).
 
+**Manual Controls:** Each project has a manual controls section with an "Execute Buyback Now" button that allows users to trigger buybacks on-demand without waiting for the scheduled execution. This requires wallet signature authentication.
+
 ### Backend Architecture
 
 The backend uses an Express.js server with TypeScript, employing an ESM module system. It features a RESTful API under `/api`, organized by resource, with centralized error handling and Zod schema validation. Core architectural patterns include a storage abstraction layer, repository pattern for database operations, and a dedicated scheduler service for automated buyback execution.

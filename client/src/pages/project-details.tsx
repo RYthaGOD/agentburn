@@ -29,7 +29,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation, useRoute } from "wouter";
-import { Flame, ArrowLeft, Save, Zap, Trash2, Crown } from "lucide-react";
+import { Flame, ArrowLeft, Save, Zap, Trash2, Crown, Play } from "lucide-react";
+import { useWalletSignature } from "@/hooks/use-wallet-signature";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +50,7 @@ export default function ProjectDetails() {
   const [, params] = useRoute("/dashboard/projects/:id");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingUpdates, setPendingUpdates] = useState<InsertProject | null>(null);
+  const { signMessage, createMessage, isConnected } = useWalletSignature();
 
   const projectId = params?.id;
 
@@ -140,6 +142,51 @@ export default function ProjectDetails() {
     onError: (error: Error) => {
       toast({
         title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const executeManualBuybackMutation = useMutation({
+    mutationFn: async () => {
+      if (!project) {
+        throw new Error("Project not found");
+      }
+
+      if (!isConnected) {
+        throw new Error("Please connect your wallet first");
+      }
+
+      // Create message and get wallet signature
+      const message = createMessage("Execute buyback", projectId!);
+      
+      // Sign message with connected wallet
+      const signatureResult = await signMessage(message);
+
+      const response = await apiRequest("POST", `/api/execute-buyback/${projectId}`, {
+        ownerWalletAddress: signatureResult.publicKey,
+        signature: signatureResult.signature,
+        message: signatureResult.message,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to execute buyback");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      toast({
+        title: "Buyback Executed",
+        description: data.message || "Manual buyback has been successfully executed!",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Buyback Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -554,6 +601,55 @@ export default function ProjectDetails() {
                   </FormItem>
                 )}
               />
+            </CardContent>
+          </Card>
+
+          {/* Manual Controls Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-primary" />
+                Manual Controls
+              </CardTitle>
+              <CardDescription>
+                Trigger a buyback immediately without waiting for the schedule
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Click the button below to execute a manual buyback right now. This will:
+                </p>
+                <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1 ml-2">
+                  <li>Claim available PumpFun creator rewards (if applicable)</li>
+                  <li>Swap SOL for tokens using Jupiter aggregator</li>
+                  <li>Burn tokens to the Solana incinerator</li>
+                  <li>Record the transaction in your history</li>
+                </ul>
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    type="button"
+                    onClick={() => executeManualBuybackMutation.mutate()}
+                    disabled={executeManualBuybackMutation.isPending || !isConnected}
+                    className="bg-primary"
+                    data-testid="button-execute-manual-buyback"
+                  >
+                    {executeManualBuybackMutation.isPending ? (
+                      "Executing..."
+                    ) : (
+                      <>
+                        <Play className="mr-2 h-4 w-4" />
+                        Execute Buyback Now
+                      </>
+                    )}
+                  </Button>
+                  {!isConnected && (
+                    <p className="text-sm text-amber-600 dark:text-amber-500 flex items-center">
+                      Connect your wallet to execute manual buybacks
+                    </p>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
