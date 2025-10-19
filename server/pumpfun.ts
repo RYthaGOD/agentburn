@@ -1,6 +1,8 @@
 // PumpFun Lightning API integration for claiming creator rewards
 // Creators earn 0.05% of trading volume in SOL
 
+import { signAndSendVersionedTransaction, loadKeypairFromPrivateKey } from "./solana-sdk";
+
 const PUMPFUN_API_URL = "https://pumpportal.fun/api/trade-local";
 
 interface ClaimCreatorFeeRequest {
@@ -108,19 +110,31 @@ export function estimateCreatorRewards(tradingVolume: number): number {
 
 /**
  * Execute claim rewards transaction
- * Note: This requires signing the transaction which needs Solana Web3.js SDK
- * This is a placeholder structure for when SDK is available
+ * Signs and broadcasts the transaction to Solana network
  */
 export async function executeClaimRewards(
-  creatorWallet: string,
-  signedTransaction: string
+  transactionBase64: string,
+  creatorPrivateKey: string
 ): Promise<string> {
-  // TODO: Send signed transaction to Solana network
-  // For now, return placeholder signature
-  console.log(`[SIMULATION] Would claim PumpFun rewards for wallet: ${creatorWallet}`);
-  console.log("Signed transaction ready to broadcast (requires Solana SDK)");
-  
-  return "placeholder_claim_signature";
+  try {
+    // Load keypair from private key
+    const keypair = loadKeypairFromPrivateKey(creatorPrivateKey);
+    
+    console.log(`Claiming PumpFun rewards for wallet: ${keypair.publicKey.toString()}`);
+    
+    // Sign and send the transaction
+    const signature = await signAndSendVersionedTransaction(
+      transactionBase64,
+      keypair,
+      "confirmed"
+    );
+    
+    console.log(`PumpFun rewards claimed successfully: ${signature}`);
+    return signature;
+  } catch (error) {
+    console.error("Error executing claim rewards:", error);
+    throw error;
+  }
 }
 
 /**
@@ -148,11 +162,11 @@ export async function getUnclaimedRewardsAmount(
 
 /**
  * Complete workflow: Generate claim transaction, sign it, and execute
- * Note: This requires Solana Web3.js for signing
- * Returns estimated or simulated reward amount
+ * Requires creator wallet private key
  */
 export async function claimCreatorRewardsFull(
   creatorWallet: string,
+  creatorPrivateKey: string | null,
   tokenMint?: string
 ): Promise<ClaimCreatorFeeResponse> {
   try {
@@ -163,19 +177,38 @@ export async function claimCreatorRewardsFull(
       tokenMint
     );
 
-    // Step 2: Sign transaction (requires Solana SDK)
-    // TODO: Implement when @solana/web3.js is available
-    console.log("[SIMULATION] PumpFun claim transaction generated");
-    console.log("Transaction ready to sign (requires Solana SDK for execution)");
-
-    // For simulation, we can't determine the actual amount without executing
-    // Mark as pending with estimated amount of 0 (unknown)
-    return {
-      success: true,
-      transaction,
-      amount: 0, // Will be known after execution
-      error: "Awaiting Solana SDK for transaction signing and execution",
-    };
+    // Step 2: Sign and execute if private key provided
+    if (creatorPrivateKey) {
+      try {
+        const signature = await executeClaimRewards(transaction, creatorPrivateKey);
+        
+        // Note: We still don't know the exact amount without parsing the transaction
+        // In production, you'd query the balance before/after to calculate the claim
+        return {
+          success: true,
+          transaction,
+          signature,
+          amount: 0, // Would need to calculate from balance diff
+        };
+      } catch (error) {
+        console.error("Failed to execute claim:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    } else {
+      // No private key - simulation mode
+      console.log("[SIMULATION] PumpFun claim transaction generated");
+      console.log("No private key provided - transaction ready to sign manually");
+      
+      return {
+        success: true,
+        transaction,
+        amount: 0,
+        error: "No private key provided for automatic execution",
+      };
+    }
   } catch (error) {
     console.error("Error claiming PumpFun creator rewards:", error);
     return {

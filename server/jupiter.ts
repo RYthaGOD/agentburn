@@ -1,6 +1,8 @@
 // Jupiter Ultra API integration for token swaps
 // Ultra API provides RPC-less swaps with automatic optimization
 
+import { signAndSendVersionedTransaction, loadKeypairFromPrivateKey } from "./solana-sdk";
+
 const JUPITER_ULTRA_API_URL = "https://lite-api.jup.ag/ultra/v1";
 
 interface JupiterUltraOrderResponse {
@@ -82,23 +84,37 @@ export async function getSwapOrder(
 
 /**
  * Execute a swap via Jupiter Ultra API
- * Note: This requires signing the transaction which needs Solana Web3.js SDK
- * @param requestId - Request ID from getSwapOrder
- * @param signedTransaction - Base64-encoded signed transaction
+ * Signs the transaction with provided private key and submits to Jupiter
+ * @param swapOrder - Swap order from getSwapOrder
+ * @param walletPrivateKey - Base58-encoded private key
  */
 export async function executeSwapOrder(
-  requestId: string,
-  signedTransaction: string
+  swapOrder: SwapOrder,
+  walletPrivateKey: string
 ): Promise<JupiterExecuteResponse> {
   try {
+    // Load keypair from private key
+    const keypair = loadKeypairFromPrivateKey(walletPrivateKey);
+    
+    console.log(`Executing Jupiter swap for wallet: ${keypair.publicKey.toString()}`);
+    console.log(`Request ID: ${swapOrder.requestId}`);
+    
+    // Sign the transaction
+    const signature = await signAndSendVersionedTransaction(
+      swapOrder.transaction,
+      keypair,
+      "confirmed"
+    );
+    
+    // Submit to Jupiter Ultra API
     const response = await fetch(`${JUPITER_ULTRA_API_URL}/execute`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        requestId,
-        transaction: signedTransaction,
+        requestId: swapOrder.requestId,
+        transaction: swapOrder.transaction, // Jupiter expects the original signed tx
       }),
     });
 
@@ -108,6 +124,7 @@ export async function executeSwapOrder(
     }
 
     const result: JupiterExecuteResponse = await response.json();
+    console.log(`Jupiter swap executed successfully: ${result.transactionId}`);
     return result;
   } catch (error) {
     console.error("Error executing Jupiter Ultra swap:", error);

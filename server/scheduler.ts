@@ -4,13 +4,13 @@
 import * as cron from "node-cron";
 import { storage } from "./storage";
 import { SOLANA_INCINERATOR_ADDRESS } from "@shared/config";
-import { getSwapOrder } from "./jupiter";
+import { getSwapOrder, executeSwapOrder } from "./jupiter";
 import { getWalletBalance } from "./solana";
 import { 
   hasUnclaimedRewards, 
-  generateClaimRewardsTransaction,
   claimCreatorRewardsFull 
 } from "./pumpfun";
+import { burnTokens, loadKeypairFromPrivateKey, getSolBalance } from "./solana-sdk";
 
 interface SchedulerConfig {
   enabled: boolean;
@@ -92,6 +92,9 @@ class BuybackScheduler {
       let claimedRewardsSOL = 0;
       let pumpfunClaimPending = false;
       
+      // Get creator private key from environment if available
+      const creatorPrivateKey = process.env[`PUMPFUN_CREATOR_KEY_${project.id}`] || null;
+      
       if (project.isPumpfunToken && project.pumpfunCreatorWallet) {
         console.log(`Checking PumpFun rewards for ${project.name}...`);
         
@@ -102,30 +105,48 @@ class BuybackScheduler {
           );
 
           if (hasRewards) {
-            console.log(`PumpFun rewards available! Generating claim transaction for ${project.name}...`);
+            console.log(`PumpFun rewards available! ${creatorPrivateKey ? 'Executing' : 'Generating'} claim for ${project.name}...`);
             
             const claimResult = await claimCreatorRewardsFull(
               project.pumpfunCreatorWallet,
+              creatorPrivateKey,
               project.tokenMintAddress
             );
 
-            if (claimResult.success) {
-              // In simulation mode, we generated the transaction but can't execute it
-              // Mark the claim as pending and note that rewards are available
-              pumpfunClaimPending = true;
+            if (claimResult.success && claimResult.signature) {
+              // Successfully claimed rewards
+              console.log(`PumpFun rewards claimed! Signature: ${claimResult.signature}`);
               
-              console.log(`[SIMULATION] PumpFun claim transaction ready to sign`);
-              console.log(`Rewards available but amount unknown until execution`);
+              // Get balance after claim to calculate actual amount
+              const balanceAfterClaim = await getSolBalance(project.treasuryWalletAddress);
+              console.log(`Treasury balance after claim: ${balanceAfterClaim} SOL`);
               
-              // Record the pending claim transaction
+              // Record the claim transaction
               await storage.createTransaction({
                 projectId: project.id,
                 type: "buyback",
-                amount: "0", // Unknown until executed
+                amount: claimResult.amount?.toString() || "0",
+                tokenAmount: "0",
+                txSignature: claimResult.signature,
+                status: "completed",
+                errorMessage: null,
+              });
+              
+              claimedRewardsSOL = claimResult.amount || 0;
+            } else if (!creatorPrivateKey) {
+              // No private key - simulation mode
+              pumpfunClaimPending = true;
+              console.log(`[SIMULATION] PumpFun claim transaction ready to sign`);
+              console.log(`Set PUMPFUN_CREATOR_KEY_${project.id} environment variable for automatic claiming`);
+              
+              await storage.createTransaction({
+                projectId: project.id,
+                type: "buyback",
+                amount: "0",
                 tokenAmount: "0",
                 txSignature: "pumpfun_claim_pending",
                 status: "pending",
-                errorMessage: "PumpFun rewards claim transaction generated, awaiting SDK for execution",
+                errorMessage: "No private key configured for automatic execution",
               });
             } else {
               console.log(`PumpFun claim failed: ${claimResult.error}`);
@@ -195,29 +216,84 @@ class BuybackScheduler {
       console.log(`Slippage: ${swapOrder.slippageBps / 100}%`);
       console.log(`Fee: ${swapOrder.feeBps / 100}%`);
 
-      // STEP 4: Execute swap and burn (SIMULATION MODE)
-      console.log(`\n[SIMULATION] Would execute:`);
-      console.log(`  1. Sign transaction for swap order (Request ID: ${swapOrder.requestId})`);
-      console.log(`  2. Execute via Jupiter Ultra API: ${buybackAmountSOL} SOL → ${tokenAmount} tokens`);
-      console.log(`  3. Transfer ${tokenAmount} tokens to incinerator: ${SOLANA_INCINERATOR_ADDRESS}`);
-      console.log(`  4. Permanent burn complete\n`);
-
-      // Record transaction
-      await storage.createTransaction({
-        projectId: project.id,
-        type: "buyback",
-        amount: buybackAmountSOL.toString(),
-        tokenAmount: tokenAmount.toString(),
-        txSignature: `ultra_${swapOrder.requestId}`,
-        status: "pending",
-        errorMessage: `Awaiting Solana SDK for transaction signing. Order ready: ${swapOrder.requestId}`,
-      });
-
-      console.log(`Buyback simulation completed for project: ${project.name}`);
-      if (pumpfunClaimPending) {
-        console.log(`Note: PumpFun rewards claim pending - execute claim first to maximize buyback value`);
-      } else if (claimedRewardsSOL > 0) {
-        console.log(`Total value: ${buybackAmountSOL} SOL buyback + ${claimedRewardsSOL} SOL claimed rewards`);
+      // STEP 4: Execute swap and burn
+      const treasuryPrivateKey = process.env[`TREASURY_KEY_${project.id}`] || null;
+      
+      if (treasuryPrivateKey) {
+        try {
+          console.log(`\nExecuting buyback for ${project.name}...`);
+          
+          // Execute the swap
+          console.log(`1. Executing swap: ${buybackAmountSOL} SOL → ${tokenAmount} tokens`);
+          const swapResult = await executeSwapOrder(swapOrder, treasuryPrivateKey);
+          console.log(`   Swap completed: ${swapResult.transactionId}`);
+          
+          // Burn the tokens
+          console.log(`2. Burning ${tokenAmount} tokens to incinerator...`);
+          const keypair = loadKeypairFromPrivateKey(treasuryPrivateKey);
+          const burnSignature = await burnTokens(
+            project.tokenMintAddress,
+            keypair,
+            tokenAmount,
+            9 // Assuming 9 decimals
+          );
+          console.log(`   Burn completed: ${burnSignature}`);
+          
+          // Record successful transaction
+          await storage.createTransaction({
+            projectId: project.id,
+            type: "buyback",
+            amount: buybackAmountSOL.toString(),
+            tokenAmount: tokenAmount.toString(),
+            txSignature: swapResult.transactionId,
+            status: "completed",
+            errorMessage: null,
+          });
+          
+          console.log(`\n✅ Buyback completed successfully for ${project.name}!`);
+          console.log(`   Swapped: ${buybackAmountSOL} SOL → ${tokenAmount} tokens`);
+          console.log(`   Burned: ${tokenAmount} tokens to ${SOLANA_INCINERATOR_ADDRESS}`);
+          if (claimedRewardsSOL > 0) {
+            console.log(`   PumpFun rewards claimed: ${claimedRewardsSOL} SOL`);
+          }
+        } catch (error) {
+          console.error(`Error executing buyback:`, error);
+          
+          // Record failed transaction
+          await storage.createTransaction({
+            projectId: project.id,
+            type: "buyback",
+            amount: buybackAmountSOL.toString(),
+            tokenAmount: "0",
+            txSignature: "",
+            status: "failed",
+            errorMessage: error instanceof Error ? error.message : "Unknown error during execution",
+          });
+        }
+      } else {
+        // No private key - simulation mode
+        console.log(`\n[SIMULATION] Would execute:`);
+        console.log(`  1. Execute swap via Jupiter Ultra: ${buybackAmountSOL} SOL → ${tokenAmount} tokens`);
+        console.log(`  2. Burn ${tokenAmount} tokens to incinerator: ${SOLANA_INCINERATOR_ADDRESS}`);
+        console.log(`\nSet TREASURY_KEY_${project.id} environment variable for automatic execution`);
+        
+        // Record pending transaction
+        await storage.createTransaction({
+          projectId: project.id,
+          type: "buyback",
+          amount: buybackAmountSOL.toString(),
+          tokenAmount: tokenAmount.toString(),
+          txSignature: `ultra_${swapOrder.requestId}`,
+          status: "pending",
+          errorMessage: `No treasury private key configured for automatic execution`,
+        });
+        
+        console.log(`\nBuyback simulation completed for ${project.name}`);
+        if (pumpfunClaimPending) {
+          console.log(`Note: PumpFun rewards claim pending - set PUMPFUN_CREATOR_KEY_${project.id} to enable`);
+        } else if (claimedRewardsSOL > 0) {
+          console.log(`Total value: ${buybackAmountSOL} SOL buyback + ${claimedRewardsSOL} SOL claimed rewards`);
+        }
       }
     } catch (error) {
       console.error(`Error executing buyback for project ${projectId}:`, error);
