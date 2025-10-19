@@ -137,6 +137,10 @@ export async function executeSwapOrder(
     return {
       transactionId: result.signature || result.transactionId,
       status: result.status || "success",
+      slot: result.slot || 0,
+      inputAmountResult: result.inputAmountResult || "0",
+      outputAmountResult: result.outputAmountResult || "0",
+      swapEvents: result.swapEvents,
     };
   } catch (error) {
     console.error("Error executing Jupiter Ultra swap:", error);
@@ -209,22 +213,31 @@ export async function getTokenPrice(tokenMintAddress: string): Promise<number> {
   }
 }
 
-// Legacy compatibility - maintains old function signature
+/**
+ * Get swap quote with proper wallet address
+ * @param inputMint - Input token mint address
+ * @param outputMint - Output token mint address  
+ * @param amountLamports - Amount in lamports
+ * @param takerWallet - Taker wallet address (required for accurate quotes)
+ * @param slippageBps - Slippage in basis points (default: 50)
+ */
 export async function getSwapQuote(
   inputMint: string,
   outputMint: string,
   amountLamports: number,
+  takerWallet: string,
   slippageBps: number = 50
-): Promise<any> {
-  // Note: This requires a taker wallet address
-  // For now, use a placeholder - this should be replaced with actual wallet
-  const placeholderWallet = "11111111111111111111111111111111";
-  
+): Promise<{
+  inputAmount: number;
+  outputAmount: number;
+  priceImpactPct: number;
+  route: SwapOrder;
+}> {
   const order = await getSwapOrder(
     inputMint,
     outputMint,
     amountLamports,
-    placeholderWallet,
+    takerWallet,
     slippageBps
   );
   

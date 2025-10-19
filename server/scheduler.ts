@@ -51,11 +51,16 @@ class BuybackScheduler {
       for (const project of activeProjects) {
         if (!project.isActive) continue;
 
-        // Check if payment is still valid
+        // Check if payment is still valid - get the most recent valid payment
         const payments = await storage.getPaymentsByProject(project.id);
-        const validPayment = payments.find(p => 
+        const validPayments = payments.filter(p => 
           p.verified && new Date(p.expiresAt) > now
         );
+        
+        // Sort by creation date descending to get the most recent payment
+        const validPayment = validPayments.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0];
 
         if (!validPayment) {
           console.log(`Project ${project.name} has no valid payment - skipping`);
