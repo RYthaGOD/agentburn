@@ -56,6 +56,28 @@ export const usedSignatures = pgTable("used_signatures", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Encrypted private key storage for automated buybacks
+export const projectSecrets = pgTable("project_secrets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().unique().references(() => projects.id),
+  
+  // Treasury wallet encrypted key
+  treasuryKeyCiphertext: text("treasury_key_ciphertext"),
+  treasuryKeyIv: text("treasury_key_iv"),
+  treasuryKeyAuthTag: text("treasury_key_auth_tag"),
+  treasuryKeyFingerprint: text("treasury_key_fingerprint"), // HMAC for change detection
+  
+  // PumpFun creator wallet encrypted key (optional)
+  pumpfunKeyCiphertext: text("pumpfun_key_ciphertext"),
+  pumpfunKeyIv: text("pumpfun_key_iv"),
+  pumpfunKeyAuthTag: text("pumpfun_key_auth_tag"),
+  pumpfunKeyFingerprint: text("pumpfun_key_fingerprint"),
+  
+  lastRotatedAt: timestamp("last_rotated_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const projectsRelations = relations(projects, ({ many }) => ({
   transactions: many(transactions),
   payments: many(payments),
@@ -79,6 +101,13 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 export const usedSignaturesRelations = relations(usedSignatures, ({ one }) => ({
   project: one(projects, {
     fields: [usedSignatures.projectId],
+    references: [projects.id],
+  }),
+}));
+
+export const projectSecretsRelations = relations(projectSecrets, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectSecrets.projectId],
     references: [projects.id],
   }),
 }));
@@ -111,6 +140,19 @@ export const insertUsedSignatureSchema = createInsertSchema(usedSignatures).omit
   createdAt: true,
 });
 
+export const insertProjectSecretSchema = createInsertSchema(projectSecrets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastRotatedAt: true,
+});
+
+// Input schema for setting/updating keys (accepts plaintext, stored encrypted)
+export const setProjectKeysSchema = z.object({
+  treasuryPrivateKey: z.string().min(1, "Treasury private key is required"),
+  pumpfunPrivateKey: z.string().optional(),
+});
+
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Transaction = typeof transactions.$inferSelect;
@@ -119,3 +161,6 @@ export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type UsedSignature = typeof usedSignatures.$inferSelect;
 export type InsertUsedSignature = z.infer<typeof insertUsedSignatureSchema>;
+export type ProjectSecret = typeof projectSecrets.$inferSelect;
+export type InsertProjectSecret = z.infer<typeof insertProjectSecretSchema>;
+export type SetProjectKeys = z.infer<typeof setProjectKeysSchema>;

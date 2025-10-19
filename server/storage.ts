@@ -3,6 +3,7 @@ import {
   transactions,
   payments,
   usedSignatures,
+  projectSecrets,
   type Project,
   type InsertProject,
   type Transaction,
@@ -11,6 +12,8 @@ import {
   type InsertPayment,
   type UsedSignature,
   type InsertUsedSignature,
+  type ProjectSecret,
+  type InsertProjectSecret,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -40,6 +43,12 @@ export interface IStorage {
   // Used signature operations (for replay attack prevention)
   isSignatureUsed(signatureHash: string): Promise<boolean>;
   recordUsedSignature(signature: InsertUsedSignature): Promise<UsedSignature>;
+
+  // Project secrets operations (encrypted private keys)
+  getProjectSecrets(projectId: string): Promise<ProjectSecret | undefined>;
+  setProjectSecrets(secrets: InsertProjectSecret): Promise<ProjectSecret>;
+  updateProjectSecrets(projectId: string, secrets: Partial<InsertProjectSecret>): Promise<ProjectSecret | undefined>;
+  deleteProjectSecrets(projectId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -172,6 +181,51 @@ export class DatabaseStorage implements IStorage {
       .values(insertSignature)
       .returning();
     return signature;
+  }
+
+  // Project secrets operations (encrypted private keys)
+  async getProjectSecrets(projectId: string): Promise<ProjectSecret | undefined> {
+    const [secrets] = await db
+      .select()
+      .from(projectSecrets)
+      .where(eq(projectSecrets.projectId, projectId));
+    return secrets || undefined;
+  }
+
+  async setProjectSecrets(insertSecrets: InsertProjectSecret): Promise<ProjectSecret> {
+    // Use upsert pattern: try insert, if exists, update
+    const existing = await this.getProjectSecrets(insertSecrets.projectId);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(projectSecrets)
+        .set({ ...insertSecrets, updatedAt: new Date() })
+        .where(eq(projectSecrets.projectId, insertSecrets.projectId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(projectSecrets)
+        .values(insertSecrets)
+        .returning();
+      return created;
+    }
+  }
+
+  async updateProjectSecrets(projectId: string, updates: Partial<InsertProjectSecret>): Promise<ProjectSecret | undefined> {
+    const [secrets] = await db
+      .update(projectSecrets)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(projectSecrets.projectId, projectId))
+      .returning();
+    return secrets || undefined;
+  }
+
+  async deleteProjectSecrets(projectId: string): Promise<boolean> {
+    const result = await db
+      .delete(projectSecrets)
+      .where(eq(projectSecrets.projectId, projectId));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 }
 
