@@ -145,10 +145,20 @@ export function validatePrivateKey(key: string): boolean {
   // Solana private keys are typically 88 characters in base58
   // Allow some flexibility for different formats
   if (key.length < 32 || key.length > 128) {
+    console.error(`Key validation failed: Invalid length ${key.length} (expected 32-128)`);
     return false;
   }
   
   // Check that it only contains valid base58 characters
   const base58Regex = /^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$/;
-  return base58Regex.test(key);
+  if (!base58Regex.test(key)) {
+    // Find the invalid character
+    const invalidChars = key.split('').filter(char => 
+      !'123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'.includes(char)
+    );
+    console.error(`Key validation failed: Contains invalid base58 characters: ${[...new Set(invalidChars)].join(', ')}`);
+    return false;
+  }
+  
+  return true;
 }
