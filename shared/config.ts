@@ -8,6 +8,7 @@ export const SOLANA_INCINERATOR_ADDRESS = "1nc1nerator11111111111111111111111111
 export const WHITELISTED_WALLETS = [
   "4D5a61DsihdeEV2SbfkpYsZemTrrczxAwyBfR47xF5uS",  // Owner wallet
   "jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38",  // Treasury wallet
+  "5PsB7jYtDy6DP3tt5EUuDBSh8skKNkNJiUuNpPRV3Xrf",  // Additional whitelisted wallet
 ];
 
 export const PRICING = {
