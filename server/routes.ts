@@ -429,6 +429,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manual burn endpoint - burn tokens already in treasury wallet
+  app.post("/api/projects/:projectId/manual-burn", async (req, res) => {
+    try {
+      const { ownerWalletAddress, signature, message, amount } = req.body;
+      
+      if (!ownerWalletAddress || !signature || !message || !amount) {
+        return res.status(400).json({ 
+          message: "Missing required fields: ownerWalletAddress, signature, message, and amount are required" 
+        });
+      }
+
+      const burnAmount = parseFloat(amount);
+      if (isNaN(burnAmount) || burnAmount <= 0) {
+        return res.status(400).json({ 
+          message: "Invalid amount: Must be a positive number" 
+        });
+      }
+
+      const project = await storage.getProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Verify ownership
+      if (project.ownerWalletAddress !== ownerWalletAddress) {
+        return res.status(403).json({ message: "Unauthorized: You don't own this project" });
+      }
+
+      // Create a hash of the signature for replay attack prevention
+      const signatureHash = crypto.createHash("sha256").update(signature).digest("hex");
+
+      // Check if this signature has already been used
+      const isUsed = await storage.isSignatureUsed(signatureHash);
+      if (isUsed) {
+        return res.status(400).json({ 
+          message: "Signature already used: This request has already been processed" 
+        });
+      }
+
+      // Verify wallet signature to prove ownership
+      const { verifyWalletSignature, getTokenBalance, burnTokens, loadKeypairFromPrivateKey } = await import("./solana-sdk");
+      const isValidSignature = await verifyWalletSignature(
+        ownerWalletAddress,
+        message,
+        signature
+      );
+
+      if (!isValidSignature) {
+        return res.status(403).json({ 
+          message: "Invalid signature: Could not verify wallet ownership" 
+        });
+      }
+
+      // Verify message format and timestamp
+      const expectedMessagePrefix = `Burn ${amount} tokens for project ${project.id}`;
+      if (!message.startsWith(expectedMessagePrefix)) {
+        return res.status(400).json({ 
+          message: "Invalid message format" 
+        });
+      }
+
+      const timestampMatch = message.match(/at (\d+)$/);
+      if (!timestampMatch) {
+        return res.status(400).json({ 
+          message: "Message must include timestamp" 
+        });
+      }
+
+      const messageTimestamp = parseInt(timestampMatch[1]);
+      const nowTimestamp = Date.now();
+      const fiveMinutesInMs = 5 * 60 * 1000;
+
+      if (Math.abs(nowTimestamp - messageTimestamp) > fiveMinutesInMs) {
+        return res.status(400).json({ 
+          message: "Message expired: Please generate a new signature (must be within 5 minutes)" 
+        });
+      }
+
+      // Get treasury private key
+      const { getTreasuryKey } = await import("./key-manager");
+      const treasuryKey = await getTreasuryKey(project.id);
+      
+      if (!treasuryKey) {
+        return res.status(400).json({ 
+          message: "Treasury private key not configured. Please configure it in Settings first." 
+        });
+      }
+
+      // Check current token balance
+      const currentBalance = await getTokenBalance(
+        project.tokenMintAddress,
+        project.treasuryWalletAddress
+      );
+
+      if (currentBalance < burnAmount) {
+        return res.status(400).json({ 
+          message: `Insufficient balance: Treasury has ${currentBalance} tokens but you're trying to burn ${burnAmount}` 
+        });
+      }
+
+      // Store signature hash to prevent replay attacks
+      try {
+        await storage.recordUsedSignature({
+          projectId: project.id,
+          signatureHash,
+          messageTimestamp: new Date(messageTimestamp),
+          expiresAt: new Date(messageTimestamp + fiveMinutesInMs),
+        });
+      } catch (error: any) {
+        if (error.code === '23505' || error.message?.includes('unique')) {
+          return res.status(400).json({ 
+            message: "Signature already used: This request has already been processed" 
+          });
+        }
+        throw error;
+      }
+
+      console.log(`Manual burn initiated for ${project.name}: ${burnAmount} tokens`);
+
+      // Execute burn
+      try {
+        const walletKeypair = loadKeypairFromPrivateKey(treasuryKey);
+        const signature = await burnTokens(
+          project.tokenMintAddress,
+          walletKeypair,
+          burnAmount
+        );
+
+        // Log successful burn transaction
+        await storage.createTransaction({
+          projectId: project.id,
+          type: "burn",
+          amount: "0", // No SOL spent for manual burns
+          tokenAmount: burnAmount.toString(),
+          txSignature: signature,
+          status: "completed",
+          errorMessage: null,
+        });
+
+        console.log(`Manual burn completed: ${signature}`);
+
+        res.json({
+          success: true,
+          message: `Successfully burned ${burnAmount} tokens`,
+          signature,
+          projectId: project.id,
+        });
+      } catch (burnError: any) {
+        console.error("Burn execution error:", burnError);
+
+        // Log failed burn transaction
+        await storage.createTransaction({
+          projectId: project.id,
+          type: "burn",
+          amount: "0",
+          tokenAmount: burnAmount.toString(),
+          txSignature: "",
+          status: "failed",
+          errorMessage: burnError.message,
+        });
+
+        throw new Error(`Failed to execute burn: ${burnError.message}`);
+      }
+    } catch (error: any) {
+      console.error("Manual burn error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ============ SECURE KEY MANAGEMENT ENDPOINTS ============
   // All key management endpoints require wallet signature authentication
   

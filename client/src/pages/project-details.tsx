@@ -29,7 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation, useRoute } from "wouter";
-import { Flame, ArrowLeft, Save, Zap, Trash2, Crown, Play } from "lucide-react";
+import { Flame, ArrowLeft, Save, Zap, Trash2, Crown, Play, AlertTriangle } from "lucide-react";
 import { useWalletSignature } from "@/hooks/use-wallet-signature";
 import {
   AlertDialog,
@@ -50,6 +50,7 @@ export default function ProjectDetails() {
   const [, params] = useRoute("/dashboard/projects/:id");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingUpdates, setPendingUpdates] = useState<InsertProject | null>(null);
+  const [burnAmount, setBurnAmount] = useState<string>("");
   const { signMessage, createMessage, isConnected } = useWalletSignature();
 
   const projectId = params?.id;
@@ -187,6 +188,58 @@ export default function ProjectDetails() {
     onError: (error: Error) => {
       toast({
         title: "Buyback Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const executeManualBurnMutation = useMutation({
+    mutationFn: async () => {
+      if (!project) {
+        throw new Error("Project not found");
+      }
+
+      if (!isConnected) {
+        throw new Error("Please connect your wallet first");
+      }
+
+      const amount = parseFloat(burnAmount);
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error("Please enter a valid burn amount");
+      }
+
+      // Create message and get wallet signature
+      const message = `Burn ${burnAmount} tokens for project ${projectId} at ${Date.now()}`;
+      
+      // Sign message with connected wallet
+      const signatureResult = await signMessage(message);
+
+      const response = await apiRequest("POST", `/api/projects/${projectId}/manual-burn`, {
+        ownerWalletAddress: signatureResult.publicKey,
+        signature: signatureResult.signature,
+        message: signatureResult.message,
+        amount: burnAmount,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to execute burn");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      setBurnAmount(""); // Clear input after successful burn
+      toast({
+        title: "Burn Executed",
+        description: data.message || "Tokens have been successfully burned!",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Burn Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -648,6 +701,76 @@ export default function ProjectDetails() {
                       Connect your wallet to execute manual buybacks
                     </p>
                   )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Manual Burn Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Flame className="h-5 w-5 text-destructive" />
+                Manual Burn
+              </CardTitle>
+              <CardDescription>
+                Burn tokens already in your treasury wallet without buying more
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Burn tokens that are already in your treasury wallet. This will:
+                </p>
+                <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1 ml-2">
+                  <li>Permanently destroy the specified amount of tokens</li>
+                  <li>Reduce the total circulating supply</li>
+                  <li>Record the burn transaction on-chain</li>
+                </ul>
+                <div className="space-y-3 pt-2">
+                  <div className="space-y-2">
+                    <label htmlFor="burn-amount" className="text-sm font-medium">
+                      Amount to Burn
+                    </label>
+                    <Input
+                      id="burn-amount"
+                      type="number"
+                      placeholder="Enter token amount"
+                      value={burnAmount}
+                      onChange={(e) => setBurnAmount(e.target.value)}
+                      disabled={executeManualBurnMutation.isPending}
+                      min="0"
+                      step="any"
+                      data-testid="input-burn-amount"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Make sure you have sufficient token balance in your treasury wallet
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      onClick={() => executeManualBurnMutation.mutate()}
+                      disabled={executeManualBurnMutation.isPending || !isConnected || !burnAmount}
+                      variant="destructive"
+                      data-testid="button-execute-manual-burn"
+                    >
+                      {executeManualBurnMutation.isPending ? (
+                        "Burning..."
+                      ) : (
+                        <>
+                          <Flame className="mr-2 h-4 w-4" />
+                          Burn Tokens
+                        </>
+                      )}
+                    </Button>
+                    {!isConnected && (
+                      <p className="text-sm text-amber-600 dark:text-amber-500 flex items-center">
+                        <AlertTriangle className="mr-1.5 h-4 w-4" />
+                        Connect your wallet to burn tokens
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>
