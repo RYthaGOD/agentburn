@@ -29,7 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation, useRoute } from "wouter";
-import { Flame, ArrowLeft, Save, Zap, Trash2, Crown, Play, AlertTriangle, DollarSign } from "lucide-react";
+import { Flame, ArrowLeft, Save, Zap, Trash2, Crown, Play, AlertTriangle, DollarSign, Wallet, RefreshCw } from "lucide-react";
 import { useWalletSignature } from "@/hooks/use-wallet-signature";
 import {
   AlertDialog,
@@ -58,6 +58,22 @@ export default function ProjectDetails() {
   const { data: project, isLoading } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
     enabled: !!projectId,
+  });
+
+  // Fetch wallet balances
+  const { data: walletBalances, refetch: refetchBalances, isLoading: balancesLoading } = useQuery<{
+    treasury: {
+      solBalance: number;
+      tokenBalance: number;
+      walletAddress: string;
+    };
+    pumpfunCreator: {
+      solBalance: number;
+      walletAddress: string;
+    } | null;
+  }>({
+    queryKey: ["/api/projects", projectId, "wallet-balances"],
+    enabled: !!projectId && !!project,
   });
 
   const form = useForm<InsertProject>({
@@ -108,6 +124,7 @@ export default function ProjectDetails() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "wallet-balances"] });
       toast({
         title: "Project Updated",
         description: "Your project settings have been saved successfully.",
@@ -180,6 +197,7 @@ export default function ProjectDetails() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "wallet-balances"] });
       toast({
         title: "Buyback Executed",
         description: data.message || "Manual buyback has been successfully executed!",
@@ -231,6 +249,7 @@ export default function ProjectDetails() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "wallet-balances"] });
       setBurnAmount(""); // Clear input after successful burn
       toast({
         title: "Burn Executed",
@@ -277,6 +296,7 @@ export default function ProjectDetails() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "wallet-balances"] });
       toast({
         title: "Rewards Claimed",
         description: data.message || "Creator rewards have been successfully claimed!",
@@ -699,6 +719,107 @@ export default function ProjectDetails() {
                   </FormItem>
                 )}
               />
+            </CardContent>
+          </Card>
+
+          {/* Wallet Balances Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" />
+                Wallet Balances
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => refetchBalances()}
+                  disabled={balancesLoading}
+                  className="ml-auto"
+                  data-testid="button-refresh-balances"
+                >
+                  <RefreshCw className={`h-4 w-4 ${balancesLoading ? 'animate-spin' : ''}`} />
+                </Button>
+              </CardTitle>
+              <CardDescription>
+                Current balances for your project wallets
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {balancesLoading ? (
+                <div className="space-y-4">
+                  <div className="h-32 bg-muted/50 rounded animate-pulse" />
+                  {project?.isPumpfunToken && project?.pumpfunCreatorWallet && (
+                    <div className="h-24 bg-muted/50 rounded animate-pulse" />
+                  )}
+                </div>
+              ) : walletBalances ? (
+                <div className="space-y-4">
+                  {/* Treasury Wallet */}
+                  <div className="p-4 rounded-lg border bg-card">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-sm">Treasury Wallet</h4>
+                      <a
+                        href={`https://solscan.io/account/${walletBalances.treasury.walletAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline"
+                        data-testid="link-treasury-explorer"
+                      >
+                        View on Explorer
+                      </a>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">SOL Balance</p>
+                        <p className="text-lg font-mono font-semibold" data-testid="text-treasury-sol-balance">
+                          {walletBalances.treasury.solBalance.toFixed(4)} SOL
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          For transaction fees
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Token Balance</p>
+                        <p className="text-lg font-mono font-semibold" data-testid="text-treasury-token-balance">
+                          {walletBalances.treasury.tokenBalance.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Available to burn
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* PumpFun Creator Wallet (if applicable) */}
+                  {walletBalances.pumpfunCreator && (
+                    <div className="p-4 rounded-lg border bg-card">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-sm">PumpFun Creator Wallet</h4>
+                        <a
+                          href={`https://solscan.io/account/${walletBalances.pumpfunCreator.walletAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline"
+                          data-testid="link-pumpfun-explorer"
+                        >
+                          View on Explorer
+                        </a>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">SOL Balance</p>
+                        <p className="text-lg font-mono font-semibold" data-testid="text-pumpfun-sol-balance">
+                          {walletBalances.pumpfunCreator.solBalance.toFixed(4)} SOL
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Unclaimed rewards claimed here
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Unable to load wallet balances</p>
+              )}
             </CardContent>
           </Card>
 

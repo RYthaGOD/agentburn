@@ -610,6 +610,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get wallet balances for a project
+  app.get("/api/projects/:projectId/wallet-balances", async (req, res) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Validate wallet addresses
+      if (!project.treasuryWalletAddress || !project.tokenMintAddress) {
+        return res.status(400).json({ 
+          message: "Project missing required wallet configuration" 
+        });
+      }
+
+      // Validate Solana address format
+      const { PublicKey } = await import("@solana/web3.js");
+      try {
+        new PublicKey(project.treasuryWalletAddress);
+      } catch (error) {
+        return res.status(400).json({ 
+          message: "Invalid treasury wallet address format. Please check your project configuration." 
+        });
+      }
+
+      try {
+        new PublicKey(project.tokenMintAddress);
+      } catch (error) {
+        return res.status(400).json({ 
+          message: "Invalid token mint address format. Please check your project configuration." 
+        });
+      }
+
+      if (project.isPumpfunToken && project.pumpfunCreatorWallet) {
+        try {
+          new PublicKey(project.pumpfunCreatorWallet);
+        } catch (error) {
+          return res.status(400).json({ 
+            message: "Invalid PumpFun creator wallet address format. Please check your project configuration." 
+          });
+        }
+      }
+
+      const { getSolBalance, getTokenBalance } = await import("./solana-sdk");
+
+      // Get treasury wallet balances with error handling
+      let treasurySOL = 0;
+      let treasuryTokens = 0;
+      
+      try {
+        treasurySOL = await getSolBalance(project.treasuryWalletAddress);
+      } catch (error) {
+        console.error("Error fetching treasury SOL balance:", error);
+        return res.status(500).json({ 
+          message: "Unable to fetch treasury SOL balance. Please check your wallet address and try again." 
+        });
+      }
+
+      try {
+        treasuryTokens = await getTokenBalance(
+          project.tokenMintAddress,
+          project.treasuryWalletAddress
+        );
+      } catch (error) {
+        console.error("Error fetching treasury token balance:", error);
+        return res.status(500).json({ 
+          message: "Unable to fetch treasury token balance. Please check your token mint address and try again." 
+        });
+      }
+
+      // Get PumpFun creator wallet balance if applicable
+      let pumpfunCreatorSOL = 0;
+      if (project.isPumpfunToken && project.pumpfunCreatorWallet) {
+        try {
+          pumpfunCreatorSOL = await getSolBalance(project.pumpfunCreatorWallet);
+        } catch (error) {
+          console.error("Error fetching PumpFun creator SOL balance:", error);
+          // Don't fail the entire request if PumpFun balance fails
+          pumpfunCreatorSOL = 0;
+        }
+      }
+
+      res.json({
+        treasury: {
+          solBalance: treasurySOL,
+          tokenBalance: treasuryTokens,
+          walletAddress: project.treasuryWalletAddress,
+        },
+        pumpfunCreator: project.isPumpfunToken && project.pumpfunCreatorWallet ? {
+          solBalance: pumpfunCreatorSOL,
+          walletAddress: project.pumpfunCreatorWallet,
+        } : null,
+      });
+    } catch (error: any) {
+      console.error("Error fetching wallet balances:", error);
+      res.status(500).json({ 
+        message: "An unexpected error occurred while fetching wallet balances. Please try again." 
+      });
+    }
+  });
+
   // Manual claim PumpFun creator rewards endpoint
   app.post("/api/projects/:projectId/manual-claim", async (req, res) => {
     try {
