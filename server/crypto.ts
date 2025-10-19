@@ -156,7 +156,8 @@ export function validatePrivateKey(key: string): boolean {
     const invalidChars = key.split('').filter(char => 
       !'123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'.includes(char)
     );
-    console.error(`Key validation failed: Contains invalid base58 characters: ${[...new Set(invalidChars)].join(', ')}`);
+    const uniqueInvalidChars = Array.from(new Set(invalidChars)).join(', ');
+    console.error(`Key validation failed: Contains invalid base58 characters: ${uniqueInvalidChars}`);
     return false;
   }
   
