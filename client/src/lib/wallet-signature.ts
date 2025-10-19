@@ -1,14 +1,7 @@
 /**
  * Wallet signature utilities for authenticating key management operations
  * 
- * TODO: This module needs to be integrated with Solana Wallet Adapter
- * before production deployment. Current implementation is a placeholder.
- * 
- * Required steps for production:
- * 1. Install @solana/wallet-adapter-react and related packages
- * 2. Set up WalletProvider in App.tsx
- * 3. Implement signMessage using wallet.signMessage()
- * 4. Replace placeholder WalletButton with actual wallet connection UI
+ * Integrated with Solana Wallet Adapter for production use
  */
 
 import { PublicKey } from "@solana/web3.js";
@@ -21,61 +14,57 @@ export interface SignatureResult {
   publicKey: string;
 }
 
+// Store wallet reference - will be set by the hook that calls this
+let walletInstance: any = null;
+
+export function setWalletInstance(wallet: any) {
+  walletInstance = wallet;
+}
+
 /**
- * DEVELOPMENT MODE: Uses simulated wallet signatures for testing
- * PRODUCTION: Replace with real Solana Wallet Adapter implementation
+ * Sign a message using the connected Solana wallet
  * 
- * In production, this should:
- * 1. Check if wallet is connected via useWallet() hook
- * 2. Call wallet.signMessage(encodedMessage)
- * 3. Return base58-encoded signature
+ * Uses Solana Wallet Adapter's signMessage method
  */
 export async function signMessageWithWallet(message: string): Promise<SignatureResult> {
-  const isProduction = import.meta.env.PROD || import.meta.env.MODE === 'production';
-  
-  if (isProduction) {
-    // In production, wallet adapter MUST be integrated
-    throw new Error(
-      "Wallet signature required: Solana Wallet Adapter not integrated. " +
-      "See client/src/lib/wallet-signature.ts and WALLET_INTEGRATION_GUIDE.md"
-    );
+  // Check if wallet is available
+  if (!walletInstance) {
+    throw new Error("Wallet not initialized. Please connect your wallet first.");
   }
-  
-  // DEVELOPMENT MODE: Generate test signature
-  console.warn(
-    "⚠️  DEVELOPMENT MODE: Using simulated wallet signature.\n" +
-    "This is NOT SECURE for production. Integrate Solana Wallet Adapter before deploying.\n" +
-    "See WALLET_INTEGRATION_GUIDE.md for instructions."
-  );
-  
-  // Use a development test keypair (stored in localStorage for consistency)
-  let devWalletAddress = localStorage.getItem('dev_wallet_address');
-  let devPrivateKey = localStorage.getItem('dev_wallet_private_key');
-  
-  if (!devWalletAddress || !devPrivateKey) {
-    // Generate new development keypair
-    const keypair = nacl.sign.keyPair();
-    const publicKey = new PublicKey(keypair.publicKey);
-    devWalletAddress = publicKey.toBase58();
-    devPrivateKey = bs58.encode(keypair.secretKey);
-    
-    localStorage.setItem('dev_wallet_address', devWalletAddress);
-    localStorage.setItem('dev_wallet_private_key', devPrivateKey);
-    
-    console.log(`📝 Generated development wallet: ${devWalletAddress}`);
-    console.log("Use this address when creating projects for testing");
+
+  if (!walletInstance.connected || !walletInstance.publicKey) {
+    throw new Error("Wallet not connected. Please connect your wallet first.");
   }
-  
-  // Sign the message with development keypair
-  const secretKey = bs58.decode(devPrivateKey);
-  const messageBytes = new TextEncoder().encode(message);
-  const signature = nacl.sign.detached(messageBytes, secretKey);
-  
-  return {
-    signature: bs58.encode(signature),
-    message,
-    publicKey: devWalletAddress,
-  };
+
+  if (!walletInstance.signMessage) {
+    throw new Error("Wallet does not support message signing. Please use a wallet that supports signMessage (e.g., Phantom, Solflare).");
+  }
+
+  try {
+    // Encode message to Uint8Array
+    const messageBytes = new TextEncoder().encode(message);
+    
+    // Sign with wallet
+    const signatureBytes = await walletInstance.signMessage(messageBytes);
+    
+    // Convert to base58
+    const signature = bs58.encode(signatureBytes);
+    const publicKey = walletInstance.publicKey.toBase58();
+    
+    return {
+      signature,
+      message,
+      publicKey,
+    };
+  } catch (error) {
+    console.error("Wallet signing error:", error);
+    
+    if (error instanceof Error) {
+      throw new Error(`Failed to sign message: ${error.message}`);
+    }
+    
+    throw new Error("Failed to sign message. Please try again.");
+  }
 }
 
 /**

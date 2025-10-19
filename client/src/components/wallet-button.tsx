@@ -1,46 +1,32 @@
 import { Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
-// Placeholder component for Solana wallet connection
-// Will be implemented once @solana/wallet-adapter packages are installed
 export function WalletButton() {
-  const [connected, setConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const { publicKey, connected } = useWallet();
 
-  const handleConnect = () => {
-    // TODO: Implement actual Solana wallet connection
-    // using @solana/wallet-adapter-react once packages are installed
-    setConnected(true);
-    setWalletAddress("A1B2...X9Z8"); // Placeholder
-  };
-
-  const handleDisconnect = () => {
-    setConnected(false);
-    setWalletAddress(null);
-  };
-
-  if (connected && walletAddress) {
+  if (connected && publicKey) {
+    const address = publicKey.toBase58();
+    const shortAddress = `${address.slice(0, 4)}...${address.slice(-4)}`;
+    
     return (
-      <Button
-        variant="outline"
-        onClick={handleDisconnect}
+      <WalletMultiButton
+        className="!bg-background !border !border-border !text-foreground !rounded-md !h-9 !px-4 !font-mono !text-sm hover-elevate active-elevate-2"
         data-testid="button-wallet-disconnect"
-        className="font-mono"
       >
-        {walletAddress}
-      </Button>
+        {shortAddress}
+      </WalletMultiButton>
     );
   }
 
   return (
-    <Button
-      onClick={handleConnect}
+    <WalletMultiButton
+      className="!bg-primary !text-primary-foreground !border-0 !rounded-md !h-9 !px-4 !font-normal hover-elevate active-elevate-2"
       data-testid="button-wallet-connect"
-      className="bg-primary hover-elevate active-elevate-2"
     >
       <Wallet className="mr-2 h-4 w-4" />
       Connect Wallet
-    </Button>
+    </WalletMultiButton>
   );
 }

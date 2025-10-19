@@ -11,7 +11,7 @@ import type { Project } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, Eye, EyeOff, Lock, CheckCircle2, AlertTriangle, Trash2, AlertCircle } from "lucide-react";
-import { signMessageWithWallet, createSignatureMessage } from "@/lib/wallet-signature";
+import { useWalletSignature } from "@/hooks/use-wallet-signature";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +33,7 @@ interface KeyMetadata {
 export default function Settings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { signMessage, createMessage, isConnected } = useWalletSignature();
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [treasuryKey, setTreasuryKey] = useState("");
   const [pumpfunKey, setPumpfunKey] = useState("");
@@ -57,10 +58,10 @@ export default function Settings() {
       }
 
       // Create message and get wallet signature
-      const message = createSignatureMessage("Set keys", projectId);
+      const message = createMessage("Set keys", projectId);
       
       // Sign message with connected wallet
-      const signatureResult = await signMessageWithWallet(message);
+      const signatureResult = await signMessage(message);
 
       const response = await apiRequest("POST", `/api/projects/${projectId}/keys`, {
         ownerWalletAddress: signatureResult.publicKey,
@@ -101,10 +102,10 @@ export default function Settings() {
       }
 
       // Create message and get wallet signature
-      const message = createSignatureMessage("Delete keys", projectId);
+      const message = createMessage("Delete keys", projectId);
       
       // Sign message with connected wallet
-      const signatureResult = await signMessageWithWallet(message);
+      const signatureResult = await signMessage(message);
 
       const response = await apiRequest("DELETE", `/api/projects/${projectId}/keys`, {
         ownerWalletAddress: signatureResult.publicKey,
