@@ -358,26 +358,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Verify project is active
-      if (!project.isActive) {
-        return res.status(400).json({ message: "Project is not active" });
-      }
+      // Check for valid payment (unless whitelisted)
+      const { WHITELISTED_WALLETS } = await import("@shared/config");
+      const isWhitelisted = WHITELISTED_WALLETS.includes(project.ownerWalletAddress);
 
-      // Check for valid payment
-      const now = new Date();
-      const payments = await storage.getPaymentsByProject(project.id);
-      const validPayments = payments.filter(p => 
-        p.verified && new Date(p.expiresAt) > now
-      );
-      
-      const validPayment = validPayments.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )[0];
+      if (!isWhitelisted) {
+        const now = new Date();
+        const payments = await storage.getPaymentsByProject(project.id);
+        const validPayments = payments.filter(p => 
+          p.verified && new Date(p.expiresAt) > now
+        );
+        
+        const validPayment = validPayments.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0];
 
-      if (!validPayment) {
-        return res.status(400).json({ 
-          message: "No active subscription found. Please make a payment first." 
-        });
+        if (!validPayment) {
+          return res.status(400).json({ 
+            message: "No active subscription found. Please make a payment first." 
+          });
+        }
       }
 
       // Check if treasury private key is configured in encrypted storage
