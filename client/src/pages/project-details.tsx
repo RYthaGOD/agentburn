@@ -29,7 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation, useRoute } from "wouter";
-import { Flame, ArrowLeft, Save, Zap, Trash2, Crown, Play, AlertTriangle } from "lucide-react";
+import { Flame, ArrowLeft, Save, Zap, Trash2, Crown, Play, AlertTriangle, DollarSign } from "lucide-react";
 import { useWalletSignature } from "@/hooks/use-wallet-signature";
 import {
   AlertDialog,
@@ -240,6 +240,51 @@ export default function ProjectDetails() {
     onError: (error: Error) => {
       toast({
         title: "Burn Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const executeManualClaimMutation = useMutation({
+    mutationFn: async () => {
+      if (!project) {
+        throw new Error("Project not found");
+      }
+
+      if (!isConnected) {
+        throw new Error("Please connect your wallet first");
+      }
+
+      // Create message and get wallet signature
+      const message = createMessage("Claim creator rewards", projectId!);
+      
+      // Sign message with connected wallet
+      const signatureResult = await signMessage(message);
+
+      const response = await apiRequest("POST", `/api/projects/${projectId}/manual-claim`, {
+        ownerWalletAddress: signatureResult.publicKey,
+        signature: signatureResult.signature,
+        message: signatureResult.message,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to claim rewards");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      toast({
+        title: "Rewards Claimed",
+        description: data.message || "Creator rewards have been successfully claimed!",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Claim Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -775,6 +820,58 @@ export default function ProjectDetails() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Manual Claim Creator Rewards Card - Only show for PumpFun tokens */}
+          {project.isPumpfunToken && project.pumpfunCreatorWallet && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-green-600 dark:text-green-500" />
+                  Claim Creator Rewards
+                </CardTitle>
+                <CardDescription>
+                  Claim your PumpFun creator fee rewards to your treasury wallet
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Claim available PumpFun creator fee rewards. This will:
+                  </p>
+                  <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1 ml-2">
+                    <li>Claim all unclaimed trading fee rewards</li>
+                    <li>Transfer SOL to your treasury wallet</li>
+                    <li>Make funds available for buyback operations</li>
+                    <li>Record the claim transaction</li>
+                  </ul>
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      type="button"
+                      onClick={() => executeManualClaimMutation.mutate()}
+                      disabled={executeManualClaimMutation.isPending || !isConnected}
+                      className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
+                      data-testid="button-execute-manual-claim"
+                    >
+                      {executeManualClaimMutation.isPending ? (
+                        "Claiming..."
+                      ) : (
+                        <>
+                          <DollarSign className="mr-2 h-4 w-4" />
+                          Claim Rewards Now
+                        </>
+                      )}
+                    </Button>
+                    {!isConnected && (
+                      <p className="text-sm text-amber-600 dark:text-amber-500 flex items-center">
+                        <AlertTriangle className="mr-1.5 h-4 w-4" />
+                        Connect your wallet to claim rewards
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex items-center justify-between gap-4">
             <Button

@@ -609,6 +609,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manual claim PumpFun creator rewards endpoint
+  app.post("/api/projects/:projectId/manual-claim", async (req, res) => {
+    try {
+      const { ownerWalletAddress, signature, message } = req.body;
+      
+      if (!ownerWalletAddress || !signature || !message) {
+        return res.status(400).json({ 
+          message: "Missing required fields: ownerWalletAddress, signature, and message are required" 
+        });
+      }
+
+      const project = await storage.getProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Verify ownership
+      if (project.ownerWalletAddress !== ownerWalletAddress) {
+        return res.status(403).json({ message: "Unauthorized: You don't own this project" });
+      }
+
+      // Check if this is a PumpFun token
+      if (!project.isPumpfunToken || !project.pumpfunCreatorWallet) {
+        return res.status(400).json({ 
+          message: "This project is not configured as a PumpFun token. Enable PumpFun integration in project settings first." 
+        });
+      }
+
+      // Create a hash of the signature for replay attack prevention
+      const signatureHash = crypto.createHash("sha256").update(signature).digest("hex");
+
+      // Check if this signature has already been used
+      const isUsed = await storage.isSignatureUsed(signatureHash);
+      if (isUsed) {
+        return res.status(400).json({ 
+          message: "Signature already used: This request has already been processed" 
+        });
+      }
+
+      // Verify wallet signature to prove ownership
+      const { verifyWalletSignature } = await import("./solana-sdk");
+      const isValidSignature = await verifyWalletSignature(
+        ownerWalletAddress,
+        message,
+        signature
+      );
+
+      if (!isValidSignature) {
+        return res.status(403).json({ 
+          message: "Invalid signature: Could not verify wallet ownership" 
+        });
+      }
+
+      // Verify message format and timestamp
+      const expectedMessagePrefix = `Claim creator rewards for project ${project.id}`;
+      if (!message.startsWith(expectedMessagePrefix)) {
+        return res.status(400).json({ 
+          message: "Invalid message format" 
+        });
+      }
+
+      const timestampMatch = message.match(/at (\d+)$/);
+      if (!timestampMatch) {
+        return res.status(400).json({ 
+          message: "Message must include timestamp" 
+        });
+      }
+
+      const messageTimestamp = parseInt(timestampMatch[1]);
+      const nowTimestamp = Date.now();
+      const fiveMinutesInMs = 5 * 60 * 1000;
+
+      if (Math.abs(nowTimestamp - messageTimestamp) > fiveMinutesInMs) {
+        return res.status(400).json({ 
+          message: "Message expired: Please generate a new signature (must be within 5 minutes)" 
+        });
+      }
+
+      // Get PumpFun creator private key
+      const { getPumpFunKey } = await import("./key-manager");
+      const creatorPrivateKey = await getPumpFunKey(project.id);
+      
+      if (!creatorPrivateKey) {
+        return res.status(400).json({ 
+          message: "PumpFun creator private key not configured. Please configure it in Settings first." 
+        });
+      }
+
+      // Check if there are unclaimed rewards BEFORE storing signature
+      const { hasUnclaimedRewards, claimCreatorRewardsFull } = await import("./pumpfun");
+      const hasRewards = await hasUnclaimedRewards(
+        project.pumpfunCreatorWallet,
+        project.tokenMintAddress
+      );
+
+      if (!hasRewards) {
+        return res.status(400).json({ 
+          message: "No unclaimed rewards available for this project at this time." 
+        });
+      }
+
+      // Store signature hash to prevent replay attacks (after successful preflight checks)
+      try {
+        await storage.recordUsedSignature({
+          projectId: project.id,
+          signatureHash,
+          messageTimestamp: new Date(messageTimestamp),
+          expiresAt: new Date(messageTimestamp + fiveMinutesInMs),
+        });
+      } catch (error: any) {
+        if (error.code === '23505' || error.message?.includes('unique')) {
+          return res.status(400).json({ 
+            message: "Signature already used: This request has already been processed" 
+          });
+        }
+        throw error;
+      }
+
+      console.log(`Manual claim initiated for ${project.name}`);
+
+      // Execute claim
+      try {
+        const claimResult = await claimCreatorRewardsFull(
+          project.pumpfunCreatorWallet,
+          creatorPrivateKey,
+          project.tokenMintAddress
+        );
+
+        if (claimResult.success && claimResult.signature) {
+          // Log successful claim transaction
+          await storage.createTransaction({
+            projectId: project.id,
+            type: "buyback", // Using "buyback" type as claims add SOL for buybacks
+            amount: claimResult.amount?.toString() || "0",
+            tokenAmount: "0",
+            txSignature: claimResult.signature,
+            status: "completed",
+            errorMessage: null,
+          });
+
+          console.log(`Manual claim completed: ${claimResult.signature}`);
+
+          res.json({
+            success: true,
+            message: `Successfully claimed ${claimResult.amount || 0} SOL in creator rewards`,
+            signature: claimResult.signature,
+            amount: claimResult.amount || 0,
+            projectId: project.id,
+          });
+        } else {
+          throw new Error(claimResult.error || "Failed to claim rewards");
+        }
+      } catch (claimError: any) {
+        console.error("Claim execution error:", claimError);
+
+        // Log failed claim transaction
+        await storage.createTransaction({
+          projectId: project.id,
+          type: "buyback",
+          amount: "0",
+          tokenAmount: "0",
+          txSignature: "",
+          status: "failed",
+          errorMessage: claimError.message,
+        });
+
+        throw new Error(`Failed to execute claim: ${claimError.message}`);
+      }
+    } catch (error: any) {
+      console.error("Manual claim error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ============ SECURE KEY MANAGEMENT ENDPOINTS ============
   // All key management endpoints require wallet signature authentication
   
