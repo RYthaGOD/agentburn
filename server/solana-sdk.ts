@@ -14,6 +14,8 @@ import {
 import {
   getAssociatedTokenAddress,
   createTransferInstruction,
+  createBurnInstruction,
+  createAssociatedTokenAccountIdempotentInstruction,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import bs58 from "bs58";
@@ -99,7 +101,8 @@ export async function signAndSendTransaction(
 }
 
 /**
- * Transfer SPL tokens to a destination address (e.g., incinerator)
+ * Transfer SPL tokens to a destination address
+ * Supports both regular addresses and off-curve addresses (like incinerator)
  */
 export async function transferTokens(
   tokenMintAddress: string,
@@ -113,15 +116,17 @@ export async function transferTokens(
     const fromPublicKey = fromWalletKeypair.publicKey;
     const toPublicKey = new PublicKey(toAddress);
 
-    // Get token accounts
+    // Get source token account
     const fromTokenAccount = await getAssociatedTokenAddress(
       mintPublicKey,
       fromPublicKey
     );
 
+    // For off-curve addresses (like incinerator), use allowOwnerOffCurve
     const toTokenAccount = await getAssociatedTokenAddress(
       mintPublicKey,
-      toPublicKey
+      toPublicKey,
+      true // allowOwnerOffCurve - required for incinerator
     );
 
     // Create transfer instruction
@@ -138,7 +143,7 @@ export async function transferTokens(
     const transaction = new Transaction().add(transferInstruction);
 
     // Get recent blockhash
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+    const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = fromPublicKey;
 
@@ -154,7 +159,8 @@ export async function transferTokens(
 }
 
 /**
- * Burn tokens by transferring them to the Solana incinerator
+ * Burn tokens using SPL Token burn instruction
+ * This is more efficient than transferring to incinerator as it directly reduces supply
  */
 export async function burnTokens(
   tokenMintAddress: string,
@@ -162,17 +168,116 @@ export async function burnTokens(
   amount: number,
   decimals: number = 9
 ): Promise<string> {
-  const SOLANA_INCINERATOR = "1nc1nerator11111111111111111111111111111111";
-  
-  console.log(`Burning ${amount} tokens to incinerator: ${SOLANA_INCINERATOR}`);
-  
-  return transferTokens(
-    tokenMintAddress,
-    walletKeypair,
-    SOLANA_INCINERATOR,
-    amount,
-    decimals
-  );
+  try {
+    const mintPublicKey = new PublicKey(tokenMintAddress);
+    const fromPublicKey = walletKeypair.publicKey;
+
+    // Get token account
+    const tokenAccount = await getAssociatedTokenAddress(
+      mintPublicKey,
+      fromPublicKey
+    );
+
+    // Create burn instruction
+    const burnInstruction = createBurnInstruction(
+      tokenAccount,
+      mintPublicKey,
+      fromPublicKey,
+      amount * Math.pow(10, decimals), // Convert to smallest unit
+      [],
+      TOKEN_PROGRAM_ID
+    );
+
+    // Create transaction
+    const transaction = new Transaction().add(burnInstruction);
+
+    // Get recent blockhash
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = fromPublicKey;
+
+    // Sign and send
+    const signature = await signAndSendTransaction(transaction, walletKeypair);
+
+    console.log(`Token burn completed: ${signature}`);
+    return signature;
+  } catch (error) {
+    console.error("Error burning tokens:", error);
+    throw error;
+  }
+}
+
+/**
+ * Alternative: Transfer tokens to the Solana incinerator address
+ * Creates the associated token account if needed (incinerator is an off-curve address)
+ * Note: The primary burn method (burnTokens) is more efficient
+ */
+export async function transferToIncinerator(
+  tokenMintAddress: string,
+  walletKeypair: Keypair,
+  amount: number,
+  decimals: number = 9
+): Promise<string> {
+  try {
+    const SOLANA_INCINERATOR = "1nc1nerator11111111111111111111111111111111";
+    const mintPublicKey = new PublicKey(tokenMintAddress);
+    const fromPublicKey = walletKeypair.publicKey;
+    const incineratorPublicKey = new PublicKey(SOLANA_INCINERATOR);
+    
+    console.log(`Transferring ${amount} tokens to incinerator: ${SOLANA_INCINERATOR}`);
+    
+    // Get token accounts
+    const fromTokenAccount = await getAssociatedTokenAddress(
+      mintPublicKey,
+      fromPublicKey
+    );
+
+    const incineratorTokenAccount = await getAssociatedTokenAddress(
+      mintPublicKey,
+      incineratorPublicKey,
+      true // allowOwnerOffCurve - required for incinerator
+    );
+
+    // Create transaction
+    const transaction = new Transaction();
+    
+    // Create the incinerator's associated token account if it doesn't exist
+    transaction.add(
+      createAssociatedTokenAccountIdempotentInstruction(
+        fromPublicKey, // payer
+        incineratorTokenAccount, // associatedToken
+        incineratorPublicKey, // owner
+        mintPublicKey, // mint
+        TOKEN_PROGRAM_ID
+      )
+    );
+
+    // Create transfer instruction
+    transaction.add(
+      createTransferInstruction(
+        fromTokenAccount,
+        incineratorTokenAccount,
+        fromPublicKey,
+        amount * Math.pow(10, decimals),
+        [],
+        TOKEN_PROGRAM_ID
+      )
+    );
+
+    // Get recent blockhash
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = fromPublicKey;
+
+    // Sign and send
+    const signature = await signAndSendTransaction(transaction, walletKeypair);
+
+    console.log(`Token transfer to incinerator completed: ${signature}`);
+    return signature;
+  } catch (error) {
+    console.error("Error transferring tokens to incinerator:", error);
+    throw error;
+  }
 }
 
 /**

@@ -84,7 +84,7 @@ export async function getSwapOrder(
 
 /**
  * Execute a swap via Jupiter Ultra API
- * Signs the transaction with provided private key and submits to Jupiter
+ * Signs the transaction and submits it through Jupiter's execution endpoint
  * @param swapOrder - Swap order from getSwapOrder
  * @param walletPrivateKey - Base58-encoded private key
  */
@@ -99,22 +99,26 @@ export async function executeSwapOrder(
     console.log(`Executing Jupiter swap for wallet: ${keypair.publicKey.toString()}`);
     console.log(`Request ID: ${swapOrder.requestId}`);
     
-    // Sign the transaction
-    const signature = await signAndSendVersionedTransaction(
-      swapOrder.transaction,
-      keypair,
-      "confirmed"
-    );
+    // Step 1: Deserialize the unsigned transaction
+    const transactionBuffer = Buffer.from(swapOrder.transaction, "base64");
+    const { VersionedTransaction } = await import("@solana/web3.js");
+    const transaction = VersionedTransaction.deserialize(transactionBuffer);
     
-    // Submit to Jupiter Ultra API
+    // Step 2: Sign the transaction
+    transaction.sign([keypair]);
+    
+    // Step 3: Serialize the signed transaction
+    const signedTransaction = Buffer.from(transaction.serialize()).toString("base64");
+    
+    // Step 4: Submit to Jupiter Ultra execute endpoint
     const response = await fetch(`${JUPITER_ULTRA_API_URL}/execute`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        signedTransaction: signedTransaction,
         requestId: swapOrder.requestId,
-        transaction: swapOrder.transaction, // Jupiter expects the original signed tx
       }),
     });
 
@@ -123,9 +127,17 @@ export async function executeSwapOrder(
       throw new Error(`Jupiter Ultra execute error: ${response.statusText} - ${error}`);
     }
 
-    const result: JupiterExecuteResponse = await response.json();
-    console.log(`Jupiter swap executed successfully: ${result.transactionId}`);
-    return result;
+    const result = await response.json();
+    
+    console.log(`Jupiter swap executed successfully!`);
+    console.log(`  Signature: ${result.signature || result.transactionId}`);
+    console.log(`  Status: ${result.status}`);
+    
+    // Return standardized response
+    return {
+      transactionId: result.signature || result.transactionId,
+      status: result.status || "success",
+    };
   } catch (error) {
     console.error("Error executing Jupiter Ultra swap:", error);
     throw error;

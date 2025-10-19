@@ -228,8 +228,8 @@ class BuybackScheduler {
           const swapResult = await executeSwapOrder(swapOrder, treasuryPrivateKey);
           console.log(`   Swap completed: ${swapResult.transactionId}`);
           
-          // Burn the tokens
-          console.log(`2. Burning ${tokenAmount} tokens to incinerator...`);
+          // Burn the tokens using SPL Token burn instruction
+          console.log(`2. Burning ${tokenAmount} tokens (reduces supply permanently)...`);
           const keypair = loadKeypairFromPrivateKey(treasuryPrivateKey);
           const burnSignature = await burnTokens(
             project.tokenMintAddress,
@@ -252,7 +252,7 @@ class BuybackScheduler {
           
           console.log(`\n✅ Buyback completed successfully for ${project.name}!`);
           console.log(`   Swapped: ${buybackAmountSOL} SOL → ${tokenAmount} tokens`);
-          console.log(`   Burned: ${tokenAmount} tokens to ${SOLANA_INCINERATOR_ADDRESS}`);
+          console.log(`   Burned: ${tokenAmount} tokens (supply permanently reduced)`);
           if (claimedRewardsSOL > 0) {
             console.log(`   PumpFun rewards claimed: ${claimedRewardsSOL} SOL`);
           }
