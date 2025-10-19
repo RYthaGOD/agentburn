@@ -5,6 +5,7 @@ import { Flame, Clock, Wallet as WalletIcon, Activity, TrendingUp, ArrowRight } 
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import type { Project, Transaction } from "@shared/schema";
+import { formatSchedule } from "@/lib/schedule-utils";
 
 export default function Dashboard() {
   const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
@@ -141,7 +142,7 @@ export default function Dashboard() {
                         {project.tokenMintAddress.slice(0, 8)}...{project.tokenMintAddress.slice(-6)}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Schedule: {project.schedule}
+                        Schedule: {formatSchedule(project.schedule)}
                       </p>
                     </div>
                     <Link href={`/dashboard/projects/${project.id}`}>

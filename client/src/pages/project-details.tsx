@@ -446,6 +446,9 @@ export default function ProjectDetails() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value="5min">Every 5 Minutes</SelectItem>
+                        <SelectItem value="10min">Every 10 Minutes</SelectItem>
+                        <SelectItem value="30min">Every 30 Minutes</SelectItem>
                         <SelectItem value="hourly">Hourly</SelectItem>
                         <SelectItem value="daily">Daily</SelectItem>
                         <SelectItem value="weekly">Weekly</SelectItem>

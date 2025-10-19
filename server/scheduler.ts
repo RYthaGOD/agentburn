@@ -324,6 +324,12 @@ class BuybackScheduler {
     const minute = now.getMinutes();
 
     switch (schedule) {
+      case "5min":
+        return minute % 5 === 0; // Execute every 5 minutes (0, 5, 10, 15, etc.)
+      case "10min":
+        return minute % 10 === 0; // Execute every 10 minutes (0, 10, 20, etc.)
+      case "30min":
+        return minute % 30 === 0; // Execute every 30 minutes (0, 30)
       case "hourly":
         return minute === 0; // Execute at the top of every hour
       case "daily":
