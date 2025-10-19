@@ -8,7 +8,6 @@ export const PRICING = {
   STARTER: {
     name: "Starter",
     priceSOL: 0.2,
-    priceUSDC: 0.2,
     features: [
       "Up to 5 buyback projects",
       "Daily buyback schedules",
@@ -20,7 +19,6 @@ export const PRICING = {
   PRO: {
     name: "Pro",
     priceSOL: 0.4,
-    priceUSDC: 0.4,
     features: [
       "Unlimited buyback projects",
       "Hourly & custom schedules",

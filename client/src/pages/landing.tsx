@@ -113,7 +113,7 @@ export default function Landing() {
               {
                 icon: Zap,
                 title: "Pay as You Go",
-                description: "Simple Solana-based payment system. Pay in SOL or USDC directly to get started.",
+                description: "Simple Solana-based payment system. Pay in SOL directly to get started.",
               },
             ].map((feature, index) => (
               <Card key={index} className="hover-elevate transition-all duration-200 border-card-border" data-testid={`card-feature-${index}`}>
@@ -156,7 +156,7 @@ export default function Landing() {
               {
                 step: "03",
                 title: "Make Payment",
-                description: "Pay the service fee in SOL or USDC to activate your automated buyback system.",
+                description: "Pay the service fee in SOL to activate your automated buyback system.",
               },
               {
                 step: "04",
@@ -189,7 +189,7 @@ export default function Landing() {
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Simple Pricing</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Pay in SOL or USDC. No hidden fees.
+              Pay in SOL. No hidden fees.
             </p>
           </div>
 
@@ -213,7 +213,6 @@ export default function Landing() {
                     <span className="text-4xl font-bold">{tier.priceSOL}</span>
                     <span className="text-muted-foreground ml-2">SOL/month</span>
                   </div>
-                  <p className="text-sm text-muted-foreground">or {tier.priceUSDC} USDC</p>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-3">

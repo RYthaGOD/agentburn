@@ -13,12 +13,12 @@ Preferred communication style: Simple, everyday language.
 ## Payment Configuration
 
 **Treasury Wallet**: `jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38`
-- All service payments (SOL or USDC) are sent to this wallet address
+- All service payments in SOL are sent to this wallet address
 
 **Pricing**: 
-- Starter: 0.2 SOL or 0.2 USDC per month
-- Pro: 0.4 SOL or 0.4 USDC per month
-- Payment flexibility with SOL or USDC options
+- Starter: 0.2 SOL per month
+- Pro: 0.4 SOL per month
+- Payments accepted in SOL only
 
 ## Burn Mechanism
 
@@ -124,8 +124,8 @@ Preferred communication style: Simple, everyday language.
 - Wallet adapters for Phantom, Solflare, and other Solana wallets
 
 **Payment Processing**
-- Direct Solana wallet payments (SOL or USDC) to treasury address
-- On-chain payment verification for SOL/USDC payments
+- Direct Solana wallet payments in SOL to treasury address
+- On-chain payment verification for SOL payments
 - Pricing configuration centralized in `shared/config.ts`
 - Treasury wallet: jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38
 
