@@ -144,6 +144,124 @@ Preferred communication style: Simple, everyday language.
 - TypeScript for static type checking
 - ESBuild for production backend bundling
 
+**Installed Dependencies**
+- node-cron - Successfully installed for scheduler implementation
+
 **Notable Missing Dependencies**
-- node-cron (needed for scheduler implementation)
-- @solana/web3.js and @solana/wallet-adapter packages (needed for blockchain interactions)
+- @solana/web3.js and @solana/wallet-adapter packages (blocked by npm ENOTEMPTY errors)
+  - Workaround: REST API integration for Solana RPC calls (see server/solana.ts)
+
+## Deployment Readiness Status (October 19, 2025)
+
+### ✅ Production-Ready Features
+
+**Payment System**
+- Secure on-chain SOL payment verification via REST API
+- Finality checks ensure transactions are confirmed and irreversible
+- Strict amount validation (exact tier price ± 0.001 SOL tolerance)
+- Duplicate payment prevention (transaction signatures tracked)
+- Ownership verification (only project owners can pay)
+- Payment sender verification (must match project owner wallet)
+- Active subscription detection prevents duplicate activations
+- File: `server/solana.ts` - REST API integration with Solana mainnet RPC
+- File: `server/routes.ts` - `/api/verify-payment-onchain` endpoint
+- File: `client/src/components/payment-modal.tsx` - User payment UI
+
+**Project Management**
+- Create projects with token configuration
+- Configure buyback schedules (hourly, daily, weekly, custom cron)
+- Set buyback amounts in SOL
+- Treasury wallet configuration per project
+- Owner wallet tracking for authorization
+- Database: All project data persisted in PostgreSQL
+
+**Transaction Monitoring**
+- View all buyback and burn transactions
+- Transaction status tracking (pending, completed, failed)
+- Error message logging for debugging
+- Transaction signatures recorded for blockchain verification
+
+**Scheduler Infrastructure**
+- node-cron successfully installed
+- Hourly checks for scheduled buybacks
+- Payment expiration validation
+- Treasury balance verification before execution
+- Jupiter DEX integration for swap quotes
+- File: `server/scheduler.ts` - Production-ready scheduler
+- Runs in production mode only (disabled in development)
+
+### ⚠️ Simulation Mode Features
+
+**Automated Buyback Execution**
+- Status: **SIMULATION MODE** - Logs intended actions but doesn't execute
+- Reason: Requires @solana/web3.js for transaction signing (npm package blocked)
+- Current behavior:
+  - ✅ Checks schedules and triggers at correct times
+  - ✅ Validates treasury wallet balances
+  - ✅ Gets real Jupiter swap quotes for optimal pricing
+  - ✅ Records transaction attempts in database
+  - ❌ Does NOT execute swaps (requires SDK for signing)
+  - ❌ Does NOT transfer tokens to incinerator (requires SDK)
+- File: `server/jupiter.ts` - Jupiter API integration ready
+- File: `server/scheduler.ts` - Lines 72-150 show execution logic
+
+**What Works in Simulation:**
+1. Scheduler runs hourly in production
+2. Identifies projects needing buybacks
+3. Verifies payment validity (30-day expiration)
+4. Checks treasury balance sufficiency
+5. Gets real-time swap quotes from Jupiter
+6. Logs complete execution plan
+7. Creates transaction records with "pending" status
+
+**What's Missing for Real Execution:**
+- Solana transaction signing (needs @solana/web3.js)
+- SPL token transfer to incinerator (needs SDK)
+- Keypair management for treasury wallets
+
+### 🔧 Known Limitations
+
+**Wallet Integration**
+- No wallet connect button functionality (Solana adapter packages blocked)
+- Owner wallet addresses entered manually during project creation
+- Payment verification works with any Solana wallet (user sends SOL manually)
+
+**SDK Workaround**
+- REST API used instead of @solana/web3.js
+- All blockchain reads work perfectly (balances, transactions, verification)
+- Blockchain writes blocked (swaps, transfers, burns)
+
+### 📋 User Journey (Current State)
+
+**What Users Can Do:**
+1. Create a project with token details and schedule
+2. Configure treasury wallet and buyback amount
+3. Send SOL payment to treasury address manually
+4. Submit transaction signature for verification
+5. Project activates after payment verified on-chain
+6. View project status and payment expiration
+7. Monitor transaction history
+
+**What's Automated:**
+1. Payment verification (fully automated, secure, production-ready)
+2. Schedule checking (runs every hour in production)
+3. Balance validation (prevents execution if insufficient funds)
+4. Quote fetching (real Jupiter pricing)
+
+**What Requires Manual Intervention:**
+1. Actual token swaps (simulation mode logs intent)
+2. Token burns (simulation mode logs intent)
+3. Wallet connections (enter addresses manually)
+
+### 🎯 Next Steps for Full Automation
+
+To enable real buyback execution, need to:
+1. Resolve npm package installation issues for @solana/web3.js
+2. Implement transaction signing with treasury wallet keypairs
+3. Add SPL token transfer logic to incinerator
+4. Add wallet adapter for connect button functionality
+
+OR alternative approach:
+1. Use a different package manager (yarn/pnpm) to bypass npm issues
+2. Use Solana SDK alternative packages if available
+3. Consider server-side signing service for treasury operations
