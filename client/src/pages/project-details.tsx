@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { insertProjectSchema, type InsertProject } from "@shared/schema";
+import { useEffect } from "react";
+import { insertProjectSchema, type InsertProject, type Project } from "@shared/schema";
 import { SOLANA_INCINERATOR_ADDRESS } from "@shared/config";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,18 +24,37 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useLocation } from "wouter";
-import { Flame, ArrowRight, Zap } from "lucide-react";
+import { useLocation, useRoute } from "wouter";
+import { Flame, ArrowLeft, Save, Zap, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-export default function NewProject() {
+export default function ProjectDetails() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
+  const [, params] = useRoute("/dashboard/projects/:id");
+
+  const projectId = params?.id;
+
+  const { data: project, isLoading } = useQuery<Project>({
+    queryKey: ["/api/projects", projectId],
+    enabled: !!projectId,
+  });
 
   const form = useForm<InsertProject>({
-    resolver: zodResolver(insertProjectSchema),
+    resolver: zodResolver(insertProjectSchema.partial()),
     defaultValues: {
       name: "",
       tokenMintAddress: "",
@@ -50,20 +70,66 @@ export default function NewProject() {
     },
   });
 
-  const createProjectMutation = useMutation({
-    mutationFn: async (data: InsertProject) => {
-      const response = await apiRequest("POST", "/api/projects", data);
+  // Reset form when project data loads
+  useEffect(() => {
+    if (project) {
+      form.reset({
+        name: project.name,
+        tokenMintAddress: project.tokenMintAddress,
+        treasuryWalletAddress: project.treasuryWalletAddress,
+        burnAddress: project.burnAddress,
+        schedule: project.schedule,
+        customCronExpression: project.customCronExpression || "",
+        buybackAmountSol: project.buybackAmountSol || "",
+        isActive: project.isActive,
+        ownerWalletAddress: project.ownerWalletAddress,
+        isPumpfunToken: project.isPumpfunToken,
+        pumpfunCreatorWallet: project.pumpfunCreatorWallet || "",
+      });
+    }
+  }, [project, form]);
+
+  const updateProjectMutation = useMutation({
+    mutationFn: async (data: Partial<InsertProject>) => {
+      const response = await apiRequest("PATCH", `/api/projects/${projectId}`, data);
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Failed to create project");
+        throw new Error(error.message || "Failed to update project");
       }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
       toast({
-        title: "Project Created",
-        description: "Your buyback and burn project has been created successfully.",
+        title: "Project Updated",
+        description: "Your project settings have been saved successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("DELETE", `/api/projects/${projectId}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to delete project");
+      }
+      // DELETE returns 204 No Content, no JSON to parse
+      return null;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      toast({
+        title: "Project Deleted",
+        description: "Your project has been permanently deleted.",
       });
       navigate("/dashboard");
     },
@@ -77,26 +143,86 @@ export default function NewProject() {
   });
 
   const onSubmit = (data: InsertProject) => {
-    // Convert empty string to undefined for optional fields
     const processedData = {
       ...data,
       buybackAmountSol: data.buybackAmountSol === "" ? undefined : data.buybackAmountSol,
       customCronExpression: data.customCronExpression === "" ? undefined : data.customCronExpression,
       pumpfunCreatorWallet: data.pumpfunCreatorWallet === "" ? undefined : data.pumpfunCreatorWallet,
     };
-    createProjectMutation.mutate(processedData);
+    updateProjectMutation.mutate(processedData);
   };
 
   const schedule = form.watch("schedule");
   const isPumpfunToken = form.watch("isPumpfunToken");
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Project Not Found</h1>
+          <p className="text-muted-foreground">The requested project could not be found.</p>
+        </div>
+        <Button onClick={() => navigate("/dashboard")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold mb-2" data-testid="heading-new-project">Create New Project</h1>
-        <p className="text-muted-foreground">
-          Configure your automated token buyback and burn settings
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/dashboard")}
+            className="mb-2"
+            data-testid="button-back"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+          <h1 className="text-3xl font-bold" data-testid="heading-project-details">
+            Edit Project
+          </h1>
+          <p className="text-muted-foreground mt-1">Update your buyback and burn settings</p>
+        </div>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="sm" data-testid="button-delete-project">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Project
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete "{project.name}" and all associated data including
+                transaction history and stored keys. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deleteProjectMutation.mutate()}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete Project
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <Form {...form}>
@@ -313,7 +439,7 @@ export default function NewProject() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Execution Schedule</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger data-testid="select-schedule">
                           <SelectValue placeholder="Select a schedule" />
@@ -354,6 +480,30 @@ export default function NewProject() {
                   )}
                 />
               )}
+
+              <FormField
+                control={form.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        Project Active
+                      </FormLabel>
+                      <FormDescription>
+                        Enable or pause automated buyback execution
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="switch-is-active"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
             </CardContent>
           </Card>
 
@@ -368,17 +518,16 @@ export default function NewProject() {
             </Button>
             <Button
               type="submit"
-              disabled={createProjectMutation.isPending}
+              disabled={updateProjectMutation.isPending}
               className="bg-accent"
-              data-testid="button-create-project"
+              data-testid="button-save-project"
             >
-              {createProjectMutation.isPending ? (
-                "Creating..."
+              {updateProjectMutation.isPending ? (
+                "Saving..."
               ) : (
                 <>
-                  <Flame className="mr-2 h-4 w-4" />
-                  Create Project
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Changes
                 </>
               )}
             </Button>

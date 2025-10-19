@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import NewProject from "@/pages/new-project";
+import ProjectDetails from "@/pages/project-details";
 import Transactions from "@/pages/transactions";
 import Settings from "@/pages/settings";
 import DashboardLayout from "@/pages/dashboard-layout";
@@ -24,6 +25,11 @@ function Router() {
       <Route path="/dashboard/new">
         <DashboardLayout>
           <NewProject />
+        </DashboardLayout>
+      </Route>
+      <Route path="/dashboard/projects/:id">
+        <DashboardLayout>
+          <ProjectDetails />
         </DashboardLayout>
       </Route>
       <Route path="/dashboard/transactions">

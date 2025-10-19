@@ -143,10 +143,12 @@ export default function Dashboard() {
                         Schedule: {project.schedule}
                       </p>
                     </div>
-                    <Button variant="ghost" size="sm" data-testid={`button-view-${project.id}`}>
-                      View Details
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    <Link href={`/dashboard/projects/${project.id}`}>
+                      <Button variant="ghost" size="sm" data-testid={`button-view-${project.id}`}>
+                        View Details
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
                   </div>
                 ))}
               </div>
