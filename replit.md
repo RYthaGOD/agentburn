@@ -28,17 +28,32 @@ PostgreSQL, accessed via Neon's serverless driver and Drizzle ORM, is used for d
 
 ### Authentication & Authorization
 
-The platform utilizes wallet-based authentication for manual buyback execution. The system implements cryptographic signature verification using tweetnacl to prove wallet ownership. Each manual buyback request requires:
-- A signed message containing the project ID and timestamp
+The platform utilizes wallet-based authentication for manual buyback execution and key management. The system implements cryptographic signature verification using tweetnacl to prove wallet ownership. Each authenticated request requires:
+- A signed message containing the action, project ID, and timestamp
 - Signature verification using the owner's Solana wallet
 - Timestamp validation (5-minute window)
 - Replay attack prevention via signature hash storage
 
 The owner wallet address serves as the primary user identifier for project management and authorization.
 
+**Production Requirement:** Solana Wallet Adapter integration is required before production deployment. See `WALLET_INTEGRATION_GUIDE.md` for implementation steps. Current wallet signing uses placeholder implementation that must be replaced with real wallet signatures.
+
 ### Production Readiness & Automated Workflow
 
-The system is production-ready with full automation enabled. This includes a secure on-chain SOL payment verification system, comprehensive project management capabilities (including PumpFun token support and automatic creator rewards claiming), and transaction monitoring. The automated workflow for buybacks involves claiming PumpFun rewards, checking combined treasury and reward balances, executing optimal SOL to token swaps via Jupiter Ultra API, and burning tokens to the Solana incinerator. Private key management is handled via environment variables (`TREASURY_KEY_<project-id>`, `PUMPFUN_CREATOR_KEY_<project-id>`).
+The system features full automation with secure encrypted key management. This includes:
+- **Secure Key Storage:** Private keys encrypted using AES-256-GCM with per-key IV and authentication tags
+- **Key Management UI:** Settings page with wallet signature-authenticated key storage/deletion
+- **Automated Workflow:** Claims PumpFun rewards, checks combined treasury and reward balances, executes optimal SOL to token swaps via Jupiter Ultra API, and burns tokens to the Solana incinerator
+- **On-chain Payment Verification:** SOL payment verification system with tier-based subscriptions
+- **Security Features:** 5-minute in-memory cache, HMAC fingerprints for change detection, no key logging or exposure
+
+**Private Key Management:** Keys are stored encrypted in the `project_secrets` database table and retrieved on-demand by the scheduler. The master encryption key (`ENCRYPTION_MASTER_KEY`) must be set in production. Previous environment variable approach (`TREASURY_KEY_<project-id>`) has been replaced with encrypted database storage.
+
+**Pre-Production Requirements:**
+1. Set `ENCRYPTION_MASTER_KEY` environment variable (32-byte hex key)
+2. Integrate Solana Wallet Adapter for real wallet signatures (see `WALLET_INTEGRATION_GUIDE.md`)
+3. Test complete key management flow with real wallet on devnet
+4. Verify automated scheduler can decrypt and use stored keys
 
 ## External Dependencies
 
