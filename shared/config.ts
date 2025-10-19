@@ -19,8 +19,8 @@ export const PRICING = {
   },
   PRO: {
     name: "Pro",
-    priceSOL: 0.2,
-    priceUSDC: 0.2,
+    priceSOL: 0.4,
+    priceUSDC: 0.4,
     features: [
       "Unlimited buyback projects",
       "Hourly & custom schedules",
@@ -28,19 +28,6 @@ export const PRICING = {
       "Priority support",
       "Burns via Solana incinerator",
       "Custom burn strategies",
-    ],
-  },
-  ENTERPRISE: {
-    name: "Enterprise",
-    priceSOL: 0.2,
-    priceUSDC: 0.2,
-    features: [
-      "Everything in Pro",
-      "Dedicated account manager",
-      "Custom integration support",
-      "SLA guarantees",
-      "White-label options",
-      "Burns via Solana incinerator",
     ],
   },
 } as const;

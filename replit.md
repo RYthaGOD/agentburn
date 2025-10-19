@@ -15,8 +15,9 @@ Preferred communication style: Simple, everyday language.
 **Treasury Wallet**: `jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38`
 - All service payments (SOL or USDC) are sent to this wallet address
 
-**Pricing**: 0.2 SOL or 0.2 USDC per month for all tiers (Starter, Pro, Enterprise)
-- Unified pricing across all service tiers
+**Pricing**: 
+- Starter: 0.2 SOL or 0.2 USDC per month
+- Pro: 0.4 SOL or 0.4 USDC per month
 - Payment flexibility with SOL or USDC options
 
 ## Burn Mechanism
