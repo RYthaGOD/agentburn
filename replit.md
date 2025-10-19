@@ -24,11 +24,17 @@ A dedicated scheduler service (`server/scheduler.ts`) automates buyback executio
 
 ### Data Storage
 
-PostgreSQL, accessed via Neon's serverless driver and Drizzle ORM, is used for data persistence. The schema includes `Projects`, `Transactions`, and `Payments` tables with defined relationships. Key database decisions involve using UUID primary keys, decimal types for token amounts, automatic timestamp fields, and boolean flags for status management.
+PostgreSQL, accessed via Neon's serverless driver and Drizzle ORM, is used for data persistence. The schema includes `Projects`, `Transactions`, `Payments`, and `UsedSignatures` tables with defined relationships. The `UsedSignatures` table prevents replay attacks on manual buyback executions by storing SHA-256 hashes of used signatures. Key database decisions involve using UUID primary keys, decimal types for token amounts, automatic timestamp fields, and boolean flags for status management.
 
 ### Authentication & Authorization
 
-The platform utilizes wallet-based authentication, with Solana wallet adapter integration planned. Currently, a placeholder `WalletButton` component exists, and owner wallet addresses are stored for project authorization. The owner wallet address serves as the primary user identifier.
+The platform utilizes wallet-based authentication for manual buyback execution. The system implements cryptographic signature verification using tweetnacl to prove wallet ownership. Each manual buyback request requires:
+- A signed message containing the project ID and timestamp
+- Signature verification using the owner's Solana wallet
+- Timestamp validation (5-minute window)
+- Replay attack prevention via signature hash storage
+
+The owner wallet address serves as the primary user identifier for project management and authorization.
 
 ### Production Readiness & Automated Workflow
 
@@ -63,6 +69,8 @@ The system is production-ready with full automation enabled. This includes a sec
 
 **Installed Dependencies:**
 - node-cron
+- cron-parser
 - @solana/web3.js
 - @solana/spl-token
 - bs58
+- tweetnacl
