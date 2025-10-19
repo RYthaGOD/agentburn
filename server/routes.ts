@@ -469,7 +469,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify wallet signature to prove ownership
-      const { verifyWalletSignature, getTokenBalance, burnTokens, loadKeypairFromPrivateKey } = await import("./solana-sdk");
+      const { verifyWalletSignature, getTokenBalance, transferToIncinerator, loadKeypairFromPrivateKey } = await import("./solana-sdk");
       const isValidSignature = await verifyWalletSignature(
         ownerWalletAddress,
         message,
@@ -559,13 +559,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`Manual burn initiated for ${project.name}: ${burnAmount} tokens`);
 
-      // Execute burn
+      // Execute burn by transferring to Solana incinerator
       try {
         const walletKeypair = loadKeypairFromPrivateKey(treasuryKey);
-        const signature = await burnTokens(
+        const signature = await transferToIncinerator(
           project.tokenMintAddress,
           walletKeypair,
-          burnAmount
+          burnAmount,
+          9 // Assuming 9 decimals (standard for most tokens)
         );
 
         // Log successful burn transaction
