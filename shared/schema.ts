@@ -24,7 +24,7 @@ export const projects = pgTable("projects", {
 export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id),
-  type: text("type").notNull(), // buyback, burn
+  type: text("type").notNull(), // claim, buyback, burn
   amount: decimal("amount", { precision: 18, scale: 9 }).notNull(),
   tokenAmount: decimal("token_amount", { precision: 18, scale: 9 }),
   txSignature: text("tx_signature").notNull(),

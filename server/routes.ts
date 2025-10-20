@@ -928,7 +928,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Log successful claim transaction
           await storage.createTransaction({
             projectId: project.id,
-            type: "buyback", // Using "buyback" type as claims add SOL for buybacks
+            type: "claim",
             amount: claimResult.amount?.toString() || "0",
             tokenAmount: "0",
             txSignature: claimResult.signature,

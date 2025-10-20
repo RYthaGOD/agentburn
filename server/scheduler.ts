@@ -138,7 +138,7 @@ class BuybackScheduler {
               // Record the claim transaction
               await storage.createTransaction({
                 projectId: project.id,
-                type: "buyback",
+                type: "claim",
                 amount: claimResult.amount?.toString() || "0",
                 tokenAmount: "0",
                 txSignature: claimResult.signature,
@@ -155,7 +155,7 @@ class BuybackScheduler {
               
               await storage.createTransaction({
                 projectId: project.id,
-                type: "buyback",
+                type: "claim",
                 amount: "0",
                 tokenAmount: "0",
                 txSignature: "pumpfun_claim_pending",
