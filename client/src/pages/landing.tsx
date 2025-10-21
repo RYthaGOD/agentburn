@@ -6,7 +6,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { ArrowRight, Zap, Shield, Clock, BarChart3, Check } from "lucide-react";
 import { Link } from "wouter";
 import { PRICING } from "@shared/config";
-import heroImage from "@assets/generated_images/Solana_network_hero_background_019c57ba.png";
+import heroImage from "@assets/generated_images/Molten_lava_hero_background_ab43c4d3.png";
+import logoImage from "@assets/generated_images/BurnBot_fire_logo_design_999d6b70.png";
 
 export default function Landing() {
   return (
@@ -14,7 +15,7 @@ export default function Landing() {
       <header className="sticky top-0 z-50 w-full border-b border-border backdrop-blur-xl bg-background/80">
         <div className="container mx-auto flex h-16 items-center justify-between px-6 lg:px-8">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-md bg-gradient-to-br from-primary to-accent" />
+            <img src={logoImage} alt="BurnBot" className="h-8 w-8" />
             <span className="text-xl font-bold">BurnBot</span>
           </div>
           <nav className="hidden md:flex items-center gap-8">
@@ -249,7 +250,7 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="h-8 w-8 rounded-md bg-gradient-to-br from-primary to-accent" />
+                <img src={logoImage} alt="BurnBot" className="h-8 w-8" />
                 <span className="text-xl font-bold">BurnBot</span>
               </div>
               <p className="text-sm text-muted-foreground">

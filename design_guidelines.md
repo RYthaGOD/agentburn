@@ -1,14 +1,14 @@
-# Design Guidelines: Solana Buy Back & Burn SaaS Platform
+# Design Guidelines: BurnBot - Solana Token Burn Platform
 
 ## Design Approach
 
-**Hybrid Approach:** Marketing pages draw from modern crypto/SaaS leaders (Phantom, Uniswap, Linear) while dashboard follows a systematic utility-focused design for clarity and efficiency.
+**Hybrid Fire-Themed Approach:** Landing page draws from bold, intense gaming/crypto aesthetics (Phantom, Uniswap) with fire/destruction visual language. Dashboard maintains utility-focused clarity with subtle ember accents.
 
 **Key Principles:**
-- Trust & credibility through professional polish
-- Crypto-native dark aesthetic with strategic color accents
-- Clear data hierarchy for transaction monitoring
-- Seamless wallet integration patterns
+- Convey token destruction through visual heat and intensity
+- Dark volcanic aesthetic with glowing ember effects
+- Professional credibility despite bold visual theme
+- Clear data hierarchy with fiery accent highlights
 
 ---
 
@@ -16,106 +16,115 @@
 
 ### A. Color Palette
 
-**Dark Mode Primary (Default):**
-- Background Base: 222 15% 8%
-- Surface: 222 15% 12%
-- Surface Elevated: 222 15% 16%
-- Border Subtle: 222 10% 20%
-- Border: 222 10% 28%
-
-**Light Mode (Optional Toggle):**
-- Background: 0 0% 98%
-- Surface: 0 0% 100%
-- Border: 220 10% 88%
+**Dark Mode (Primary):**
+- Background Base: 15 20% 6% (volcanic black)
+- Surface: 15 18% 10% (charcoal)
+- Surface Elevated: 15 15% 14% (ash)
+- Border Subtle: 20 12% 18%
+- Border: 20 10% 24%
 
 **Brand Colors:**
-- Primary (Solana-inspired Purple): 270 75% 62%
-- Primary Dark: 270 75% 55%
-- Success (Burn confirmation): 142 76% 45%
-- Warning (Pending actions): 38 92% 50%
+- Primary (Molten Orange): 18 95% 55%
+- Primary Glow: 18 100% 65%
+- Secondary (Deep Red): 0 85% 48%
+- Ember Accent: 35 100% 50% (bright orange)
+- Success (Burn Complete): 142 76% 45%
+- Warning: 45 92% 50%
 - Error: 0 72% 55%
 
-**Accent:**
-- Electric Blue for CTAs: 210 100% 58%
-- Chart/Graph accent: 170 80% 50%
+**Glow Effects:**
+- Primary Glow: 18 100% 65% at 40% opacity
+- Ember Glow: 35 100% 50% at 30% opacity
+- Hot Spot: 25 100% 60% (transitional orange-yellow)
+
+**Light Mode Toggle:**
+- Background: 30 20% 95%
+- Surface: 30 15% 98%
+- Border: 20 10% 85%
 
 ### B. Typography
 
-**Fonts (via Google Fonts):**
-- Primary: 'Inter' - clean, modern, excellent readability
-- Mono (for addresses/hashes): 'JetBrains Mono'
+**Fonts (Google Fonts):**
+- Primary: 'Inter' (700/600/500/400 weights)
+- Display (Headlines): 'Syne' - bold, modern, geometric
+- Mono: 'JetBrains Mono' (addresses/hashes)
 
 **Scale:**
-- Hero Headline: 3.5rem (56px) / bold / -0.02em
-- Section Headline: 2.25rem (36px) / semibold
-- Dashboard Title: 1.875rem (30px) / semibold
-- Body Large: 1.125rem (18px) / normal
-- Body: 1rem (16px) / normal
-- Caption/Labels: 0.875rem (14px) / medium
-- Mono (addresses): 0.875rem / 500
+- Hero Display: 4rem (64px) / 800 / -0.03em
+- Section Headline: 2.5rem (40px) / 700
+- Dashboard Title: 2rem (32px) / 600
+- Subsection: 1.5rem (24px) / 600
+- Body Large: 1.125rem (18px) / 400
+- Body: 1rem (16px) / 400
+- Caption: 0.875rem (14px) / 500
+- Mono: 0.875rem / 500
 
 ### C. Layout System
 
-**Spacing Primitives:** Use Tailwind units of 2, 4, 6, 8, 12, 16, 20, 24
-- Micro spacing: p-2, gap-2 (component internals)
-- Component spacing: p-4, gap-4 (cards, buttons)
-- Section padding: py-12 md:py-20 (landing sections)
-- Container spacing: px-6 lg:px-8
-- Large gaps: gap-8, gap-12 (between major sections)
+**Spacing Primitives:** Tailwind units 2, 4, 6, 8, 12, 16, 20, 24, 32
+- Component internals: p-2, gap-2
+- Cards/buttons: p-4, p-6, gap-4
+- Section padding: py-16 md:py-24 lg:py-32
+- Container: px-6 lg:px-8
+- Major section gaps: gap-12, gap-16, gap-20
 
-**Grid System:**
-- Landing: max-w-7xl container
-- Dashboard: Full-width with max-w-[1600px]
-- Content: max-w-prose for text-heavy areas
+**Containers:**
+- Landing: max-w-7xl
+- Dashboard: max-w-[1600px]
+- Text content: max-w-3xl
 
 ### D. Component Library
 
 **Navigation:**
-- Sticky header with blur backdrop (backdrop-blur-xl bg-background/80)
-- Logo left, nav center/right, wallet connect button prominent
-- Mobile: hamburger menu with full-screen overlay
+- Dark header with ember glow underline on active
+- Logo with flame icon, navigation right, "Connect Wallet" with primary gradient
+- Backdrop blur (backdrop-blur-xl bg-background/90)
+- Mobile: slide-in overlay with flame border accent
 
 **Buttons:**
-- Primary: Electric blue gradient with hover lift
-- Secondary: outline with border
-- Ghost: transparent hover state
-- Wallet connect: distinctive purple gradient
+- Primary: Molten orange gradient (18 95% 55% to 25 100% 60%) with glow shadow on hover
+- Secondary: Ember outline with glow on hover
+- Destructive (Burn Action): Deep red to orange gradient with intense glow
+- Ghost: Transparent with ember text hover
 
 **Cards:**
-- Dashboard cards: subtle border, elevated on hover
-- Feature cards: gradient borders on dark backgrounds
-- Transaction cards: compact with status indicators
+- Dashboard: Charcoal surface with subtle ember border-left accent on active
+- Feature cards: Gradient border (orange to red) with hover glow effect
+- Stats cards: Dark with glowing metric numbers in ember color
+- Transaction cards: Compact with flame icon status indicators
 
 **Forms:**
-- Floating labels or clear top labels
-- Input backgrounds slightly elevated from surface
-- Focus states with primary color ring
-- Validation states with color-coded borders
+- Floating labels with ember focus ring
+- Input backgrounds: Surface elevated
+- Focus: Primary glow shadow (shadow-[0_0_20px_rgba(255,120,40,0.3)])
+- Validation: Color-coded with ember success, red error
 
 **Data Displays:**
-- Transaction table: alternating row backgrounds
-- Status badges: colored with appropriate icons
-- Charts: minimal grid lines, bold data lines
-- Token amounts: mono font with 4-6 decimal precision
+- Transaction table: Subtle alternating rows with ember highlights for burns
+- Status badges: Flame icon with colored backgrounds (burning/pending/complete)
+- Charts: Minimal grid, bold ember data lines with glow
+- Token amounts: Mono font with ember color for burned amounts
+- Progress bars: Gradient fills with glowing edges
 
-**Navigation Tabs (Dashboard):**
-- Underline style with smooth animation
-- Active state with primary color
+**Navigation Tabs:**
+- Underline style with ember gradient animation
+- Active state glows
 
 **Overlays:**
-- Modals: centered, backdrop blur with dark overlay
-- Toasts: top-right, auto-dismiss with progress bar
-- Wallet connection: modal with provider options
+- Modals: Centered with dark overlay and ember border glow
+- Toasts: Top-right with flame icon, gradient border, auto-dismiss
+- Wallet modal: Provider grid with hover glow states
 
 ### E. Animations
 
-**Strategic Use Only:**
-- Button hover: subtle scale (1.02) and shadow increase
-- Card hover: gentle lift with shadow
-- Page transitions: fade (150ms)
-- Success states: checkmark animation on burn completion
-- NO scroll-triggered animations on dashboard
-- Hero section: subtle gradient shift on landing page only
+**Strategic Glow Effects:**
+- Burn button: Pulsing ember glow on hover (animate-pulse subtle)
+- Success animation: Flame burst on burn completion
+- Card hover: Glow intensifies (shadow transition)
+- Stats counters: Number increment with ember flash
+- Active burns: Subtle flame flicker effect on status indicators
+- Page transitions: Fade (200ms)
+- Hero: Animated gradient shift on fire background
 
 ---
 
@@ -123,75 +132,91 @@
 
 ### Landing Page
 
-**Hero Section (80vh):**
-- Large headline emphasizing "Automated" and "Plug & Play"
-- Sub-headline explaining value proposition
-- Dual CTAs: "Get Started" (primary) + "View Pricing" (secondary)
-- Hero visual: Abstract Solana-themed background with floating token icons or network visualization
-- Trust indicators below: "No coding required • Secure • Transparent"
+**Hero Section (85vh):**
+- Large display headline: "BURN TOKENS. BUILD VALUE."
+- Subheadline emphasizing automation and Solana speed
+- Dual CTAs: "Start Burning" (molten gradient) + "View Pricing" (outline with blur background)
+- Full-width background: Molten lava/flame imagery with dark overlay gradient for text contrast
+- Floating ember particles animation (subtle)
+- Trust bar below: "Automated • Audited • Transparent" with flame dividers
 
-**Features Section:**
-- 3-column grid (1 col mobile, 3 col desktop)
-- Icon + title + description format
-- Icons from Heroicons (outline style)
-- Each feature card with subtle gradient border
+**Features (3-column grid on desktop):**
+- Icons from Heroicons with ember glow
+- Title + description cards with gradient borders
+- Hover: Intensified glow and slight lift
+- Features: Automated Burns, Real-time Monitoring, Treasury Management, Transparent History
 
-**How It Works:**
-- 4-step process in numbered cards
-- Alternating left/right layout on desktop
-- Visual flow indicators between steps
+**How It Works (4-step visual flow):**
+- Numbered flame icons (1-4)
+- Card layout with gradient connectors between steps
+- Steps: Connect → Configure → Schedule → Monitor
+- Alternating layout (zigzag) on desktop
+
+**Burn Statistics Showcase:**
+- Large animated counters in ember color
+- 3-column: Total Tokens Burned, Total Value Destroyed, Active Projects
+- Dark cards with glowing numbers
+- Background: Subtle ember particles
 
 **Pricing Tiers:**
-- 2-tier card layout (Starter/Pro)
-- Highlighted recommended tier with badge
-- Clear feature comparison
-- Solana SOL payment integration (treasury wallet)
+- 3-tier layout: Starter, Pro, Enterprise
+- Pro tier highlighted with flame badge and glow border
+- Feature comparison with checkmarks
+- "Get Started" CTAs with gradient
 
 **Social Proof:**
-- Transaction stats: Total burned, Total value, Active users
-- Displayed in large numbers with supporting text
-- Animated counter effect optional
+- Transaction ticker: Live recent burns scrolling horizontally
+- Format: "[Project] burned X tokens" with flame icons
+- Testimonial cards with user avatars and ember accents
 
 **Footer:**
-- Multi-column: Company, Resources, Social, Newsletter
-- Minimal but complete
+- 4-column: Product, Resources, Company, Connect
+- Newsletter signup with ember gradient CTA
+- Social links with glow hover
+- Bottom: Copyright, Solana logo, legal links
 
 ### Dashboard Application
 
-**Sidebar Navigation:**
-- Collapsed/expanded states
-- Icons from Heroicons
-- Active page indicator with background + border-left accent
+**Sidebar:**
+- Collapsed/expanded states with flame icon
+- Navigation items with ember left border on active
+- Icons: Heroicons with glow on hover
+- Sections: Overview, Configure, History, Settings
 
 **Configuration Panel:**
-- Step-by-step wizard OR single-page form with clear sections
-- Token contract input with validation
-- Wallet address inputs with copy buttons
-- Schedule selector: visual time picker
-- Save as draft + Activate buttons
+- Multi-step wizard with progress indicator (flame icons)
+- Token contract input with validation glow
+- Wallet addresses with copy buttons (ember flash on copy)
+- Schedule visual selector with calendar/time picker
+- Burn amount slider with ember fill
+- Preview card showing next burn details
+- "Activate Burns" button with gradient and glow
 
 **Monitoring Dashboard:**
-- Top row: Key metrics cards (4 columns)
-  - Next burn scheduled
-  - Total burned
-  - Treasury balance  
-  - Last transaction status
-- Main area: Transaction history table
-- Right sidebar: Current configuration summary
+- Top metrics row (4 cards):
+  - Next scheduled burn (countdown timer)
+  - Total burned (lifetime)
+  - Treasury balance
+  - Last burn status (flame animation if active)
+- Main area: Recent burns table with pagination
+- Right panel: Active configuration summary with edit button
+- Burn history chart with ember gradient area fill
 
 **Transaction History:**
-- Table with columns: Date/Time, Action, Amount, Tx Hash (truncated), Status
-- Status with colored badges
-- Click to expand for details
-- Pagination at bottom
-- Export CSV option
+- Table columns: Timestamp, Type, Amount, Hash (truncated with copy), Status
+- Status badges: flame icons with colors (burning/complete/failed)
+- Click row: Expand details with Solscan link
+- Filters: Date range, status, amount
+- Export CSV with ember icon button
 
 ---
 
 ## Images
 
-**Hero Image:** Yes - Abstract Solana network visualization or floating SPL token icons with gradient background. Positioned as full-width background with overlay gradient for text readability.
+**Hero Image:** Full-width background featuring molten lava flows, ember particles, or abstract burning flames in deep oranges/reds. Dark gradient overlay for text readability. Image should evoke heat, energy, and destruction while maintaining professional quality.
 
-**Feature Icons:** Use Heroicons for consistency - no custom illustrations needed.
+**Feature Cards:** No images - use Heroicons with ember glow effects instead.
 
-**Dashboard:** No decorative images - focus on data clarity and functional UI elements.
+**Stats Section Background:** Subtle ember particle field or heat wave distortion effect as background layer.
+
+**Dashboard:** No decorative images - data-focused with flame icon accents for status indicators.

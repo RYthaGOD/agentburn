@@ -123,62 +123,62 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --button-outline: rgba(255,120,40, .15);
+  --badge-outline: rgba(255,120,40, .08);
 
   --opaque-button-border-intensity: 9;  /* In terms of percentages */
 
-  /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  /* Backgrounds applied on top of other backgrounds when hovered/active - with ember glow */
+  --elevate-1: rgba(255,120,40, .06);
+  --elevate-2: rgba(255,120,40, .12);
 
-  --background: 222 15% 8%;
+  --background: 15 20% 6%;
 
   --foreground: 0 0% 98%;
 
-  --border: 222 10% 20%;
+  --border: 20 10% 24%;
 
-  --card: 222 15% 12%;
+  --card: 15 18% 10%;
 
   --card-foreground: 0 0% 98%;
 
-  --card-border: 222 10% 18%;
+  --card-border: 20 12% 18%;
 
-  --sidebar: 222 15% 10%;
+  --sidebar: 15 18% 10%;
 
   --sidebar-foreground: 0 0% 98%;
 
-  --sidebar-border: 222 10% 16%;
+  --sidebar-border: 20 12% 18%;
 
-  --sidebar-primary: 270 75% 62%;
+  --sidebar-primary: 18 95% 55%;
 
   --sidebar-primary-foreground: 0 0% 100%;
 
-  --sidebar-accent: 222 15% 14%;
+  --sidebar-accent: 15 15% 14%;
 
   --sidebar-accent-foreground: 0 0% 98%;
 
-  --sidebar-ring: 270 75% 62%;
+  --sidebar-ring: 18 95% 55%;
 
-  --popover: 222 15% 14%;
+  --popover: 15 15% 14%;
 
   --popover-foreground: 0 0% 98%;
 
-  --popover-border: 222 10% 22%;
+  --popover-border: 20 12% 22%;
 
-  --primary: 270 75% 62%;
+  --primary: 18 95% 55%;
 
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 222 15% 16%;
+  --secondary: 0 85% 48%;
 
-  --secondary-foreground: 0 0% 98%;
+  --secondary-foreground: 0 0% 100%;
 
-  --muted: 222 12% 15%;
+  --muted: 15 15% 14%;
 
-  --muted-foreground: 0 0% 70%;
+  --muted-foreground: 0 0% 65%;
 
-  --accent: 210 100% 58%;
+  --accent: 35 100% 50%;
 
   --accent-foreground: 0 0% 100%;
 
@@ -186,13 +186,13 @@
 
   --destructive-foreground: 0 0% 100%;
 
-  --input: 222 10% 28%;
-  --ring: 270 75% 62%;
-  --chart-1: 270 75% 70%;
-  --chart-2: 210 100% 65%;
-  --chart-3: 170 80% 55%;
-  --chart-4: 38 92% 60%;
-  --chart-5: 142 76% 55%;
+  --input: 20 12% 20%;
+  --ring: 18 95% 55%;
+  --chart-1: 18 95% 55%;
+  --chart-2: 35 100% 50%;
+  --chart-3: 0 85% 48%;
+  --chart-4: 45 92% 50%;
+  --chart-5: 142 76% 45%;
 
   --shadow-2xs: 0px 1px 2px 0px rgba(0, 0, 0, 0.4);
   --shadow-xs: 0px 2px 4px 0px rgba(0, 0, 0, 0.5);
