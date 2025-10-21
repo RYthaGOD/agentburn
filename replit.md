@@ -14,6 +14,12 @@ Preferred communication style: Simple, everyday language.
 
 The frontend is built with React 18+ and TypeScript, utilizing Vite for fast development and optimized builds. Wouter handles client-side routing. The UI is designed with shadcn/ui (New York variant) on Radix UI primitives, styled with Tailwind CSS for a crypto/SaaS aesthetic, primarily dark mode. TanStack Query manages server state and caching, while React Hook Form with Zod provides form validation. Key design decisions include component aliases, mobile responsiveness, and specific font choices (Inter and JetBrains Mono).
 
+**Fire/Molten Theme Design:** The platform features a bold fire and molten rock visual theme that conveys the concept of token burning through intense heat and destruction imagery:
+- **Color Palette:** Volcanic black backgrounds (15 20% 6%), molten orange primary (18 95% 55%), ember accent (35 100% 50%), deep red secondary (0 85% 48%)
+- **Visual Elements:** Fire gradient buttons, ember glow effects on interactive elements, molten lava hero background, orange-tinted hover/active states
+- **Custom Utilities:** `.fire-gradient` (molten orange to hot yellow), `.ember-glow` and `.ember-glow-hover` (orange box shadows), elevation system with orange overlays
+- **Assets:** BurnBot fire logo and molten lava hero background generated specifically for the fire theme
+
 **Manual Controls:** Each project has a manual controls section with an "Execute Buyback Now" button that allows users to trigger buybacks on-demand without waiting for the scheduled execution. This requires wallet signature authentication.
 
 ### Backend Architecture
