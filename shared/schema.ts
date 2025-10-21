@@ -17,6 +17,7 @@ export const projects = pgTable("projects", {
   ownerWalletAddress: text("owner_wallet_address").notNull(),
   isPumpfunToken: boolean("is_pumpfun_token").notNull().default(false),
   pumpfunCreatorWallet: text("pumpfun_creator_wallet"), // Wallet to claim PumpFun rewards
+  trialEndsAt: timestamp("trial_ends_at"), // 10-day trial for first 100 signups
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

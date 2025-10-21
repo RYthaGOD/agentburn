@@ -71,9 +71,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
+    // Check if this is one of the first 100 signups for automatic trial
+    const totalProjects = await db.select().from(projects);
+    const projectCount = totalProjects.length;
+    
+    // Grant 10-day trial to first 100 signups
+    let trialEndsAt = insertProject.trialEndsAt;
+    if (projectCount < 100 && !trialEndsAt) {
+      const tenDaysFromNow = new Date();
+      tenDaysFromNow.setDate(tenDaysFromNow.getDate() + 10);
+      trialEndsAt = tenDaysFromNow;
+    }
+    
     const [project] = await db
       .insert(projects)
-      .values(insertProject)
+      .values({ ...insertProject, trialEndsAt })
       .returning();
     return project;
   }
