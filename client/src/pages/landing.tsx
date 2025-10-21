@@ -66,12 +66,12 @@ export default function Landing() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/dashboard">
-              <Button size="lg" className="bg-accent hover-elevate active-elevate-2 group" data-testid="button-get-started">
+              <Button size="lg" className="fire-gradient ember-glow-hover group" data-testid="button-get-started">
                 Get Started
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
-            <Button size="lg" variant="outline" data-testid="button-view-pricing">
+            <Button size="lg" variant="outline" className="backdrop-blur-sm bg-background/30" data-testid="button-view-pricing">
               <a href="#pricing">View Pricing</a>
             </Button>
           </div>

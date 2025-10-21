@@ -321,4 +321,21 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+
+  /* Fire-themed gradients and glows */
+  .fire-gradient {
+    background: linear-gradient(135deg, hsl(18 95% 55%), hsl(25 100% 60%));
+  }
+
+  .ember-glow {
+    box-shadow: 0 0 20px rgba(255, 120, 40, 0.3);
+  }
+
+  .ember-glow-hover:hover {
+    box-shadow: 0 0 30px rgba(255, 120, 40, 0.5);
+  }
+
+  .molten-border {
+    border-image: linear-gradient(135deg, hsl(18 95% 55%), hsl(0 85% 48%)) 1;
+  }
 }
