@@ -914,6 +914,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ STANDALONE AI BOT CONFIG ROUTES (NOT TIED TO PROJECTS) ============
+
+  // Get AI bot config for a wallet
+  app.get("/api/ai-bot/config/:ownerWalletAddress", async (req, res) => {
+    try {
+      const config = await storage.getAIBotConfig(req.params.ownerWalletAddress);
+      if (!config) {
+        return res.status(404).json({ message: "AI bot config not found" });
+      }
+      res.json(config);
+    } catch (error: any) {
+      console.error("Get AI bot config error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create or update AI bot config
+  app.post("/api/ai-bot/config", authRateLimit, async (req, res) => {
+    try {
+      const { ownerWalletAddress, signature, message, ...configData } = req.body;
+      
+      if (!ownerWalletAddress || !signature || !message) {
+        return res.status(400).json({ 
+          message: "Missing required fields: ownerWalletAddress, signature, and message are required" 
+        });
+      }
+
+      // Verify wallet signature
+      const { verifyWalletSignature } = await import("./solana-sdk");
+      const isValidSignature = await verifyWalletSignature(
+        ownerWalletAddress,
+        message,
+        signature
+      );
+
+      if (!isValidSignature) {
+        return res.status(401).json({ message: "Invalid signature" });
+      }
+
+      // Extract timestamp from message
+      const timestampMatch = message.match(/at (\d+)$/);
+      if (!timestampMatch) {
+        return res.status(400).json({ message: "Invalid message format" });
+      }
+
+      const messageTimestamp = parseInt(timestampMatch[1], 10);
+      const now = Date.now();
+      const fiveMinutesInMs = 5 * 60 * 1000;
+      if (now - messageTimestamp > fiveMinutesInMs) {
+        return res.status(400).json({ message: "Message expired. Please try again." });
+      }
+
+      auditLog("update_ai_bot_config", {
+        walletAddress: ownerWalletAddress,
+        ip: req.ip || "unknown",
+      });
+
+      const config = await storage.createOrUpdateAIBotConfig({
+        ownerWalletAddress,
+        ...configData,
+      });
+
+      res.json(config);
+    } catch (error: any) {
+      console.error("Update AI bot config error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Delete AI bot config
+  app.delete("/api/ai-bot/config/:ownerWalletAddress", authRateLimit, async (req, res) => {
+    try {
+      const { ownerWalletAddress, signature, message } = req.body;
+      
+      if (!ownerWalletAddress || !signature || !message) {
+        return res.status(400).json({ 
+          message: "Missing required fields: ownerWalletAddress, signature, and message are required" 
+        });
+      }
+
+      if (ownerWalletAddress !== req.params.ownerWalletAddress) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      // Verify wallet signature
+      const { verifyWalletSignature } = await import("./solana-sdk");
+      const isValidSignature = await verifyWalletSignature(
+        ownerWalletAddress,
+        message,
+        signature
+      );
+
+      if (!isValidSignature) {
+        return res.status(401).json({ message: "Invalid signature" });
+      }
+
+      const success = await storage.deleteAIBotConfig(ownerWalletAddress);
+      if (!success) {
+        return res.status(404).json({ message: "AI bot config not found" });
+      }
+
+      res.json({ success: true, message: "AI bot config deleted" });
+    } catch (error: any) {
+      console.error("Delete AI bot config error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============ PROJECT-BASED AI BOT ROUTES (LEGACY) ============
+
   // Manual trigger of AI trading bot
   app.post("/api/projects/:projectId/trigger-ai-bot", authRateLimit, async (req, res) => {
     try {
