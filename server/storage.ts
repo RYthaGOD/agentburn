@@ -100,6 +100,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProject(id: string): Promise<boolean> {
+    // Delete all related records first to avoid foreign key constraint violations
+    // Order matters: delete in reverse dependency order
+    
+    // 1. Delete project secrets (encrypted keys)
+    await db.delete(projectSecrets).where(eq(projectSecrets.projectId, id));
+    
+    // 2. Delete used signatures (replay attack prevention)
+    await db.delete(usedSignatures).where(eq(usedSignatures.projectId, id));
+    
+    // 3. Delete all transactions
+    await db.delete(transactions).where(eq(transactions.projectId, id));
+    
+    // 4. Delete all payments
+    await db.delete(payments).where(eq(payments.projectId, id));
+    
+    // 5. Finally delete the project itself
     const result = await db.delete(projects).where(eq(projects.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
   }
