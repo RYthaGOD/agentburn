@@ -17,14 +17,16 @@ checkSecurityEnvVars();
 
 const app = express();
 
-// Security middleware - FIRST
+// Security middleware - FIRST (headers and CORS before body parsing)
 app.use(securityHeaders());
 app.use(corsPolicy());
-app.use(sanitizeInput);
 
-// Body parsing with size limits
+// Body parsing with size limits - MUST come before sanitizeInput
 app.use(express.json({ limit: requestSizeLimit }));
 app.use(express.urlencoded({ extended: false, limit: requestSizeLimit }));
+
+// Input sanitization - AFTER body parsing so req.body is populated
+app.use(sanitizeInput);
 
 app.use((req, res, next) => {
   const start = Date.now();

@@ -197,24 +197,46 @@ export function corsPolicy() {
     const isProd = process.env.NODE_ENV === "production";
     
     if (isProd) {
-      // In production, only allow same-origin requests
-      const allowedOrigins = [
-        process.env.FRONTEND_URL || "",
-        "https://*.replit.app",
-        "https://*.replit.dev",
-      ];
+      // In production, only allow specific origins
+      const frontendUrl = process.env.FRONTEND_URL;
+      const allowedOrigins: string[] = [];
       
-      if (origin && allowedOrigins.some(allowed => origin.includes(allowed))) {
+      // Add FRONTEND_URL if set (exact match required)
+      if (frontendUrl && frontendUrl.length > 0) {
+        allowedOrigins.push(frontendUrl);
+      }
+      
+      // Add Replit deployment domains (pattern matching)
+      const replitAppPattern = /^https:\/\/[a-z0-9-]+\.repl(it\.app|it\.dev)$/i;
+      
+      let corsAllowed = false;
+      
+      if (origin) {
+        // Exact match against allowed origins
+        if (allowedOrigins.includes(origin)) {
+          corsAllowed = true;
+        }
+        // Pattern match for Replit domains
+        else if (replitAppPattern.test(origin)) {
+          corsAllowed = true;
+        }
+      }
+      
+      if (corsAllowed && origin) {
         res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Access-Control-Allow-Credentials", "true");
+      } else {
+        // Reject CORS for unauthorized origins
+        res.setHeader("Access-Control-Allow-Origin", "null");
       }
     } else {
       // In development, allow all origins
       res.setHeader("Access-Control-Allow-Origin", origin || "*");
+      res.setHeader("Access-Control-Allow-Credentials", "true");
     }
     
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
     
     // Handle preflight

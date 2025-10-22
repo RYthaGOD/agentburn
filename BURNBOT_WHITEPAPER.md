@@ -214,12 +214,45 @@ Prevents replay attacks by:
 - All communications over HTTPS/TLS 1.3
 - Certificate pinning for API communications
 - Secure WebSocket connections for real-time updates
+- Helmet security headers for comprehensive protection
 
 **API Security:**
 - Request validation with Zod schemas
-- SQL injection prevention via parameterized queries
-- XSS prevention through output encoding
+- SQL injection prevention via parameterized queries (Drizzle ORM)
+- XSS prevention through output encoding and sanitization
 - CSRF protection on state-changing operations
+- Input sanitization middleware on all requests
+- Request body size limits (1MB max) to prevent DoS attacks
+
+**Rate Limiting & DDoS Protection:**
+- **Global Rate Limit**: 100 requests per 15 minutes per IP (all API endpoints)
+- **Strict Rate Limit**: 10 requests per 15 minutes (payment verification, sensitive operations)
+- **Auth Rate Limit**: 20 requests per hour (manual buybacks, key management)
+- Standard RateLimit-* headers for transparency
+- Automatic IP-based blocking for abuse prevention
+
+**Security Headers (Helmet.js):**
+- HTTP Strict Transport Security (HSTS) - Forces HTTPS for 1 year
+- Content Security Policy (CSP) - Prevents XSS and injection attacks
+- X-Frame-Options: DENY - Prevents clickjacking
+- X-Content-Type-Options: nosniff - Prevents MIME type confusion
+- Referrer-Policy: strict-origin-when-cross-origin
+- DNS Prefetch Control disabled
+- X-Powered-By header hidden
+
+**Input Validation & Sanitization:**
+- Automatic removal of script tags and XSS vectors
+- Solana address format validation (base58, 32-44 characters)
+- Transaction signature validation (base58, 87-88 characters)
+- Sanitization of all user inputs before processing
+- Zod schema validation on all API endpoints
+
+**Audit Logging:**
+- All sensitive operations logged with IP address and timestamp
+- Manual buyback attempts tracked
+- Private key storage/deletion attempts logged
+- Payment verification attempts recorded
+- No sensitive data (keys, signatures) included in logs
 
 ### 3.4 Environment Security
 
@@ -612,10 +645,14 @@ Every transaction is publicly verifiable:
 - Auditable execution logs
 
 **Platform Revenue:**
-- Only subscription fees (0.2-0.4 SOL per project)
-- No transaction fees
+- Subscription fees (0.2-0.4 SOL per 30 days)
+- Transaction fees: 0.5% after 60th transaction per project
+  - First 60 transactions free for each project
+  - Fee deducted from SOL amount before swap execution
+  - Applied to all transaction types (buybacks, volume bot, buy bot)
+  - Fee destination: Treasury wallet (jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38)
 - No token custody fees
-- No hidden charges
+- All fees transparently disclosed
 
 ---
 
