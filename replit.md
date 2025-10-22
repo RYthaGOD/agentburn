@@ -12,7 +12,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Frontend
 
-The frontend is built with React 18+, TypeScript, and Vite. It uses Wouter for routing, shadcn/ui (New York variant) on Radix UI primitives, and Tailwind CSS for styling, primarily in dark mode. TanStack Query manages server state, and React Hook Form with Zod handles form validation. The design incorporates a "Fire/Molten" theme with volcanic black backgrounds, molten orange primaries, and ember accents. Key navigation includes Overview, New Project, Volume Bot, Trading Bot, Transactions, and Settings. Manual controls for on-demand buybacks are available per project, requiring wallet signature authentication.
+The frontend is built with React 18+, TypeScript, and Vite. It uses Wouter for routing, shadcn/ui (New York variant) on Radix UI primitives, and Tailwind CSS for styling, primarily in dark mode. TanStack Query manages server state, and React Hook Form with Zod handles form validation. The design incorporates a "Fire/Molten" theme with volcanic black backgrounds, molten orange primaries, and ember accents. Key navigation includes Overview, New Project, Volume Bot, Trading Bot, AI Trading Bot, Transactions, and Settings. Manual controls for on-demand buybacks are available per project, requiring wallet signature authentication.
 
 ### Backend
 
@@ -20,7 +20,7 @@ The backend utilizes an Express.js server with TypeScript, employing an ESM modu
 
 ### Scheduling System
 
-A dedicated scheduler service automates buyback execution using `node-cron`. It performs hourly checks, validates payments (unless whitelisted), verifies treasury balances, integrates with Jupiter Ultra API for optimal token swaps, and claims PumpFun creator rewards. All token burns are directed to the official Solana incinerator. The system supports minute-based to weekly scheduling and custom cron patterns, operating in both production and simulation modes.
+A dedicated scheduler service automates buyback execution using `node-cron`. It performs hourly checks, validates payments (unless whitelisted), verifies treasury balances, integrates with Jupiter Ultra API for optimal token swaps, and claims PumpFun creator rewards. Token burns use the SPL Token burn instruction to permanently destroy tokens and reduce total supply (visible on Solscan as actual "Token Burn" transactions, not transfers). The system supports minute-based to weekly scheduling and custom cron patterns, operating in both production and simulation modes.
 
 ### Trading Bot System
 

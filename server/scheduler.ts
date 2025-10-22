@@ -331,7 +331,7 @@ class BuybackScheduler {
               project.tokenMintAddress,
               keypair,
               actualTokenAmount,
-              9 // Assuming 9 decimals
+              project.tokenDecimals
             );
             console.log(`   Burn completed: ${burnSignature}`);
             
@@ -371,7 +371,7 @@ class BuybackScheduler {
             project.tokenMintAddress,
             keypair,
             tokenAmount,
-            9 // Assuming 9 decimals
+            project.tokenDecimals
           );
           console.log(`   Burn completed: ${burnSignature}`);
           
