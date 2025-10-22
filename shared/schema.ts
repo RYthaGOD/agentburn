@@ -239,8 +239,12 @@ export const insertProjectSecretSchema = createInsertSchema(projectSecrets).omit
 
 // Input schema for setting/updating keys (accepts plaintext, stored encrypted)
 export const setProjectKeysSchema = z.object({
-  treasuryPrivateKey: z.string().min(1, "Treasury private key is required"),
-  pumpfunPrivateKey: z.string().optional(),
+  treasuryPrivateKey: z.string()
+    .min(1, "Treasury private key is required")
+    .transform(val => val.trim()),
+  pumpfunPrivateKey: z.string()
+    .optional()
+    .transform(val => val ? val.trim() : val),
 });
 
 // AI Bot Config schema
