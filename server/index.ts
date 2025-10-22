@@ -17,6 +17,10 @@ checkSecurityEnvVars();
 
 const app = express();
 
+// Trust proxy - MUST be set before rate limiting middleware
+// This is required when the app is behind a reverse proxy (production)
+app.set('trust proxy', true);
+
 // Security middleware - FIRST (headers and CORS before body parsing)
 app.use(securityHeaders());
 app.use(corsPolicy());

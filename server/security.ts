@@ -52,6 +52,23 @@ export function securityHeaders() {
 }
 
 /**
+ * Helper function to extract client IP address
+ * Handles both direct connections and proxied requests
+ */
+function getClientIp(req: Request): string {
+  // When behind a proxy (production), trust X-Forwarded-For
+  const forwardedFor = req.headers['x-forwarded-for'];
+  if (forwardedFor) {
+    // X-Forwarded-For can be a comma-separated list, take the first IP
+    const ips = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor).split(',');
+    return ips[0].trim();
+  }
+  
+  // Fallback to req.ip (direct connection or when not behind proxy)
+  return req.ip || 'unknown';
+}
+
+/**
  * Global rate limiter - Protects against DDoS and brute force attacks
  * 100 requests per 15 minutes per IP
  */
@@ -63,11 +80,14 @@ export const globalRateLimit = rateLimit({
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  // Use custom key generator to properly handle proxied requests
+  keyGenerator: (req) => getClientIp(req),
   // Skip rate limiting for whitelisted IPs (optional)
   skip: (req) => {
     // Add your whitelisted IPs here if needed
     const whitelist: string[] = [];
-    return whitelist.includes(req.ip || "");
+    const clientIp = getClientIp(req);
+    return whitelist.includes(clientIp);
   },
 });
 
@@ -83,6 +103,7 @@ export const strictRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => getClientIp(req),
 });
 
 /**
@@ -97,6 +118,7 @@ export const authRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => getClientIp(req),
 });
 
 /**
