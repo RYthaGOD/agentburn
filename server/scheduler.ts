@@ -26,23 +26,27 @@ class BuybackScheduler {
 
   constructor() {
     this.config = {
-      enabled: process.env.NODE_ENV === "production",
+      enabled: true, // Enable scheduler in all environments
     };
   }
 
   async initialize() {
     if (!this.config.enabled) {
-      console.log("Scheduler disabled in development mode");
+      console.log("Scheduler disabled");
       return;
     }
 
-    // Check for scheduled buybacks every hour
-    const task = cron.schedule("0 * * * *", async () => {
+    // Check for scheduled buybacks every 5 minutes in development, every hour in production
+    const isDev = process.env.NODE_ENV !== "production";
+    const cronExpression = isDev ? "*/5 * * * *" : "0 * * * *";
+    const interval = isDev ? "every 5 minutes" : "every hour";
+    
+    const task = cron.schedule(cronExpression, async () => {
       await this.executeScheduledBuybacks();
     });
     
     this.tasks.push(task);
-    console.log("Buyback scheduler initialized - checking every hour");
+    console.log(`Buyback scheduler initialized - checking ${interval}`);
   }
 
   private async executeScheduledBuybacks() {
