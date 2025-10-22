@@ -24,9 +24,9 @@ A dedicated scheduler service automates buyback execution using `node-cron`. It 
 
 ### Trading Bot System
 
-The platform includes automated trading bots:
-- **Volume Bot:** Executes buy/sell cycles to generate trading volume based on configurable buy amounts, sell percentages, trading intervals, and price guards (min/max SOL thresholds).
-- **Buy Bot (Limit Orders):** Monitors token prices and executes buy orders when predefined SOL target prices are met, with configurable limit orders and max slippage protection. Price fetching for both bots uses Jupiter Price v4 API for SOL-denominated prices.
+The platform includes automated trading bots with comprehensive configuration interfaces:
+- **Volume Bot:** Executes buy/sell cycles to generate trading volume based on configurable buy amounts, sell percentages, trading intervals, and price guards (min/max SOL thresholds). Configuration UI at `/dashboard/volume-bot` allows users to enable/disable bots and set all parameters via dialog forms.
+- **Buy Bot (Limit Orders):** Monitors token prices and executes buy orders when predefined SOL target prices are met, with configurable limit orders and max slippage protection. Configuration UI at `/dashboard/trading-bot` provides dynamic limit order management (add/remove orders) and max slippage settings. Price fetching for both bots uses Jupiter Price v4 API for SOL-denominated prices.
 
 ### Data Storage
 
