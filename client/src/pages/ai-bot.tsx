@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Brain, Loader2, Zap, AlertCircle, Play, Power, Scan, TrendingUp, Activity, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Brain, Loader2, Zap, AlertCircle, Play, Power, Scan, TrendingUp, Activity, CheckCircle, XCircle, Clock, Key, Eye, EyeOff, Shield, Lock } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,6 +16,17 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { AIBotConfig } from "@shared/schema";
 import bs58 from "bs58";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const aiBotConfigSchema = z.object({
   totalBudget: z.string().min(1).refine(
@@ -49,6 +60,10 @@ export default function AIBot() {
   const [isScanning, setIsScanning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
+  const [treasuryKey, setTreasuryKey] = useState("");
+  const [showTreasuryKey, setShowTreasuryKey] = useState(false);
+  const [isSavingKey, setIsSavingKey] = useState(false);
+  const [isDeletingKey, setIsDeletingKey] = useState(false);
   const [scanLog, setScanLog] = useState<Array<{
     timestamp: number;
     message: string;
@@ -226,6 +241,82 @@ export default function AIBot() {
     }
   };
 
+  const handleSaveTreasuryKey = async () => {
+    if (!publicKey || !signMessage) return;
+    
+    if (!treasuryKey.trim()) {
+      toast({
+        title: "Error",
+        description: "Treasury private key is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingKey(true);
+    try {
+      const message = `Save treasury key for AI bot wallet ${publicKey.toString()} at ${Date.now()}`;
+      const messageBytes = new TextEncoder().encode(message);
+      const signature = await signMessage(messageBytes);
+      const signatureBase58 = bs58.encode(signature);
+
+      await apiRequest("POST", `/api/ai-bot/config/treasury-key`, {
+        ownerWalletAddress: publicKey.toString(),
+        signature: signatureBase58,
+        message,
+        treasuryPrivateKey: treasuryKey.trim(),
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-bot/config", publicKey.toString()] });
+      toast({
+        title: "✅ Private Key Saved",
+        description: "Treasury key encrypted and stored securely for automated trading",
+      });
+      setTreasuryKey("");
+      setShowTreasuryKey(false);
+    } catch (error: any) {
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save treasury key",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingKey(false);
+    }
+  };
+
+  const handleDeleteTreasuryKey = async () => {
+    if (!publicKey || !signMessage) return;
+
+    setIsDeletingKey(true);
+    try {
+      const message = `Delete treasury key for AI bot wallet ${publicKey.toString()} at ${Date.now()}`;
+      const messageBytes = new TextEncoder().encode(message);
+      const signature = await signMessage(messageBytes);
+      const signatureBase58 = bs58.encode(signature);
+
+      await apiRequest("DELETE", `/api/ai-bot/config/treasury-key`, {
+        ownerWalletAddress: publicKey.toString(),
+        signature: signatureBase58,
+        message,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-bot/config", publicKey.toString()] });
+      toast({
+        title: "✅ Private Key Deleted",
+        description: "Treasury key removed from secure storage",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete treasury key",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingKey(false);
+    }
+  };
+
   if (!connected) {
     return (
       <div className="container mx-auto py-8 px-4">
@@ -306,6 +397,126 @@ export default function AIBot() {
           </CardContent>
         </Card>
       )}
+
+      {/* Private Key Management */}
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-4">
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+            <Shield className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <CardTitle>Automated Trading Key</CardTitle>
+            <CardDescription>
+              Required for automated AI bot execution
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Alert data-testid="alert-key-security">
+            <Lock className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              <strong>Security:</strong> Your private key is encrypted using AES-256-GCM encryption before storage.
+              Only you can access it with your wallet signature.
+            </AlertDescription>
+          </Alert>
+
+          {aiConfig && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+              {aiConfig.treasuryKeyCiphertext ? (
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              ) : (
+                <AlertCircle className="h-4 w-4 text-amber-500" />
+              )}
+              <span className="text-sm" data-testid="text-treasury-key-status">
+                Treasury Key: {aiConfig.treasuryKeyCiphertext ? "Configured ✅" : "Not configured ⚠️"}
+              </span>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label htmlFor="ai-treasury-key" className="text-sm font-medium">
+              Treasury Wallet Private Key (Base58)
+            </label>
+            <div className="relative">
+              <Input
+                id="ai-treasury-key"
+                type={showTreasuryKey ? "text" : "password"}
+                value={treasuryKey}
+                onChange={(e) => setTreasuryKey(e.target.value)}
+                placeholder="Enter treasury wallet private key"
+                className="font-mono pr-10"
+                data-testid="input-ai-treasury-key"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2"
+                onClick={() => setShowTreasuryKey(!showTreasuryKey)}
+                data-testid="button-toggle-ai-treasury-visibility"
+              >
+                {showTreasuryKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Required for automated AI trading execution. This wallet must hold SOL for trades.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              onClick={handleSaveTreasuryKey}
+              disabled={isSavingKey || !treasuryKey.trim()}
+              className="flex-1"
+              data-testid="button-save-ai-treasury-key"
+            >
+              {isSavingKey ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Key className="h-4 w-4 mr-2" />
+                  Save Private Key
+                </>
+              )}
+            </Button>
+
+            {aiConfig?.treasuryKeyCiphertext && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={isDeletingKey} data-testid="button-delete-ai-treasury-key">
+                    {isDeletingKey ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      "Delete Key"
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Treasury Key?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will remove the encrypted private key from secure storage.
+                      Automated AI trading will stop until you add a new key.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteTreasuryKey}>
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Controls */}
       <Card>

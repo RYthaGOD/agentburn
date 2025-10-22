@@ -1086,6 +1086,154 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save AI bot treasury key (encrypted)
+  app.post("/api/ai-bot/config/treasury-key", authRateLimit, async (req, res) => {
+    try {
+      const { ownerWalletAddress, signature, message, treasuryPrivateKey } = req.body;
+      
+      if (!ownerWalletAddress || !signature || !message || !treasuryPrivateKey) {
+        return res.status(400).json({ 
+          message: "Missing required fields: ownerWalletAddress, signature, message, and treasuryPrivateKey are required" 
+        });
+      }
+
+      // Verify wallet signature
+      const { verifyWalletSignature } = await import("./solana-sdk");
+      const isValidSignature = await verifyWalletSignature(
+        ownerWalletAddress,
+        message,
+        signature
+      );
+
+      if (!isValidSignature) {
+        return res.status(401).json({ message: "Invalid signature" });
+      }
+
+      // Extract timestamp from message
+      const timestampMatch = message.match(/at (\d+)$/);
+      if (!timestampMatch) {
+        return res.status(400).json({ message: "Invalid message format" });
+      }
+
+      const messageTimestamp = parseInt(timestampMatch[1], 10);
+      const now = Date.now();
+      const fiveMinutesInMs = 5 * 60 * 1000;
+      if (now - messageTimestamp > fiveMinutesInMs) {
+        return res.status(400).json({ message: "Message expired. Please try again." });
+      }
+
+      // Validate the private key format (Solana private keys are base58 encoded)
+      const { loadKeypairFromPrivateKey } = await import("./solana-sdk");
+      try {
+        loadKeypairFromPrivateKey(treasuryPrivateKey);
+      } catch (error) {
+        return res.status(400).json({ 
+          message: "Invalid private key format. Must be a valid base58-encoded Solana private key." 
+        });
+      }
+
+      // Encrypt the private key
+      const { encrypt } = await import("./crypto");
+      const { ciphertext, iv, authTag } = encrypt(treasuryPrivateKey);
+      
+      // Generate fingerprint for verification (hash of public key)
+      const treasuryKeypair = loadKeypairFromPrivateKey(treasuryPrivateKey);
+      const fingerprint = treasuryKeypair.publicKey.toString().slice(0, 8);
+
+      auditLog("save_ai_bot_treasury_key", {
+        walletAddress: ownerWalletAddress,
+        fingerprint,
+        ip: req.ip || "unknown",
+      });
+
+      // Get existing config or create new one
+      let config = await storage.getAIBotConfig(ownerWalletAddress);
+      if (!config) {
+        config = await storage.createOrUpdateAIBotConfig({
+          ownerWalletAddress,
+          enabled: false,
+          totalBudget: "0",
+          budgetPerTrade: "0.1",
+        });
+      }
+
+      // Update with encrypted key
+      const updated = await storage.createOrUpdateAIBotConfig({
+        ownerWalletAddress,
+        treasuryKeyCiphertext: ciphertext,
+        treasuryKeyIv: iv,
+        treasuryKeyAuthTag: authTag,
+        treasuryKeyFingerprint: fingerprint,
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Treasury key encrypted and saved successfully",
+        fingerprint 
+      });
+    } catch (error: any) {
+      console.error("Save AI bot treasury key error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Delete AI bot treasury key
+  app.delete("/api/ai-bot/config/treasury-key", authRateLimit, async (req, res) => {
+    try {
+      const { ownerWalletAddress, signature, message } = req.body;
+      
+      if (!ownerWalletAddress || !signature || !message) {
+        return res.status(400).json({ 
+          message: "Missing required fields: ownerWalletAddress, signature, and message are required" 
+        });
+      }
+
+      // Verify wallet signature
+      const { verifyWalletSignature } = await import("./solana-sdk");
+      const isValidSignature = await verifyWalletSignature(
+        ownerWalletAddress,
+        message,
+        signature
+      );
+
+      if (!isValidSignature) {
+        return res.status(401).json({ message: "Invalid signature" });
+      }
+
+      // Extract timestamp from message
+      const timestampMatch = message.match(/at (\d+)$/);
+      if (!timestampMatch) {
+        return res.status(400).json({ message: "Invalid message format" });
+      }
+
+      const messageTimestamp = parseInt(timestampMatch[1], 10);
+      const now = Date.now();
+      const fiveMinutesInMs = 5 * 60 * 1000;
+      if (now - messageTimestamp > fiveMinutesInMs) {
+        return res.status(400).json({ message: "Message expired. Please try again." });
+      }
+
+      auditLog("delete_ai_bot_treasury_key", {
+        walletAddress: ownerWalletAddress,
+        ip: req.ip || "unknown",
+      });
+
+      // Remove encrypted key fields
+      await storage.createOrUpdateAIBotConfig({
+        ownerWalletAddress,
+        treasuryKeyCiphertext: null,
+        treasuryKeyIv: null,
+        treasuryKeyAuthTag: null,
+        treasuryKeyFingerprint: null,
+      });
+
+      res.json({ success: true, message: "Treasury key deleted successfully" });
+    } catch (error: any) {
+      console.error("Delete AI bot treasury key error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ============ PROJECT-BASED AI BOT ROUTES (LEGACY) ============
 
   // Manual trigger of AI trading bot
