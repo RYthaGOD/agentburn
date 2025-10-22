@@ -117,6 +117,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Real-time monitoring endpoints
+  app.get("/api/projects/:id/metrics", async (req, res) => {
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Get latest price from realtime service or database
+      const { realtimeService } = await import("./realtime");
+      let latestPriceSOL = project.latestPriceSOL;
+      let priceTimestamp = project.priceTimestamp;
+
+      // Try to get fresher price from cache
+      const cachedPrice = await realtimeService.getLatestPrice(project.tokenMintAddress);
+      if (cachedPrice !== null) {
+        latestPriceSOL = cachedPrice.toString();
+        priceTimestamp = new Date();
+      }
+
+      res.json({
+        projectId: project.id,
+        tokenMintAddress: project.tokenMintAddress,
+        latestPriceSOL,
+        priceTimestamp,
+        lastBotRunAt: project.lastBotRunAt,
+        lastBotStatus: project.lastBotStatus,
+        volumeBotEnabled: project.volumeBotEnabled,
+        buyBotEnabled: project.buyBotEnabled,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/projects/:id/transactions/recent", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const transactions = await storage.getTransactionsByProject(req.params.id);
+      
+      // Sort by created date and limit
+      const recentTransactions = transactions
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, limit);
+
+      res.json(recentTransactions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Transaction routes
   app.get("/api/transactions", async (req, res) => {
     try {
