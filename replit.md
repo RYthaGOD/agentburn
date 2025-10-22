@@ -2,7 +2,12 @@
 
 ## Overview
 
-BurnBot is a SaaS platform designed for Solana SPL token creators to automate token buyback and burn operations. It offers a no-code solution with a comprehensive dashboard for configuration, flexible scheduling (hourly, daily, weekly, custom cron), and transaction monitoring. The platform aims to provide a streamlined, automated, and verifiable burn mechanism to enhance tokenomics for Solana projects. Additionally, BurnBot includes trading bot features such as a Volume Bot for generating trading volume through automated buy/sell cycles and a Buy Bot for executing limit orders when target SOL prices are met.
+BurnBot is a SaaS platform designed for Solana SPL token creators to automate token buyback and burn operations. It offers a no-code solution with a comprehensive dashboard for configuration, flexible scheduling (hourly, daily, weekly, custom cron), and transaction monitoring. The platform aims to provide a streamlined, automated, and verifiable burn mechanism to enhance tokenomics for Solana projects.
+
+Additionally, BurnBot includes three types of trading bots:
+1. **Volume Bot:** Generates trading volume through automated buy/sell cycles
+2. **Buy Bot:** Executes limit orders when target SOL prices are met
+3. **AI Trading Bot:** **Completely standalone** - scans trending tokens, analyzes with free AI (Groq), and executes trades based on AI confidence and minimum 150% upside potential. Works independently without requiring any buyback/burn projects.
 
 ## User Preferences
 
@@ -24,28 +29,49 @@ A dedicated scheduler service automates buyback execution using `node-cron`. It 
 
 ### Trading Bot System
 
-The platform includes automated trading bots with comprehensive configuration interfaces:
+The platform includes three types of automated trading bots with comprehensive configuration interfaces:
+
+#### Volume Bot & Buy Bot (Project-Linked)
 - **Volume Bot:** Executes buy/sell cycles to generate trading volume based on configurable buy amounts, sell percentages, trading intervals, and price guards (min/max SOL thresholds). Configuration UI at `/dashboard/volume-bot` allows users to enable/disable bots and set all parameters via dialog forms.
 - **Buy Bot (Limit Orders):** Monitors token prices and executes buy orders when predefined SOL target prices are met, with configurable limit orders and max slippage protection. Configuration UI at `/dashboard/trading-bot` provides dynamic limit order management (add/remove orders) and max slippage settings.
-- **AI Trading Bot:** AI-powered PumpFun token analysis with strict risk management. Scans trending tokens from DexScreener, analyzes market data (volume, holders, price momentum, liquidity) using Groq's free Llama 3.3-70B AI, and executes buy orders ONLY when:
+
+#### AI Trading Bot (Standalone - Works Without Projects)
+**Complete Independence:** The AI trading bot operates entirely independently without requiring any buyback/burn projects. Configuration stored in dedicated `aiBotConfigs` table keyed by wallet address.
+
+**Configuration Management:**
+- API Routes: `GET /api/ai-bot/config/:ownerWalletAddress`, `POST /api/ai-bot/config`, `DELETE /api/ai-bot/config/:ownerWalletAddress`
+- Wallet signature authentication required for all config operations
+- Stores encrypted treasury keys directly in AI bot config (separate from project secrets)
+
+**Trading Logic:** Scans trending tokens from DexScreener, analyzes market data (volume, holders, price momentum, liquidity) using Groq's free Llama 3.3-70B AI, and executes buy orders ONLY when:
   - AI confidence ≥ 60%
   - Minimum 1.5X (150%) upside potential (hardcoded minimum)
   - Total budget not exhausted
   - Daily trade limit not reached
   
-  **Budget Management:** Total SOL budget allocation with real-time usage tracking. Prevents overspending by checking remaining budget before each trade and updating budget used after execution. Visual progress bars show budget consumption per project.
+**Budget Management:** Total SOL budget allocation with real-time usage tracking. Prevents overspending by checking remaining budget before each trade and updating budget used after execution. Visual progress bars show budget consumption.
   
-  **Configurable Parameters:** Total budget (SOL), budget per trade, analysis interval, minimum volume threshold (USD), minimum potential upside (≥150%), daily trade limit, and risk tolerance (low/medium/high). Uses Jupiter Ultra API for trading execution (better routing and pricing). All completely free (Groq + DexScreener + Jupiter).
+**Configurable Parameters:** Total budget (SOL), budget per trade, analysis interval, minimum volume threshold (USD), minimum potential upside (≥150%), daily trade limit, and risk tolerance (low/medium/high). Uses Jupiter Ultra API for trading execution (better routing and pricing). All completely free (Groq + DexScreener + Jupiter).
 
 Price fetching for all bots uses Jupiter Price v3 API for SOL-denominated prices.
 
 ### Data Storage
 
-PostgreSQL, accessed via Neon's serverless driver and Drizzle ORM, is used for data persistence. The schema includes `Projects`, `Transactions`, `Payments`, and `UsedSignatures` (for replay attack prevention). Key decisions include UUID primary keys, decimal types for token amounts, automatic timestamps, and boolean flags for status. Trading bot settings are stored directly in the `projects` table.
+PostgreSQL, accessed via Neon's serverless driver and Drizzle ORM, is used for data persistence. The schema includes `Projects`, `Transactions`, `Payments`, `UsedSignatures` (for replay attack prevention), `ProjectSecrets` (encrypted keys), and `AIBotConfigs` (standalone AI bot configuration).
 
-**AI Bot Budget Tracking Fields:**
-- `aiBotTotalBudget`: Total SOL allocated for AI trading (user-defined)
-- `aiBotBudgetUsed`: Total SOL spent so far (auto-incremented after each trade)
+**Key Schema Decisions:**
+- UUID primary keys for all tables
+- Decimal types for token amounts and SOL balances
+- Automatic timestamps (createdAt, updatedAt)
+- Boolean flags for status tracking
+- Volume/Buy bot settings stored in `projects` table
+- **AI bot settings stored in standalone `aiBotConfigs` table** (one config per wallet address)
+
+**AI Bot Standalone Configuration (`aiBotConfigs`):**
+- Keyed by `ownerWalletAddress` (unique constraint)
+- Stores: enabled status, budget tracking (`totalBudget`, `budgetUsed`), per-trade budget, analysis interval, risk parameters
+- Encrypted treasury keys stored directly in config (separate from project secrets)
+- Independent lifecycle - not deleted when projects are deleted
 - Budget validation occurs before every trade execution to prevent overspending
 
 ### Authentication & Authorization
@@ -71,7 +97,15 @@ The platform prioritizes user data protection with defense-in-depth security:
 
 ### Production Readiness & Automated Workflow
 
-The system supports secure encrypted key management, storing private keys encrypted in the database. A UI allows wallet signature-authenticated key storage/deletion. The automated workflow includes claiming PumpFun rewards, checking treasury and reward balances, executing optimal SOL to token swaps via Jupiter Ultra API, and burning tokens. On-chain SOL payment verification supports tier-based subscriptions and a 10-day trial period, with whitelisted wallets bypassing payment requirements.
+The system supports secure encrypted key management, storing private keys encrypted in the database. A UI allows wallet signature-authenticated key storage/deletion. The automated workflow includes claiming PumpFun rewards, checking treasury and reward balances, executing optimal SOL to token swaps via Jupiter Ultra API, and burning tokens.
+
+**Payment & Trial System:**
+- On-chain SOL payment verification supports tier-based subscriptions
+- **10-day free trial automatically granted to first 100 projects**
+- Auto-grant mechanism: Scheduler detects projects without `trialEndsAt` and grants trial if within first 100 signups
+- Whitelisted wallets bypass all payment requirements
+- Trial status visible on project dashboard with days remaining
+- After trial expiration, valid payment required for automation to continue
 
 ### Transaction Fee System
 
