@@ -11,6 +11,7 @@ import {
   claimCreatorRewardsFull 
 } from "./pumpfun";
 import { burnTokens, loadKeypairFromPrivateKey, getSolBalance } from "./solana-sdk";
+import { executeVolumeBot, executeBuyBot, shouldRunVolumeBot } from "./trading-bot";
 
 interface SchedulerConfig {
   enabled: boolean;
@@ -89,10 +90,47 @@ class BuybackScheduler {
           console.log(`Executing buyback for project: ${project.name}`);
           await this.executeBuyback(project.id);
         }
+
+        // Execute volume bot if enabled and it's time to run
+        if (project.volumeBotEnabled) {
+          const lastVolumeRun = await this.getLastBotRun(project.id, 'volume');
+          if (shouldRunVolumeBot(project, lastVolumeRun)) {
+            console.log(`Executing volume bot for project: ${project.name}`);
+            const volumeResult = await executeVolumeBot(project);
+            if (volumeResult.success) {
+              await this.recordBotRun(project.id, 'volume');
+              console.log(`Volume bot completed: ${volumeResult.volume} SOL volume generated`);
+            } else {
+              console.error(`Volume bot failed: ${volumeResult.error}`);
+            }
+          }
+        }
+
+        // Execute buy bot if enabled (runs every check to monitor price)
+        if (project.buyBotEnabled) {
+          console.log(`Checking buy bot limit orders for project: ${project.name}`);
+          const buyBotResult = await executeBuyBot(project);
+          if (buyBotResult.success && buyBotResult.transactionSignatures.length > 0) {
+            console.log(`Buy bot executed ${buyBotResult.transactionSignatures.length} limit orders`);
+          }
+        }
       }
     } catch (error) {
       console.error("Error in scheduled buyback execution:", error);
     }
+  }
+
+  // Track last bot run times in memory (could be moved to database in production)
+  private botRunTimes: Map<string, Date> = new Map();
+
+  private async getLastBotRun(projectId: string, botType: 'volume' | 'buy'): Promise<Date | null> {
+    const key = `${projectId}:${botType}`;
+    return this.botRunTimes.get(key) || null;
+  }
+
+  private async recordBotRun(projectId: string, botType: 'volume' | 'buy'): Promise<void> {
+    const key = `${projectId}:${botType}`;
+    this.botRunTimes.set(key, new Date());
   }
 
   async executeBuyback(projectId: string) {
