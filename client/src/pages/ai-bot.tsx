@@ -567,8 +567,8 @@ export default function AIBot() {
                             });
                             queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
                             toast({
-                              title: "AI Bot Stopped",
-                              description: "AI trading bot has been disabled",
+                              title: "Automatic Trading Stopped",
+                              description: "Scheduled AI trading has been disabled. You can still scan manually.",
                             });
                           } catch (error) {
                             toast({
@@ -581,7 +581,7 @@ export default function AIBot() {
                         data-testid={`button-stop-ai-bot-${project.id}`}
                       >
                         <Power className="h-4 w-4 mr-2" />
-                        Stop AI Bot
+                        Stop Auto Trading
                       </Button>
                     ) : (
                       <Button
@@ -594,8 +594,8 @@ export default function AIBot() {
                             });
                             queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
                             toast({
-                              title: "AI Bot Started",
-                              description: "AI trading bot is now active",
+                              title: "Automatic Trading Started",
+                              description: "AI bot will now run on schedule",
                             });
                           } catch (error) {
                             toast({
@@ -608,12 +608,12 @@ export default function AIBot() {
                         data-testid={`button-start-ai-bot-${project.id}`}
                       >
                         <Play className="h-4 w-4 mr-2" />
-                        Start AI Bot
+                        Start Auto Trading
                       </Button>
                     )}
                     <AIBotConfigDialog project={project} />
                   </div>
-                  {project.aiBotEnabled && <ScanAndTradeButton project={project} />}
+                  <ScanAndTradeButton project={project} />
                 </div>
               </CardContent>
             </Card>

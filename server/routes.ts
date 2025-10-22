@@ -585,13 +585,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Check if AI bot is configured
-      if (!project.aiBotEnabled) {
-        return res.status(400).json({ 
-          message: "AI bot is not enabled for this project. Please enable it first." 
-        });
-      }
-
       // Check for valid payment (unless whitelisted)
       const { WHITELISTED_WALLETS } = await import("@shared/config");
       const isWhitelisted = WHITELISTED_WALLETS.includes(project.ownerWalletAddress);
