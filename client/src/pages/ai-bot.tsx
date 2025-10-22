@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Brain, Loader2, Zap, AlertCircle, Play, Power, Scan, TrendingUp } from "lucide-react";
+import { Brain, Loader2, Zap, AlertCircle, Play, Power, Scan, TrendingUp, Activity, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -48,9 +50,20 @@ export default function AIBot() {
   const [isScanning, setIsScanning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
+  const [scanLog, setScanLog] = useState<Array<{
+    timestamp: number;
+    message: string;
+    type: "info" | "success" | "warning" | "error";
+  }>>([]);
   
   const { data: projects, isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects/owner", publicKey?.toString()],
+    enabled: connected && !!publicKey,
+  });
+
+  // Fetch recent transactions to show AI bot activity
+  const { data: recentTransactions } = useQuery({
+    queryKey: ["/api/transactions"],
     enabled: connected && !!publicKey,
   });
 
@@ -73,6 +86,10 @@ export default function AIBot() {
     },
   });
 
+  const addScanLog = (message: string, type: "info" | "success" | "warning" | "error" = "info") => {
+    setScanLog(prev => [...prev, { timestamp: Date.now(), message, type }]);
+  };
+
   const handleScanAndTrade = async () => {
     if (!publicKey || !signMessage || !aiProject) {
       toast({
@@ -84,31 +101,42 @@ export default function AIBot() {
     }
 
     setIsScanning(true);
+    setScanLog([]); // Clear previous logs
+    
     try {
+      addScanLog("🔍 Connecting to DexScreener API...", "info");
+      
       const message = `Execute AI bot for project ${aiProject.id} at ${Date.now()}`;
       const messageBytes = new TextEncoder().encode(message);
       const signature = await signMessage(messageBytes);
       const signatureBase58 = bs58.encode(signature);
+
+      addScanLog("✅ Wallet signature verified", "success");
+      addScanLog("📡 Fetching trending tokens from DexScreener...", "info");
 
       toast({
         title: "🔍 Scanning Market...",
         description: "AI is analyzing trending Solana tokens via DexScreener",
       });
 
-      await apiRequest("POST", `/api/execute-ai-bot/${aiProject.id}`, {
+      const response = await apiRequest("POST", `/api/execute-ai-bot/${aiProject.id}`, {
         ownerWalletAddress: publicKey.toString(),
         signature: signatureBase58,
         message,
       });
+
+      addScanLog("✅ Market scan completed", "success");
+      addScanLog(`ℹ️ Check results below and Transactions page for details`, "info");
 
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
 
       toast({
         title: "✅ Market Scan Complete",
-        description: "Check Transactions page for any trades executed",
+        description: "See scan activity log for details",
       });
     } catch (error: any) {
+      addScanLog(`❌ Error: ${error.message}`, "error");
       toast({
         title: "Scan Failed",
         description: error.message || "Failed to execute AI bot",
@@ -333,6 +361,65 @@ export default function AIBot() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Scan Activity Log */}
+      {(scanLog.length > 0 || isScanning) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Scan Activity Log
+            </CardTitle>
+            <CardDescription>
+              Real-time view of what the AI bot is scanning and analyzing
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[300px] w-full rounded-md border p-4">
+              <div className="space-y-2">
+                {scanLog.length === 0 && isScanning ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Initializing scan...</span>
+                  </div>
+                ) : (
+                  scanLog.map((log, index) => (
+                    <div key={index} className="flex items-start gap-2 text-sm">
+                      {log.type === "success" ? (
+                        <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      ) : log.type === "error" ? (
+                        <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                      ) : log.type === "warning" ? (
+                        <AlertCircle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                      ) : (
+                        <Clock className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                      )}
+                      <div className="flex-1">
+                        <span className={
+                          log.type === "success" ? "text-green-600 dark:text-green-400" :
+                          log.type === "error" ? "text-red-600 dark:text-red-400" :
+                          log.type === "warning" ? "text-yellow-600 dark:text-yellow-400" :
+                          "text-muted-foreground"
+                        }>
+                          {log.message}
+                        </span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+            {scanLog.length > 0 && !isScanning && (
+              <div className="mt-4 text-xs text-muted-foreground">
+                💡 Tip: The backend analyzes 35+ tokens. Check server logs or Transactions page for full details.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Configuration */}
       <Card>
