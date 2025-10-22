@@ -47,6 +47,7 @@ export default function AIBot() {
   const { toast } = useToast();
   const [isScanning, setIsScanning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
   
   const { data: projects, isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects/owner", publicKey?.toString()],
@@ -121,16 +122,25 @@ export default function AIBot() {
   const handleToggleBot = async () => {
     if (!aiProject) return;
     
+    setIsToggling(true);
     try {
       await apiRequest("PATCH", `/api/projects/${aiProject.id}`, {
         aiBotEnabled: !isEnabled,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      
+      // Invalidate all project queries to refetch data
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects/owner", publicKey?.toString()] 
+      });
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/projects"] 
+      });
+      
       toast({
-        title: isEnabled ? "Auto Trading Stopped" : "Auto Trading Started",
+        title: isEnabled ? "✅ Auto Trading Stopped" : "🚀 Auto Trading Started",
         description: isEnabled 
           ? "Scheduled scans disabled. You can still scan manually." 
-          : "AI will scan market on schedule",
+          : "AI will scan market automatically based on your schedule",
       });
     } catch (error) {
       toast({
@@ -138,6 +148,8 @@ export default function AIBot() {
         description: "Failed to toggle AI bot",
         variant: "destructive",
       });
+    } finally {
+      setIsToggling(false);
     }
   };
 
@@ -276,9 +288,15 @@ export default function AIBot() {
               onClick={handleToggleBot}
               variant={isEnabled ? "destructive" : "default"}
               className="flex-1"
+              disabled={isToggling}
               data-testid="button-toggle-auto-trading"
             >
-              {isEnabled ? (
+              {isToggling ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {isEnabled ? "Stopping..." : "Starting..."}
+                </>
+              ) : isEnabled ? (
                 <>
                   <Power className="h-4 w-4 mr-2" />
                   Stop Auto Trading
