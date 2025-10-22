@@ -33,6 +33,15 @@ export const projects = pgTable("projects", {
   buyBotLimitOrders: text("buy_bot_limit_orders"), // JSON array: [{ priceSOL: "0.001", amountSOL: "0.1" }]
   buyBotMaxSlippage: decimal("buy_bot_max_slippage", { precision: 5, scale: 2 }), // 0-100%
   
+  // AI Trading Bot Settings (Grok-powered PumpFun trading)
+  aiBotEnabled: boolean("ai_bot_enabled").notNull().default(false),
+  aiBotBudgetPerTrade: decimal("ai_bot_budget_per_trade", { precision: 18, scale: 9 }), // Max SOL per trade
+  aiBotAnalysisInterval: integer("ai_bot_analysis_interval"), // Minutes between market scans
+  aiBotMinVolumeUSD: decimal("ai_bot_min_volume_usd", { precision: 18, scale: 2 }), // Min 24h volume filter
+  aiBotMinPotentialPercent: decimal("ai_bot_min_potential_percent", { precision: 5, scale: 2 }), // Min upside %
+  aiBotMaxDailyTrades: integer("ai_bot_max_daily_trades"), // Daily trade limit
+  aiBotRiskTolerance: text("ai_bot_risk_tolerance"), // "low", "medium", "high"
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   
@@ -46,7 +55,7 @@ export const projects = pgTable("projects", {
 export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: varchar("project_id").notNull().references(() => projects.id),
-  type: text("type").notNull(), // claim, buyback, burn, volume_buy, volume_sell, limit_buy
+  type: text("type").notNull(), // claim, buyback, burn, volume_buy, volume_sell, limit_buy, ai_buy, ai_sell
   amount: decimal("amount", { precision: 18, scale: 9 }).notNull(),
   tokenAmount: decimal("token_amount", { precision: 18, scale: 9 }),
   txSignature: text("tx_signature").notNull(),
@@ -162,6 +171,14 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   // Buy bot validations
   buyBotLimitOrders: z.string().optional(), // JSON string
   buyBotMaxSlippage: z.string().optional(),
+  
+  // AI bot validations
+  aiBotBudgetPerTrade: z.string().optional(),
+  aiBotAnalysisInterval: z.number().min(5).max(1440).optional(), // 5 min to 24 hours
+  aiBotMinVolumeUSD: z.string().optional(),
+  aiBotMinPotentialPercent: z.string().optional(),
+  aiBotMaxDailyTrades: z.number().min(1).max(100).optional(),
+  aiBotRiskTolerance: z.enum(["low", "medium", "high"]).optional(),
 });
 
 export const insertTransactionSchema = createInsertSchema(transactions).omit({

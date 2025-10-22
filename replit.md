@@ -26,7 +26,10 @@ A dedicated scheduler service automates buyback execution using `node-cron`. It 
 
 The platform includes automated trading bots with comprehensive configuration interfaces:
 - **Volume Bot:** Executes buy/sell cycles to generate trading volume based on configurable buy amounts, sell percentages, trading intervals, and price guards (min/max SOL thresholds). Configuration UI at `/dashboard/volume-bot` allows users to enable/disable bots and set all parameters via dialog forms.
-- **Buy Bot (Limit Orders):** Monitors token prices and executes buy orders when predefined SOL target prices are met, with configurable limit orders and max slippage protection. Configuration UI at `/dashboard/trading-bot` provides dynamic limit order management (add/remove orders) and max slippage settings. Price fetching for both bots uses Jupiter Price v4 API for SOL-denominated prices.
+- **Buy Bot (Limit Orders):** Monitors token prices and executes buy orders when predefined SOL target prices are met, with configurable limit orders and max slippage protection. Configuration UI at `/dashboard/trading-bot` provides dynamic limit order management (add/remove orders) and max slippage settings.
+- **AI Trading Bot:** Grok-powered PumpFun token analysis and automated trading. Scans trending tokens, analyzes market data (volume, holders, price momentum, liquidity) using xAI's Grok API, and executes buy orders based on AI recommendations. Configurable parameters include budget per trade, analysis interval, minimum volume/potential thresholds, daily trade limits, and risk tolerance (low/medium/high). Uses PumpPortal API for trading execution. Configuration UI at `/dashboard/ai-bot` provides enable/disable toggle, parameter settings, and trade history.
+
+Price fetching for all bots uses Jupiter Price v3 API for SOL-denominated prices.
 
 ### Data Storage
 
@@ -77,7 +80,8 @@ A 0.5% transaction fee applies to all transaction types (buybacks, volume bot, b
 - Neon Database (PostgreSQL)
 - Jupiter Ultra API (Swap API)
 - Jupiter Price API v3 (lite-api.jup.ag) - SOL-denominated prices via USD conversion
-- PumpFun Lightning API
+- PumpFun Lightning API & PumpPortal Trading API
+- xAI Grok API (grok-4-fast-reasoning model for AI trading analysis)
 
 **UI Dependencies:**
 - Radix UI

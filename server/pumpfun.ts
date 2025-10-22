@@ -1,9 +1,12 @@
-// PumpFun Lightning API integration for claiming creator rewards
+// PumpFun Lightning API integration for claiming creator rewards and trading
 // Creators earn 0.05% of trading volume in SOL
 
 import { signAndSendVersionedTransaction, loadKeypairFromPrivateKey } from "./solana-sdk";
+import { Connection, VersionedTransaction, Keypair } from "@solana/web3.js";
+import { getAssociatedTokenAddress, getAccount } from "@solana/spl-token";
 
 const PUMPFUN_API_URL = "https://pumpportal.fun/api/trade-local";
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
 
 interface ClaimCreatorFeeRequest {
   publicKey: string; // Creator's Solana wallet address
@@ -215,5 +218,177 @@ export async function claimCreatorRewardsFull(
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
     };
+  }
+}
+
+// ============================================================================
+// PumpFun Trading Functions (AI Trading Bot)
+// ============================================================================
+
+interface TradeResult {
+  success: boolean;
+  signature?: string;
+  error?: string;
+  amountTraded?: number;
+}
+
+const solanaConnection = new Connection(SOLANA_RPC_URL, "confirmed");
+
+/**
+ * Buy tokens on PumpFun using PumpPortal API
+ */
+export async function buyTokenOnPumpFun(
+  walletKeypair: Keypair,
+  tokenMint: string,
+  amountSOL: number,
+  slippage: number = 10,
+  priorityFee: number = 0.00001
+): Promise<TradeResult> {
+  try {
+    const publicKey = walletKeypair.publicKey.toString();
+    
+    console.log(`[PumpFun] Buying ${amountSOL} SOL worth of ${tokenMint}`);
+
+    // Build transaction via PumpPortal
+    const response = await fetch(PUMPFUN_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        publicKey,
+        action: "buy",
+        mint: tokenMint,
+        denominatedInSol: "true",
+        amount: amountSOL,
+        slippage,
+        priorityFee,
+        pool: "pump", // Use PumpFun bonding curve
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`PumpPortal API error: ${response.status} - ${errorText}`);
+    }
+
+    // Deserialize and sign transaction
+    const data = await response.arrayBuffer();
+    const tx = VersionedTransaction.deserialize(new Uint8Array(data));
+    tx.sign([walletKeypair]);
+
+    // Send transaction
+    const signature = await solanaConnection.sendTransaction(tx, {
+      skipPreflight: true, // Faster execution for trading
+      maxRetries: 3,
+    });
+
+    // Wait for confirmation
+    await solanaConnection.confirmTransaction(signature, "confirmed");
+
+    console.log(`[PumpFun] Buy successful: ${signature}`);
+    return { success: true, signature, amountTraded: amountSOL };
+  } catch (error) {
+    console.error(`[PumpFun] Buy failed:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Sell tokens on PumpFun using PumpPortal API
+ */
+export async function sellTokenOnPumpFun(
+  walletKeypair: Keypair,
+  tokenMint: string,
+  options: {
+    percentage?: number; // 0-100, e.g., 100 for selling all
+    amount?: number; // Specific token amount
+    slippage?: number;
+    priorityFee?: number;
+  }
+): Promise<TradeResult> {
+  try {
+    const publicKey = walletKeypair.publicKey.toString();
+    const slippage = options.slippage || 10;
+    const priorityFee = options.priorityFee || 0.00001;
+
+    let sellAmount: string | number;
+    if (options.percentage !== undefined) {
+      sellAmount = `${options.percentage}%`;
+      console.log(`[PumpFun] Selling ${options.percentage}% of ${tokenMint}`);
+    } else if (options.amount !== undefined) {
+      sellAmount = options.amount;
+      console.log(`[PumpFun] Selling ${options.amount} tokens of ${tokenMint}`);
+    } else {
+      throw new Error("Must specify either percentage or amount for sell");
+    }
+
+    // Build transaction via PumpPortal
+    const response = await fetch(PUMPFUN_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        publicKey,
+        action: "sell",
+        mint: tokenMint,
+        denominatedInSol: "false",
+        amount: sellAmount,
+        slippage,
+        priorityFee,
+        pool: "pump",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`PumpPortal API error: ${response.status} - ${errorText}`);
+    }
+
+    // Deserialize and sign transaction
+    const data = await response.arrayBuffer();
+    const tx = VersionedTransaction.deserialize(new Uint8Array(data));
+    tx.sign([walletKeypair]);
+
+    // Send transaction
+    const signature = await solanaConnection.sendTransaction(tx, {
+      skipPreflight: true,
+      maxRetries: 3,
+    });
+
+    // Wait for confirmation
+    await solanaConnection.confirmTransaction(signature, "confirmed");
+
+    console.log(`[PumpFun] Sell successful: ${signature}`);
+    return { success: true, signature };
+  } catch (error) {
+    console.error(`[PumpFun] Sell failed:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Get token balance for a wallet
+ */
+export async function getTokenBalance(
+  walletAddress: string,
+  tokenMint: string
+): Promise<number> {
+  try {
+    const { PublicKey } = await import("@solana/web3.js");
+    
+    const walletPubkey = new PublicKey(walletAddress);
+    const mintPubkey = new PublicKey(tokenMint);
+
+    const tokenAccount = await getAssociatedTokenAddress(mintPubkey, walletPubkey);
+    const accountInfo = await getAccount(solanaConnection, tokenAccount);
+
+    return Number(accountInfo.amount);
+  } catch (error) {
+    // Token account doesn't exist - balance is 0
+    return 0;
   }
 }

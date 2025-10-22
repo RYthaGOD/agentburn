@@ -776,6 +776,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manual trigger of AI trading bot
+  app.post("/api/projects/:projectId/trigger-ai-bot", authRateLimit, async (req, res) => {
+    try {
+      const { ownerWalletAddress, signature, message } = req.body;
+      
+      if (!ownerWalletAddress || !signature || !message) {
+        return res.status(400).json({ 
+          message: "Missing required fields: ownerWalletAddress, signature, and message are required" 
+        });
+      }
+
+      const project = await storage.getProject(req.params.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Verify ownership
+      if (project.ownerWalletAddress !== ownerWalletAddress) {
+        return res.status(403).json({ message: "Unauthorized: You don't own this project" });
+      }
+
+      // Verify wallet signature
+      const { verifyWalletSignature } = await import("./solana-sdk");
+      const isValidSignature = await verifyWalletSignature(
+        ownerWalletAddress,
+        message,
+        signature
+      );
+
+      if (!isValidSignature) {
+        return res.status(401).json({ message: "Invalid signature" });
+      }
+
+      // Extract timestamp from message format: "Trigger AI bot for project {id} at {timestamp}"
+      const timestampMatch = message.match(/at (\d+)$/);
+      if (!timestampMatch) {
+        return res.status(400).json({ message: "Invalid message format" });
+      }
+
+      const messageTimestamp = parseInt(timestampMatch[1], 10);
+      
+      // Check timestamp (5 minute expiry)
+      const now = Date.now();
+      const fiveMinutesInMs = 5 * 60 * 1000;
+      if (now - messageTimestamp > fiveMinutesInMs) {
+        return res.status(400).json({ message: "Message expired. Please try again." });
+      }
+
+      // Prevent replay attacks
+      const signatureHash = crypto.createHash('sha256').update(signature).digest('hex');
+      try {
+        await storage.recordUsedSignature({
+          projectId: project.id,
+          signatureHash,
+          messageTimestamp: new Date(messageTimestamp),
+          expiresAt: new Date(messageTimestamp + fiveMinutesInMs),
+        });
+      } catch (error: any) {
+        if (error.code === '23505' || error.message?.includes('unique')) {
+          return res.status(400).json({ 
+            message: "Signature already used: This request has already been processed" 
+          });
+        }
+        throw error;
+      }
+
+      auditLog("trigger_ai_bot", {
+        projectId: project.id,
+        walletAddress: ownerWalletAddress,
+        ip: req.ip || "unknown",
+      });
+
+      console.log(`Manual AI bot trigger for ${project.name}`);
+
+      // Execute the AI trading bot
+      const { triggerAIBotManually } = await import("./ai-bot-scheduler");
+      await triggerAIBotManually(project.id);
+
+      res.json({
+        success: true,
+        message: `AI trading bot executed successfully`,
+        projectId: project.id,
+      });
+    } catch (error: any) {
+      console.error("Manual AI bot trigger error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get wallet balances for a project
   app.get("/api/projects/:projectId/wallet-balances", async (req, res) => {
     try {
