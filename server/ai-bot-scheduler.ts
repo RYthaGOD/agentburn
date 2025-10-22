@@ -23,55 +23,88 @@ interface AIBotState {
 const aiBotStates = new Map<string, AIBotState>();
 
 /**
- * Fetch trending PumpFun tokens
- * 
- * ⚠️ INTEGRATION REQUIRED: This is a placeholder function
- * 
- * To activate the AI trading bot, you must integrate a market data provider.
- * Recommended APIs:
- * 
- * 1. **DexScreener API** (Free, no auth required)
- *    - Get trending tokens: GET https://api.dexscreener.com/latest/dex/tokens/solana
- *    - Docs: https://docs.dexscreener.com/api/reference
- * 
- * 2. **Birdeye API** (Requires API key)
- *    - Get trending tokens: GET https://public-api.birdeye.so/defi/trending_tokens/solana
- *    - Docs: https://docs.birdeye.so/
- * 
- * 3. **Jupiter API** (Free, comprehensive)
- *    - Token list: https://token.jup.ag/all
- *    - Combine with DexScreener for volume data
- * 
- * Example implementation with DexScreener:
- * ```typescript
- * const response = await fetch(
- *   'https://api.dexscreener.com/latest/dex/search?q=pump'
- * );
- * const data = await response.json();
- * return data.pairs
- *   .filter(pair => pair.chainId === 'solana')
- *   .map(pair => ({
- *     mint: pair.baseToken.address,
- *     name: pair.baseToken.name,
- *     symbol: pair.baseToken.symbol,
- *     priceUSD: parseFloat(pair.priceUsd),
- *     priceSOL: parseFloat(pair.priceNative),
- *     volumeUSD24h: pair.volume.h24,
- *     marketCapUSD: pair.fdv,
- *     liquidityUSD: pair.liquidity.usd,
- *     priceChange24h: pair.priceChange.h24,
- *   }));
- * ```
+ * Fetch trending PumpFun tokens from DexScreener API
+ * Uses free DexScreener API to get real-time trading data for Solana tokens
  */
 async function fetchTrendingPumpFunTokens(): Promise<TokenMarketData[]> {
-  console.log("[AI Bot] ⚠️ WARNING: fetchTrendingPumpFunTokens() is not implemented");
-  console.log("[AI Bot] To activate AI trading, integrate DexScreener, Birdeye, or Jupiter API");
-  console.log("[AI Bot] See function comments for integration examples");
-  
-  // TODO: Replace this placeholder with actual API integration
-  // Uncomment and modify one of the examples above
-  
-  return []; // Currently returns empty - bot will not execute until data source is connected
+  try {
+    console.log("[AI Bot] Fetching trending PumpFun tokens from DexScreener...");
+    
+    // Search for PumpFun tokens on Solana DEXes
+    // We use multiple search terms to catch more PumpFun tokens
+    const searchQueries = ['pump', 'raydium', 'jupiter'];
+    const allPairs: any[] = [];
+    
+    for (const query of searchQueries) {
+      try {
+        const response = await fetch(
+          `https://api.dexscreener.com/latest/dex/search?q=${query}`,
+          {
+            headers: {
+              'Accept': 'application/json',
+            },
+          }
+        );
+        
+        if (!response.ok) {
+          console.error(`[AI Bot] DexScreener API error for query "${query}": ${response.status}`);
+          continue;
+        }
+
+        const data = await response.json();
+        if (data.pairs && Array.isArray(data.pairs)) {
+          allPairs.push(...data.pairs);
+        }
+        
+        // Rate limiting: DexScreener allows ~300 req/min, add small delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`[AI Bot] Failed to fetch query "${query}":`, error);
+      }
+    }
+    
+    // Filter for Solana chain only and deduplicate by token address
+    const seenAddresses = new Set<string>();
+    const uniquePairs = allPairs.filter((pair: any) => {
+      if (pair.chainId !== 'solana') return false;
+      if (!pair.baseToken?.address) return false;
+      if (seenAddresses.has(pair.baseToken.address)) return false;
+      seenAddresses.add(pair.baseToken.address);
+      return true;
+    });
+    
+    // Sort by 24h volume (highest first) and take top 50
+    const sortedPairs = uniquePairs
+      .filter((pair: any) => pair.volume?.h24 > 0) // Must have volume
+      .sort((a: any, b: any) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0))
+      .slice(0, 50);
+    
+    // Map to TokenMarketData format
+    const tokens: TokenMarketData[] = sortedPairs.map((pair: any) => ({
+      mint: pair.baseToken.address,
+      name: pair.baseToken.name || 'Unknown',
+      symbol: pair.baseToken.symbol || 'UNKNOWN',
+      priceUSD: parseFloat(pair.priceUsd || '0'),
+      priceSOL: parseFloat(pair.priceNative || '0'),
+      volumeUSD24h: pair.volume?.h24 || 0,
+      marketCapUSD: pair.fdv || pair.marketCap || 0,
+      liquidityUSD: pair.liquidity?.usd || 0,
+      priceChange24h: pair.priceChange?.h24 || 0,
+      priceChange1h: pair.priceChange?.h1 || 0,
+      holderCount: undefined, // DexScreener doesn't provide holder count
+    }));
+
+    console.log(`[AI Bot] ✅ Fetched ${tokens.length} trending Solana tokens from DexScreener`);
+    
+    if (tokens.length > 0) {
+      console.log(`[AI Bot] Top token: ${tokens[0].symbol} - $${tokens[0].volumeUSD24h.toLocaleString()} 24h volume`);
+    }
+    
+    return tokens;
+  } catch (error) {
+    console.error("[AI Bot] Failed to fetch trending tokens from DexScreener:", error);
+    return [];
+  }
 }
 
 /**
