@@ -168,9 +168,32 @@ async function executeAITradingBot(project: Project) {
 
     const treasuryKeypair = loadKeypairFromPrivateKey(treasuryKeyBase58);
 
+    // Check total budget and remaining balance
+    const totalBudget = parseFloat(project.aiBotTotalBudget || "0");
+    const budgetUsed = parseFloat(project.aiBotBudgetUsed || "0");
+    const remainingBudget = totalBudget - budgetUsed;
+    const budgetPerTrade = parseFloat(project.aiBotBudgetPerTrade || "0");
+
+    if (totalBudget > 0 && remainingBudget <= 0) {
+      console.log(`[AI Bot] Budget exhausted: ${budgetUsed}/${totalBudget} SOL used`);
+      await storage.updateProject(project.id, {
+        lastBotStatus: "skipped",
+        lastBotRunAt: new Date(),
+      });
+      return;
+    }
+
+    if (totalBudget > 0 && remainingBudget < budgetPerTrade) {
+      console.log(`[AI Bot] Insufficient budget: ${remainingBudget} SOL remaining (need ${budgetPerTrade} SOL per trade)`);
+      await storage.updateProject(project.id, {
+        lastBotStatus: "skipped",
+        lastBotRunAt: new Date(),
+      });
+      return;
+    }
+
     // Check SOL balance
     const solBalance = await getWalletBalance(treasuryKeypair.publicKey.toString());
-    const budgetPerTrade = parseFloat(project.aiBotBudgetPerTrade || "0");
     
     if (solBalance < budgetPerTrade + 0.01) { // +0.01 for fees
       console.log(`[AI Bot] Insufficient SOL balance: ${solBalance} SOL`);
@@ -180,6 +203,8 @@ async function executeAITradingBot(project: Project) {
       });
       return;
     }
+
+    console.log(`[AI Bot] Budget status: ${budgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used (${remainingBudget.toFixed(4)} remaining)`);
 
     // Fetch trending tokens
     const trendingTokens = await fetchTrendingPumpFunTokens();
@@ -233,6 +258,13 @@ async function executeAITradingBot(project: Project) {
         );
 
         if (result.success && result.signature) {
+          // Update budget tracking
+          const newBudgetUsed = budgetUsed + amountSOL;
+          await storage.updateProject(project.id, {
+            aiBotBudgetUsed: newBudgetUsed.toString(),
+          });
+          console.log(`[AI Bot] Budget updated: ${newBudgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used`);
+
           // Record transaction
           await storage.createTransaction({
             projectId: project.id,

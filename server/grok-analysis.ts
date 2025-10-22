@@ -148,6 +148,19 @@ Provide your analysis in JSON format with these exact fields:
 
     // Validate and enforce constraints based on risk tolerance
     if (analysis.action === "buy") {
+      // CRITICAL: Enforce minimum 1.5X (150%) return requirement
+      if (analysis.potentialUpsidePercent < 150) {
+        console.log(`[AI Analysis] Rejecting ${tokenData.symbol}: ${analysis.potentialUpsidePercent}% upside < 150% minimum`);
+        return {
+          action: "hold",
+          confidence: 0,
+          reasoning: `Rejected: Only ${analysis.potentialUpsidePercent.toFixed(1)}% potential upside. Minimum 150% (1.5X) required for risk management.`,
+          potentialUpsidePercent: analysis.potentialUpsidePercent,
+          riskLevel: "high",
+          keyFactors: ["Below minimum 1.5X return threshold"],
+        };
+      }
+
       // Adjust suggested amount based on risk tolerance
       if (!analysis.suggestedBuyAmountSOL || analysis.suggestedBuyAmountSOL > budgetPerTrade) {
         analysis.suggestedBuyAmountSOL = budgetPerTrade;

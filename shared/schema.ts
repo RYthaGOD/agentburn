@@ -35,10 +35,12 @@ export const projects = pgTable("projects", {
   
   // AI Trading Bot Settings (Grok-powered PumpFun trading)
   aiBotEnabled: boolean("ai_bot_enabled").notNull().default(false),
+  aiBotTotalBudget: decimal("ai_bot_total_budget", { precision: 18, scale: 9 }), // Total SOL budget allocated for AI trading
+  aiBotBudgetUsed: decimal("ai_bot_budget_used", { precision: 18, scale: 9 }).notNull().default("0"), // Total SOL spent so far
   aiBotBudgetPerTrade: decimal("ai_bot_budget_per_trade", { precision: 18, scale: 9 }), // Max SOL per trade
   aiBotAnalysisInterval: integer("ai_bot_analysis_interval"), // Minutes between market scans
   aiBotMinVolumeUSD: decimal("ai_bot_min_volume_usd", { precision: 18, scale: 2 }), // Min 24h volume filter
-  aiBotMinPotentialPercent: decimal("ai_bot_min_potential_percent", { precision: 5, scale: 2 }), // Min upside %
+  aiBotMinPotentialPercent: decimal("ai_bot_min_potential_percent", { precision: 18, scale: 2 }), // Min upside % (enforced minimum 150%)
   aiBotMaxDailyTrades: integer("ai_bot_max_daily_trades"), // Daily trade limit
   aiBotRiskTolerance: text("ai_bot_risk_tolerance"), // "low", "medium", "high"
   

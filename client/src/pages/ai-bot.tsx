@@ -20,6 +20,10 @@ import type { Project } from "@shared/schema";
 
 const aiBotConfigSchema = z.object({
   aiBotEnabled: z.boolean(),
+  aiBotTotalBudget: z.string().min(1, "Total budget is required").refine(
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+    "Must be a positive number"
+  ),
   aiBotBudgetPerTrade: z.string().min(1, "Budget is required").refine(
     (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
     "Must be a positive number"
@@ -30,8 +34,8 @@ const aiBotConfigSchema = z.object({
     "Must be a positive number"
   ),
   aiBotMinPotentialPercent: z.string().min(1, "Potential threshold is required").refine(
-    (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0 && parseFloat(val) <= 1000,
-    "Must be between 0 and 1000"
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 150,
+    "Must be at least 150% (1.5X minimum returns)"
   ),
   aiBotMaxDailyTrades: z.number().min(1, "Must be at least 1").max(100, "Max 100 trades per day"),
   aiBotRiskTolerance: z.enum(["low", "medium", "high"]),
@@ -48,10 +52,11 @@ function AIBotConfigDialog({ project }: { project: Project }) {
     resolver: zodResolver(aiBotConfigSchema),
     defaultValues: {
       aiBotEnabled: project.aiBotEnabled || false,
+      aiBotTotalBudget: project.aiBotTotalBudget || "1.0",
       aiBotBudgetPerTrade: project.aiBotBudgetPerTrade || "0.1",
       aiBotAnalysisInterval: project.aiBotAnalysisInterval || 30,
       aiBotMinVolumeUSD: project.aiBotMinVolumeUSD || "5000",
-      aiBotMinPotentialPercent: project.aiBotMinPotentialPercent || "20",
+      aiBotMinPotentialPercent: project.aiBotMinPotentialPercent || "150",
       aiBotMaxDailyTrades: project.aiBotMaxDailyTrades || 5,
       aiBotRiskTolerance: (project.aiBotRiskTolerance as "low" | "medium" | "high") || "medium",
     },
@@ -125,6 +130,26 @@ function AIBotConfigDialog({ project }: { project: Project }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
+                name="aiBotTotalBudget"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Total Budget (SOL)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="text"
+                        placeholder="1.0"
+                        data-testid="input-ai-total-budget"
+                      />
+                    </FormControl>
+                    <FormDescription>Total SOL allocated for AI trading</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="aiBotBudgetPerTrade"
                 render={({ field }) => (
                   <FormItem>
@@ -190,16 +215,16 @@ function AIBotConfigDialog({ project }: { project: Project }) {
                 name="aiBotMinPotentialPercent"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Min Potential (%)</FormLabel>
+                    <FormLabel>Min Potential (% - Min 150%)</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         type="text"
-                        placeholder="20"
+                        placeholder="150"
                         data-testid="input-ai-min-potential"
                       />
                     </FormControl>
-                    <FormDescription>Minimum upside potential</FormDescription>
+                    <FormDescription>Minimum 1.5X (150%) upside required</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -254,10 +279,15 @@ function AIBotConfigDialog({ project }: { project: Project }) {
 
             <Alert>
               <Brain className="h-4 w-4" />
-              <AlertTitle>AI-Powered Analysis</AlertTitle>
+              <AlertTitle>Risk Management & Budget Protection</AlertTitle>
               <AlertDescription>
-                Uses Groq's free Llama 3.3-70B AI to analyze trending tokens from DexScreener.
-                Executes trades only when confidence ≥ 60% and potential meets your threshold.
+                • Enforces minimum 1.5X (150%) return requirement on all trades
+                <br />
+                • Tracks total budget usage to prevent overspending
+                <br />
+                • Only executes when AI confidence ≥ 60%
+                <br />
+                • Uses free Groq AI (Llama 3.3-70B) + DexScreener data
               </AlertDescription>
             </Alert>
 
@@ -393,26 +423,52 @@ export default function AIBot() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {project.aiBotEnabled && (
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Budget:</span>
-                      <span className="font-medium">{project.aiBotBudgetPerTrade} SOL</span>
+                  <div className="space-y-3">
+                    <div className="space-y-2 text-sm p-3 rounded-lg bg-muted/50">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Budget:</span>
+                        <span className="font-medium">
+                          {parseFloat(project.aiBotBudgetUsed || "0").toFixed(4)} / {parseFloat(project.aiBotTotalBudget || "0").toFixed(4)} SOL
+                        </span>
+                      </div>
+                      <div className="h-2 bg-background rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary transition-all"
+                          style={{ 
+                            width: `${Math.min(100, (parseFloat(project.aiBotBudgetUsed || "0") / parseFloat(project.aiBotTotalBudget || "1")) * 100)}%` 
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          Remaining: {(parseFloat(project.aiBotTotalBudget || "0") - parseFloat(project.aiBotBudgetUsed || "0")).toFixed(4)} SOL
+                        </span>
+                        <span className="text-muted-foreground">
+                          {((parseFloat(project.aiBotBudgetUsed || "0") / parseFloat(project.aiBotTotalBudget || "1")) * 100).toFixed(1)}% used
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Min Volume:</span>
-                      <span className="font-medium">${parseFloat(project.aiBotMinVolumeUSD || "0").toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Min Potential:</span>
-                      <span className="font-medium">{project.aiBotMinPotentialPercent}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Daily Limit:</span>
-                      <span className="font-medium">{project.aiBotMaxDailyTrades} trades</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Risk:</span>
-                      <span className="font-medium capitalize">{project.aiBotRiskTolerance}</span>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Per Trade:</span>
+                        <span className="font-medium">{project.aiBotBudgetPerTrade} SOL</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Min Volume:</span>
+                        <span className="font-medium">${parseFloat(project.aiBotMinVolumeUSD || "0").toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Min Return:</span>
+                        <span className="font-medium">{project.aiBotMinPotentialPercent}% (≥150%)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Daily Limit:</span>
+                        <span className="font-medium">{project.aiBotMaxDailyTrades} trades</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Risk:</span>
+                        <span className="font-medium capitalize">{project.aiBotRiskTolerance}</span>
+                      </div>
                     </div>
                   </div>
                 )}
