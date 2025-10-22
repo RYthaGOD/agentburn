@@ -55,6 +55,7 @@ export interface IStorage {
 
   // AI Bot Config operations (standalone, not tied to projects)
   getAIBotConfig(ownerWalletAddress: string): Promise<AIBotConfig | undefined>;
+  getAllAIBotConfigs(): Promise<AIBotConfig[]>;
   createOrUpdateAIBotConfig(config: Partial<InsertAIBotConfig> & { ownerWalletAddress: string }): Promise<AIBotConfig>;
   deleteAIBotConfig(ownerWalletAddress: string): Promise<boolean>;
 }
@@ -271,6 +272,11 @@ export class DatabaseStorage implements IStorage {
       .from(aiBotConfigs)
       .where(eq(aiBotConfigs.ownerWalletAddress, ownerWalletAddress));
     return config || undefined;
+  }
+
+  async getAllAIBotConfigs(): Promise<AIBotConfig[]> {
+    const configs = await db.select().from(aiBotConfigs);
+    return configs;
   }
 
   async createOrUpdateAIBotConfig(

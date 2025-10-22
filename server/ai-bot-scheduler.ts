@@ -344,11 +344,11 @@ async function executeAITradingBot(project: Project) {
 }
 
 /**
- * Run AI trading bot for all enabled projects
+ * Run AI trading bot for all enabled projects (legacy)
  */
-async function runAITradingBots() {
+async function runProjectBasedAIBots() {
   try {
-    console.log("[AI Bot Scheduler] Scanning for active projects...");
+    console.log("[AI Bot Scheduler] Scanning for project-based AI bots...");
 
     const projects = await storage.getAllProjects();
     const enabledProjects = projects.filter((p) => p.aiBotEnabled);
@@ -358,15 +358,51 @@ async function runAITradingBots() {
       return;
     }
 
-    console.log(`[AI Bot Scheduler] Running for ${enabledProjects.length} projects`);
+    console.log(`[AI Bot Scheduler] Running for ${enabledProjects.length} project-based AI bots`);
 
     // Run bots in parallel (with reasonable concurrency)
     await Promise.all(enabledProjects.map((p) => executeAITradingBot(p)));
 
-    console.log("[AI Bot Scheduler] All bots completed");
+    console.log("[AI Bot Scheduler] All project-based bots completed");
   } catch (error) {
-    console.error("[AI Bot Scheduler] Error:", error);
+    console.error("[AI Bot Scheduler] Error running project-based bots:", error);
   }
+}
+
+/**
+ * Run standalone AI trading bots (new architecture)
+ */
+async function runStandaloneAIBots() {
+  try {
+    console.log("[Standalone AI Bot Scheduler] Scanning for enabled configs...");
+
+    const configs = await storage.getAllAIBotConfigs();
+    const enabledConfigs = configs.filter((c: any) => c.enabled);
+
+    if (enabledConfigs.length === 0) {
+      console.log("[Standalone AI Bot Scheduler] No standalone AI bots enabled");
+      return;
+    }
+
+    console.log(`[Standalone AI Bot Scheduler] Running for ${enabledConfigs.length} standalone AI bots`);
+
+    // Run bots in parallel (with reasonable concurrency)
+    await Promise.all(enabledConfigs.map((c: any) => executeStandaloneAIBot(c.ownerWalletAddress)));
+
+    console.log("[Standalone AI Bot Scheduler] All standalone bots completed");
+  } catch (error) {
+    console.error("[Standalone AI Bot Scheduler] Error:", error);
+  }
+}
+
+/**
+ * Run both project-based and standalone AI trading bots
+ */
+async function runAITradingBots() {
+  await Promise.all([
+    runProjectBasedAIBots(),
+    runStandaloneAIBots(),
+  ]);
 }
 
 /**
