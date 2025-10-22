@@ -400,10 +400,6 @@ function AIBotConfigDialog({ project }: { project: Project }) {
 export default function AIBot() {
   const { publicKey, connected } = useWallet();
   const { toast } = useToast();
-  const { data: projects, isLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects/owner", publicKey?.toString()],
-    enabled: connected && !!publicKey,
-  });
 
   if (!connected) {
     return (
@@ -412,18 +408,8 @@ export default function AIBot() {
           <Brain className="h-16 w-16 text-muted-foreground" />
           <h2 className="text-2xl font-bold">Connect Your Wallet</h2>
           <p className="text-muted-foreground max-w-md">
-            Please connect your Solana wallet to configure AI trading bots
+            Please connect your Solana wallet to use the AI trading bot
           </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
@@ -435,19 +421,19 @@ export default function AIBot() {
         <div className="flex items-center gap-3">
           <Brain className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-3xl font-bold" data-testid="heading-ai-bot">AI Trading Bot</h1>
+            <h1 className="text-3xl font-bold" data-testid="heading-ai-bot">AI Market Scanner</h1>
             <p className="text-muted-foreground">
-              AI-powered token analysis with Groq Llama 3.3-70B (Free)
+              Standalone AI trading bot powered by Groq Llama 3.3-70B (100% Free)
             </p>
           </div>
         </div>
 
         <Alert>
           <Zap className="h-4 w-4" />
-          <AlertTitle>100% Free AI Analysis</AlertTitle>
+          <AlertTitle>Completely Free AI Trading</AlertTitle>
           <AlertDescription>
-            The AI bot uses completely free services: Groq AI (Llama 3.3-70B) for analysis and DexScreener for market data.
-            It analyzes trending Solana tokens and executes trades based on AI recommendations.
+            This is a <strong>standalone trading bot</strong> - completely separate from your buyback/burn projects.
+            It scans trending Solana tokens and executes trades based on AI analysis.
           </AlertDescription>
         </Alert>
 
@@ -455,7 +441,7 @@ export default function AIBot() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>How It Works</AlertTitle>
           <AlertDescription>
-            <strong>The AI scans the MARKET for opportunities (not your project tokens):</strong>
+            <strong>The AI scans the MARKET for trading opportunities:</strong>
             <br />
             1. DexScreener fetches trending Solana tokens (top 50 by volume)
             <br />
@@ -465,163 +451,39 @@ export default function AIBot() {
             <br />
             4. Executes trades when confidence ≥ 60% and potential ≥ 150%
             <br />
-            5. Uses your project's budget/wallet to execute trades on market tokens
+            5. All trades are recorded in your Transactions page
           </AlertDescription>
         </Alert>
       </div>
 
-      {!projects || projects.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-            <Brain className="h-12 w-12 text-muted-foreground" />
-            <div className="space-y-2">
-              <h3 className="text-xl font-semibold">No Projects Yet</h3>
-              <p className="text-muted-foreground max-w-md">
-                Create your first project to start using AI-powered trading automation
-              </p>
-            </div>
-            <Button asChild data-testid="button-create-first-project">
-              <Link href="/dashboard/new">Create Project</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <Card key={project.id} data-testid={`card-project-${project.id}`}>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="truncate">{project.name}</span>
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    project.aiBotEnabled 
-                      ? 'bg-green-500/20 text-green-500' 
-                      : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {project.aiBotEnabled ? 'Active' : 'Inactive'}
-                  </span>
-                </CardTitle>
-                <CardDescription className="truncate" data-testid={`text-symbol-${project.id}`}>
-                  {project.tokenMintAddress.substring(0, 8)}...
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {project.aiBotEnabled && (
-                  <div className="space-y-3">
-                    <div className="space-y-2 text-sm p-3 rounded-lg bg-muted/50">
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Budget:</span>
-                        <span className="font-medium">
-                          {parseFloat(project.aiBotBudgetUsed || "0").toFixed(4)} / {parseFloat(project.aiBotTotalBudget || "0").toFixed(4)} SOL
-                        </span>
-                      </div>
-                      <div className="h-2 bg-background rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-primary transition-all"
-                          style={{ 
-                            width: `${Math.min(100, (parseFloat(project.aiBotBudgetUsed || "0") / parseFloat(project.aiBotTotalBudget || "1")) * 100)}%` 
-                          }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">
-                          Remaining: {(parseFloat(project.aiBotTotalBudget || "0") - parseFloat(project.aiBotBudgetUsed || "0")).toFixed(4)} SOL
-                        </span>
-                        <span className="text-muted-foreground">
-                          {((parseFloat(project.aiBotBudgetUsed || "0") / parseFloat(project.aiBotTotalBudget || "1")) * 100).toFixed(1)}% used
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Per Trade:</span>
-                        <span className="font-medium">{project.aiBotBudgetPerTrade} SOL</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Min Volume:</span>
-                        <span className="font-medium">${parseFloat(project.aiBotMinVolumeUSD || "0").toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Min Return:</span>
-                        <span className="font-medium">{project.aiBotMinPotentialPercent}% (≥150%)</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Daily Limit:</span>
-                        <span className="font-medium">{project.aiBotMaxDailyTrades} trades</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Risk:</span>
-                        <span className="font-medium capitalize">{project.aiBotRiskTolerance}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    {project.aiBotEnabled ? (
-                      <Button
-                        variant="destructive"
-                        className="flex-1"
-                        onClick={async () => {
-                          try {
-                            await apiRequest("PATCH", `/api/projects/${project.id}`, {
-                              aiBotEnabled: false,
-                            });
-                            queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-                            toast({
-                              title: "Automatic Trading Stopped",
-                              description: "Scheduled AI trading has been disabled. You can still scan manually.",
-                            });
-                          } catch (error) {
-                            toast({
-                              title: "Error",
-                              description: "Failed to stop AI bot",
-                              variant: "destructive",
-                            });
-                          }
-                        }}
-                        data-testid={`button-stop-ai-bot-${project.id}`}
-                      >
-                        <Power className="h-4 w-4 mr-2" />
-                        Stop Auto Trading
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="default"
-                        className="flex-1"
-                        onClick={async () => {
-                          try {
-                            await apiRequest("PATCH", `/api/projects/${project.id}`, {
-                              aiBotEnabled: true,
-                            });
-                            queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-                            toast({
-                              title: "Automatic Trading Started",
-                              description: "AI bot will now run on schedule",
-                            });
-                          } catch (error) {
-                            toast({
-                              title: "Error",
-                              description: "Failed to start AI bot",
-                              variant: "destructive",
-                            });
-                          }
-                        }}
-                        data-testid={`button-start-ai-bot-${project.id}`}
-                      >
-                        <Play className="h-4 w-4 mr-2" />
-                        Start Auto Trading
-                      </Button>
-                    )}
-                    <AIBotConfigDialog project={project} />
-                  </div>
-                  <ScanAndTradeButton project={project} />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Trading Bot Configuration</CardTitle>
+          <CardDescription>
+            Configure your standalone AI trading bot. This is separate from your buyback/burn projects.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Alert variant="default">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Feature Coming Soon</AlertTitle>
+            <AlertDescription>
+              The standalone AI trading bot is currently being developed. For now, you can configure AI trading
+              through individual projects in the Volume Bot or Buy Bot pages.
+              <br /><br />
+              This page will soon allow you to:
+              <br />
+              • Set up a dedicated trading wallet
+              <br />
+              • Configure budget and risk tolerance
+              <br />
+              • Scan and trade market tokens independently
+              <br />
+              • View AI trading performance metrics
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
     </div>
   );
 }
