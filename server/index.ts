@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduler } from "./scheduler";
+import { startAITradingBotScheduler } from "./ai-bot-scheduler";
 import { realtimeService } from "./realtime";
 import {
   securityHeaders,
@@ -73,6 +74,9 @@ app.use("/api", globalRateLimit);
 
   // Initialize scheduler
   await scheduler.initialize();
+
+  // Initialize AI trading bot scheduler
+  startAITradingBotScheduler();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

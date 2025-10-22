@@ -226,28 +226,49 @@ async function executeAITradingBot(project: Project) {
       return;
     }
 
-    console.log(`[AI Bot] Analyzing ${filteredTokens.length} tokens...`);
+    console.log(`[AI Bot] 🔍 Analyzing ${filteredTokens.length} tokens with AI...`);
 
     // Analyze tokens with Grok AI
     const riskTolerance = (project.aiBotRiskTolerance || "medium") as "low" | "medium" | "high";
     
-    for (const token of filteredTokens) {
+    for (let i = 0; i < filteredTokens.length; i++) {
+      const token = filteredTokens[i];
+      
       // Check if we've hit daily limit
       if (botState.dailyTradesExecuted >= maxDailyTrades) {
         break;
       }
 
+      console.log(`\n[AI Bot] 📊 Analyzing token ${i + 1}/${filteredTokens.length}: ${token.symbol} (${token.name})`);
+      console.log(`[AI Bot]    💰 Price: $${token.priceUSD.toFixed(6)} (${token.priceSOL.toFixed(8)} SOL)`);
+      console.log(`[AI Bot]    📈 Volume 24h: $${token.volumeUSD24h.toLocaleString()}`);
+      console.log(`[AI Bot]    💎 Market Cap: $${token.marketCapUSD.toLocaleString()}`);
+      console.log(`[AI Bot]    💧 Liquidity: $${(token.liquidityUSD || 0).toLocaleString()}`);
+      console.log(`[AI Bot]    📊 Change 24h: ${(token.priceChange24h || 0) > 0 ? '+' : ''}${(token.priceChange24h || 0).toFixed(2)}%`);
+
       const analysis = await analyzeTokenWithGrok(token, riskTolerance, budgetPerTrade);
+
+      console.log(`[AI Bot] 🤖 AI Analysis:`);
+      console.log(`[AI Bot]    Action: ${analysis.action.toUpperCase()}`);
+      console.log(`[AI Bot]    Confidence: ${(analysis.confidence * 100).toFixed(1)}%`);
+      console.log(`[AI Bot]    Potential Upside: ${analysis.potentialUpsidePercent.toFixed(1)}%`);
+      console.log(`[AI Bot]    💭 Reasoning: ${analysis.reasoning}`);
 
       // Check minimum potential threshold
       const minPotential = parseFloat(project.aiBotMinPotentialPercent || "20");
       if (analysis.potentialUpsidePercent < minPotential) {
-        console.log(`[AI Bot] ${token.symbol}: Potential ${analysis.potentialUpsidePercent}% below threshold ${minPotential}%`);
+        console.log(`[AI Bot] ❌ SKIP: Potential ${analysis.potentialUpsidePercent.toFixed(1)}% below threshold ${minPotential}%\n`);
+        continue;
+      }
+
+      // Check confidence threshold
+      if (analysis.confidence < 0.6) {
+        console.log(`[AI Bot] ❌ SKIP: Confidence ${(analysis.confidence * 100).toFixed(1)}% below 60% threshold\n`);
         continue;
       }
 
       // Execute trade based on AI recommendation
-      if (analysis.action === "buy" && analysis.confidence >= 0.6) {
+      if (analysis.action === "buy") {
         const amountSOL = analysis.suggestedBuyAmountSOL || budgetPerTrade;
         
         console.log(`[AI Bot] BUY signal: ${token.symbol} - ${amountSOL} SOL (confidence: ${(analysis.confidence * 100).toFixed(1)}%)`);
@@ -410,26 +431,25 @@ async function runAITradingBots() {
  * Runs based on project-specific intervals
  */
 export function startAITradingBotScheduler() {
-  if (process.env.NODE_ENV === "development") {
-    console.log("[AI Bot Scheduler] Disabled in development mode");
-    return;
-  }
-
   if (!isGrokConfigured()) {
-    console.warn("[AI Bot Scheduler] XAI_API_KEY not configured - AI bot disabled");
+    console.warn("[AI Bot Scheduler] XAI_API_KEY or GROQ_API_KEY not configured - AI bot disabled");
     return;
   }
 
   console.log("[AI Bot Scheduler] Starting...");
 
-  // Run every 5 minutes (projects control their own intervals via aiBotAnalysisInterval)
-  cron.schedule("*/5 * * * *", () => {
+  // Run every 5 minutes in development, every 30 minutes in production
+  const isDev = process.env.NODE_ENV !== "production";
+  const cronExpression = isDev ? "*/5 * * * *" : "*/30 * * * *";
+  const interval = isDev ? "every 5 minutes" : "every 30 minutes";
+
+  cron.schedule(cronExpression, () => {
     runAITradingBots().catch((error) => {
       console.error("[AI Bot Scheduler] Unexpected error:", error);
     });
   });
 
-  console.log("[AI Bot Scheduler] Active (checks every 5 minutes)");
+  console.log(`[AI Bot Scheduler] Active (checks ${interval})`);
 }
 
 /**
@@ -545,28 +565,49 @@ async function executeStandaloneAIBot(ownerWalletAddress: string) {
       return;
     }
 
-    console.log(`[Standalone AI Bot] Analyzing ${filteredTokens.length} tokens...`);
+    console.log(`[Standalone AI Bot] 🔍 Analyzing ${filteredTokens.length} tokens with AI...`);
 
     // Analyze tokens with Grok AI
     const riskTolerance = (config.riskTolerance || "medium") as "low" | "medium" | "high";
     
-    for (const token of filteredTokens) {
+    for (let i = 0; i < filteredTokens.length; i++) {
+      const token = filteredTokens[i];
+      
       // Check if we've hit daily limit
       if (botState.dailyTradesExecuted >= maxDailyTrades) {
         break;
       }
 
+      console.log(`\n[Standalone AI Bot] 📊 Analyzing token ${i + 1}/${filteredTokens.length}: ${token.symbol} (${token.name})`);
+      console.log(`[Standalone AI Bot]    💰 Price: $${token.priceUSD.toFixed(6)} (${token.priceSOL.toFixed(8)} SOL)`);
+      console.log(`[Standalone AI Bot]    📈 Volume 24h: $${token.volumeUSD24h.toLocaleString()}`);
+      console.log(`[Standalone AI Bot]    💎 Market Cap: $${token.marketCapUSD.toLocaleString()}`);
+      console.log(`[Standalone AI Bot]    💧 Liquidity: $${(token.liquidityUSD || 0).toLocaleString()}`);
+      console.log(`[Standalone AI Bot]    📊 Change 24h: ${(token.priceChange24h || 0) > 0 ? '+' : ''}${(token.priceChange24h || 0).toFixed(2)}%`);
+
       const analysis = await analyzeTokenWithGrok(token, riskTolerance, budgetPerTrade);
+
+      console.log(`[Standalone AI Bot] 🤖 AI Analysis:`);
+      console.log(`[Standalone AI Bot]    Action: ${analysis.action.toUpperCase()}`);
+      console.log(`[Standalone AI Bot]    Confidence: ${(analysis.confidence * 100).toFixed(1)}%`);
+      console.log(`[Standalone AI Bot]    Potential Upside: ${analysis.potentialUpsidePercent.toFixed(1)}%`);
+      console.log(`[Standalone AI Bot]    💭 Reasoning: ${analysis.reasoning}`);
 
       // Check minimum potential threshold (hardcoded 150% minimum)
       const minPotential = Math.max(parseFloat(config.minPotentialPercent || "150"), 150);
       if (analysis.potentialUpsidePercent < minPotential) {
-        console.log(`[Standalone AI Bot] ${token.symbol}: Potential ${analysis.potentialUpsidePercent}% below threshold ${minPotential}%`);
+        console.log(`[Standalone AI Bot] ❌ SKIP: Potential ${analysis.potentialUpsidePercent.toFixed(1)}% below threshold ${minPotential}%\n`);
+        continue;
+      }
+
+      // Check confidence threshold
+      if (analysis.confidence < 0.6) {
+        console.log(`[Standalone AI Bot] ❌ SKIP: Confidence ${(analysis.confidence * 100).toFixed(1)}% below 60% threshold\n`);
         continue;
       }
 
       // Execute trade based on AI recommendation
-      if (analysis.action === "buy" && analysis.confidence >= 0.6) {
+      if (analysis.action === "buy") {
         const amountSOL = analysis.suggestedBuyAmountSOL || budgetPerTrade;
         
         console.log(`[Standalone AI Bot] BUY signal: ${token.symbol} - ${amountSOL} SOL (confidence: ${(analysis.confidence * 100).toFixed(1)}%)`);
