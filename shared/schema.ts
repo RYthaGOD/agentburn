@@ -18,6 +18,20 @@ export const projects = pgTable("projects", {
   isPumpfunToken: boolean("is_pumpfun_token").notNull().default(false),
   pumpfunCreatorWallet: text("pumpfun_creator_wallet"), // Wallet to claim PumpFun rewards
   trialEndsAt: timestamp("trial_ends_at"), // 10-day trial for first 100 signups
+  
+  // Volume Bot Settings
+  volumeBotEnabled: boolean("volume_bot_enabled").notNull().default(false),
+  volumeBotBuyAmountSOL: decimal("volume_bot_buy_amount_sol", { precision: 18, scale: 9 }),
+  volumeBotSellPercentage: decimal("volume_bot_sell_percentage", { precision: 5, scale: 2 }), // 0-100%
+  volumeBotMinPriceSOL: decimal("volume_bot_min_price_sol", { precision: 18, scale: 9 }),
+  volumeBotMaxPriceSOL: decimal("volume_bot_max_price_sol", { precision: 18, scale: 9 }),
+  volumeBotIntervalMinutes: integer("volume_bot_interval_minutes"), // Trading frequency
+  
+  // Buy Bot Settings (Limit Orders)
+  buyBotEnabled: boolean("buy_bot_enabled").notNull().default(false),
+  buyBotLimitOrders: text("buy_bot_limit_orders"), // JSON array: [{ priceSOL: "0.001", amountSOL: "0.1" }]
+  buyBotMaxSlippage: decimal("buy_bot_max_slippage", { precision: 5, scale: 2 }), // 0-100%
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -124,6 +138,17 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   ownerWalletAddress: z.string().min(32, "Invalid Solana address"),
   buybackAmountSol: z.string().optional(),
   pumpfunCreatorWallet: z.string().min(32, "Invalid Solana address").optional(),
+  
+  // Volume bot validations
+  volumeBotBuyAmountSOL: z.string().optional(),
+  volumeBotSellPercentage: z.string().optional(),
+  volumeBotMinPriceSOL: z.string().optional(),
+  volumeBotMaxPriceSOL: z.string().optional(),
+  volumeBotIntervalMinutes: z.number().min(1).max(1440).optional(),
+  
+  // Buy bot validations
+  buyBotLimitOrders: z.string().optional(), // JSON string
+  buyBotMaxSlippage: z.string().optional(),
 });
 
 export const insertTransactionSchema = createInsertSchema(transactions).omit({
