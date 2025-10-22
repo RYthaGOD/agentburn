@@ -75,7 +75,8 @@ A 0.5% transaction fee applies to all transaction types (buybacks, volume bot, b
 
 **Third-Party Services:**
 - Neon Database (PostgreSQL)
-- Jupiter Ultra API
+- Jupiter Ultra API (Swap API)
+- Jupiter Price API v3 (lite-api.jup.ag) - SOL-denominated prices via USD conversion
 - PumpFun Lightning API
 
 **UI Dependencies:**
