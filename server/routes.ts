@@ -930,6 +930,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manual execution of standalone AI bot (no project required)
+  app.post("/api/ai-bot/execute", authRateLimit, async (req, res) => {
+    try {
+      const { ownerWalletAddress, signature, message } = req.body;
+      
+      if (!ownerWalletAddress || !signature || !message) {
+        return res.status(400).json({ 
+          message: "Missing required fields: ownerWalletAddress, signature, and message are required" 
+        });
+      }
+
+      // Verify wallet signature
+      const { verifyWalletSignature } = await import("./solana-sdk");
+      const isValidSignature = await verifyWalletSignature(
+        ownerWalletAddress,
+        message,
+        signature
+      );
+
+      if (!isValidSignature) {
+        return res.status(401).json({ message: "Invalid signature" });
+      }
+
+      // Extract timestamp from message
+      const timestampMatch = message.match(/at (\d+)$/);
+      if (!timestampMatch) {
+        return res.status(400).json({ message: "Invalid message format" });
+      }
+
+      const messageTimestamp = parseInt(timestampMatch[1], 10);
+      const now = Date.now();
+      const fiveMinutesInMs = 5 * 60 * 1000;
+      if (now - messageTimestamp > fiveMinutesInMs) {
+        return res.status(400).json({ message: "Message expired. Please try again." });
+      }
+
+      // Get AI bot config
+      const config = await storage.getAIBotConfig(ownerWalletAddress);
+      if (!config) {
+        return res.status(404).json({ message: "AI bot config not found. Please configure the bot first." });
+      }
+
+      auditLog("execute_standalone_ai_bot", {
+        walletAddress: ownerWalletAddress,
+        ip: req.ip || "unknown",
+      });
+
+      console.log(`Manual standalone AI bot execution for wallet ${ownerWalletAddress}`);
+
+      // Execute the standalone AI trading bot
+      const { triggerStandaloneAIBot } = await import("./ai-bot-scheduler");
+      await triggerStandaloneAIBot(ownerWalletAddress);
+
+      res.json({
+        success: true,
+        message: "AI bot scan and trade initiated",
+        ownerWalletAddress,
+      });
+    } catch (error: any) {
+      console.error("Manual standalone AI bot execution error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Create or update AI bot config
   app.post("/api/ai-bot/config", authRateLimit, async (req, res) => {
     try {

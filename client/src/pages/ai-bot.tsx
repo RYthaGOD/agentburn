@@ -6,7 +6,6 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Brain, Loader2, Zap, AlertCircle, Play, Power, Scan, TrendingUp, Activity, CheckCircle, XCircle, Clock } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,7 +14,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import type { Project } from "@shared/schema";
+import type { AIBotConfig } from "@shared/schema";
 import bs58 from "bs58";
 
 const aiBotConfigSchema = z.object({
@@ -56,33 +55,26 @@ export default function AIBot() {
     type: "info" | "success" | "warning" | "error";
   }>>([]);
   
-  const { data: projects, isLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects/owner", publicKey?.toString()],
+  // Fetch AI bot config for this wallet (completely independent of projects)
+  const { data: aiConfig, isLoading } = useQuery<AIBotConfig>({
+    queryKey: ["/api/ai-bot/config", publicKey?.toString()],
     enabled: connected && !!publicKey,
   });
 
-  // Fetch recent transactions to show AI bot activity
-  const { data: recentTransactions } = useQuery({
-    queryKey: ["/api/transactions"],
-    enabled: connected && !!publicKey,
-  });
-
-  // Use first project as AI bot configuration storage
-  const aiProject = projects?.[0];
-  const isEnabled = aiProject?.aiBotEnabled || false;
-  const budgetUsed = parseFloat(aiProject?.aiBotBudgetUsed || "0");
-  const totalBudget = parseFloat(aiProject?.aiBotTotalBudget || "0");
+  const isEnabled = aiConfig?.enabled || false;
+  const budgetUsed = parseFloat(aiConfig?.budgetUsed || "0");
+  const totalBudget = parseFloat(aiConfig?.totalBudget || "0");
   const remainingBudget = totalBudget - budgetUsed;
 
   const form = useForm<AIBotConfigFormData>({
     resolver: zodResolver(aiBotConfigSchema),
     defaultValues: {
-      totalBudget: aiProject?.aiBotTotalBudget || "1.0",
-      budgetPerTrade: aiProject?.aiBotBudgetPerTrade || "0.1",
-      minVolumeUSD: aiProject?.aiBotMinVolumeUSD || "5000",
-      minPotentialPercent: aiProject?.aiBotMinPotentialPercent || "150",
-      maxDailyTrades: aiProject?.aiBotMaxDailyTrades?.toString() || "5",
-      riskTolerance: (aiProject?.aiBotRiskTolerance as "low" | "medium" | "high") || "medium",
+      totalBudget: aiConfig?.totalBudget || "1.0",
+      budgetPerTrade: aiConfig?.budgetPerTrade || "0.1",
+      minVolumeUSD: aiConfig?.minVolumeUSD || "5000",
+      minPotentialPercent: aiConfig?.minPotentialPercent || "150",
+      maxDailyTrades: aiConfig?.maxDailyTrades?.toString() || "5",
+      riskTolerance: (aiConfig?.riskTolerance as "low" | "medium" | "high") || "medium",
     },
   });
 
@@ -91,10 +83,19 @@ export default function AIBot() {
   };
 
   const handleScanAndTrade = async () => {
-    if (!publicKey || !signMessage || !aiProject) {
+    if (!publicKey || !signMessage) {
       toast({
         title: "Error",
-        description: "Please connect wallet and configure settings first",
+        description: "Please connect wallet first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!aiConfig) {
+      toast({
+        title: "Error",
+        description: "Please save your configuration first",
         variant: "destructive",
       });
       return;
@@ -106,7 +107,7 @@ export default function AIBot() {
     try {
       addScanLog("🔍 Connecting to DexScreener API...", "info");
       
-      const message = `Execute AI bot for project ${aiProject.id} at ${Date.now()}`;
+      const message = `Execute AI bot for wallet ${publicKey.toString()} at ${Date.now()}`;
       const messageBytes = new TextEncoder().encode(message);
       const signature = await signMessage(messageBytes);
       const signatureBase58 = bs58.encode(signature);
@@ -119,7 +120,8 @@ export default function AIBot() {
         description: "AI is analyzing trending Solana tokens via DexScreener",
       });
 
-      const response = await apiRequest("POST", `/api/execute-ai-bot/${aiProject.id}`, {
+      // Manual AI bot trigger (standalone - no project ID)
+      const response = await apiRequest("POST", `/api/ai-bot/execute`, {
         ownerWalletAddress: publicKey.toString(),
         signature: signatureBase58,
         message,
@@ -128,7 +130,7 @@ export default function AIBot() {
       addScanLog("✅ Market scan completed", "success");
       addScanLog(`ℹ️ Check results below and Transactions page for details`, "info");
 
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-bot/config", publicKey.toString()] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
 
       toast({
@@ -148,20 +150,24 @@ export default function AIBot() {
   };
 
   const handleToggleBot = async () => {
-    if (!aiProject) return;
+    if (!publicKey || !signMessage) return;
     
     setIsToggling(true);
     try {
-      await apiRequest("PATCH", `/api/projects/${aiProject.id}`, {
-        aiBotEnabled: !isEnabled,
+      const message = `Toggle AI bot for wallet ${publicKey.toString()} at ${Date.now()}`;
+      const messageBytes = new TextEncoder().encode(message);
+      const signature = await signMessage(messageBytes);
+      const signatureBase58 = bs58.encode(signature);
+
+      await apiRequest("POST", `/api/ai-bot/config`, {
+        ownerWalletAddress: publicKey.toString(),
+        signature: signatureBase58,
+        message,
+        enabled: !isEnabled,
       });
       
-      // Invalidate all project queries to refetch data
-      await queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects/owner", publicKey?.toString()] 
-      });
-      await queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects"] 
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/ai-bot/config", publicKey.toString()] 
       });
       
       toast({
@@ -182,20 +188,29 @@ export default function AIBot() {
   };
 
   const onSubmit = async (data: AIBotConfigFormData) => {
-    if (!aiProject) return;
+    if (!publicKey || !signMessage) return;
     
     setIsSaving(true);
     try {
-      await apiRequest("PATCH", `/api/projects/${aiProject.id}`, {
-        aiBotTotalBudget: data.totalBudget,
-        aiBotBudgetPerTrade: data.budgetPerTrade,
-        aiBotMinVolumeUSD: data.minVolumeUSD,
-        aiBotMinPotentialPercent: data.minPotentialPercent,
-        aiBotMaxDailyTrades: parseInt(data.maxDailyTrades),
-        aiBotRiskTolerance: data.riskTolerance,
+      const message = `Update AI bot config for wallet ${publicKey.toString()} at ${Date.now()}`;
+      const messageBytes = new TextEncoder().encode(message);
+      const signature = await signMessage(messageBytes);
+      const signatureBase58 = bs58.encode(signature);
+
+      await apiRequest("POST", `/api/ai-bot/config`, {
+        ownerWalletAddress: publicKey.toString(),
+        signature: signatureBase58,
+        message,
+        totalBudget: data.totalBudget,
+        budgetPerTrade: data.budgetPerTrade,
+        minVolumeUSD: data.minVolumeUSD,
+        minPotentialPercent: data.minPotentialPercent,
+        maxDailyTrades: parseInt(data.maxDailyTrades),
+        riskTolerance: data.riskTolerance,
+        enabled: aiConfig?.enabled || false, // Preserve enabled state
       });
       
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-bot/config", publicKey.toString()] });
       toast({
         title: "✅ Settings Saved",
         description: "AI bot configuration updated successfully",
@@ -235,20 +250,6 @@ export default function AIBot() {
     );
   }
 
-  if (!aiProject) {
-    return (
-      <div className="container mx-auto py-8 px-4">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>No Project Found</AlertTitle>
-          <AlertDescription>
-            You need at least one project to use the AI trading bot. The bot will use your project's wallet for trading.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto py-8 px-4 space-y-6 max-w-4xl">
       <div className="flex flex-col gap-4">
@@ -264,10 +265,12 @@ export default function AIBot() {
 
         <Alert>
           <Zap className="h-4 w-4" />
-          <AlertTitle>How It Works</AlertTitle>
+          <AlertTitle>Standalone AI Trading - No Projects Required</AlertTitle>
           <AlertDescription>
-            <strong>Scans trending Solana tokens from DexScreener</strong> → Groq AI analyzes volume, liquidity, momentum
-            → <strong>Jupiter Ultra API executes swaps</strong> when confidence ≥ 60% and potential ≥ 150% (1.5X minimum)
+            This AI bot works <strong>independently</strong> without requiring any buyback/burn projects.
+            <br />
+            <strong>How it works:</strong> Scans trending Solana tokens from DexScreener → Groq AI analyzes volume, liquidity, momentum
+            → Jupiter Ultra API executes swaps when confidence ≥ 60% and potential ≥ 150% (1.5X minimum)
           </AlertDescription>
         </Alert>
       </div>
@@ -316,7 +319,7 @@ export default function AIBot() {
               onClick={handleToggleBot}
               variant={isEnabled ? "destructive" : "default"}
               className="flex-1"
-              disabled={isToggling}
+              disabled={isToggling || !aiConfig}
               data-testid="button-toggle-auto-trading"
             >
               {isToggling ? (
@@ -341,7 +344,7 @@ export default function AIBot() {
             variant="outline"
             className="w-full"
             onClick={handleScanAndTrade}
-            disabled={isScanning || !publicKey}
+            disabled={isScanning || !publicKey || !aiConfig}
             data-testid="button-scan-now"
           >
             {isScanning ? (

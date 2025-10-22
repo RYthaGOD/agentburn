@@ -397,7 +397,7 @@ export function startAITradingBotScheduler() {
 }
 
 /**
- * Manual trigger for testing
+ * Manual trigger for testing (project-based - legacy)
  */
 export async function triggerAIBotManually(projectId: string) {
   const project = await storage.getProject(projectId);
@@ -405,4 +405,205 @@ export async function triggerAIBotManually(projectId: string) {
     throw new Error("Project not found");
   }
   await executeAITradingBot(project);
+}
+
+/**
+ * Execute standalone AI trading bot (no project required)
+ * Uses AIBotConfig table instead of project data
+ */
+async function executeStandaloneAIBot(ownerWalletAddress: string) {
+  try {
+    console.log(`[Standalone AI Bot] Running for wallet ${ownerWalletAddress}`);
+
+    // Get AI bot config
+    const config = await storage.getAIBotConfig(ownerWalletAddress);
+    if (!config) {
+      throw new Error("AI bot config not found");
+    }
+
+    // Check if AI bot is enabled
+    if (!config.enabled) {
+      console.log(`[Standalone AI Bot] Disabled for wallet ${ownerWalletAddress}`);
+      return;
+    }
+
+    // Validate Grok API key
+    if (!isGrokConfigured()) {
+      console.error("[Standalone AI Bot] XAI_API_KEY not configured");
+      return;
+    }
+
+    // Get or initialize bot state
+    let botState = aiBotStates.get(ownerWalletAddress);
+    const today = new Date().toISOString().split("T")[0];
+
+    if (!botState || botState.lastResetDate !== today) {
+      botState = {
+        projectId: ownerWalletAddress, // Use wallet address as ID
+        dailyTradesExecuted: 0,
+        lastResetDate: today,
+        activePositions: new Map(),
+      };
+      aiBotStates.set(ownerWalletAddress, botState);
+    }
+
+    // Check daily trade limit
+    const maxDailyTrades = config.maxDailyTrades || 10;
+    if (botState.dailyTradesExecuted >= maxDailyTrades) {
+      console.log(`[Standalone AI Bot] Daily trade limit reached (${maxDailyTrades})`);
+      return;
+    }
+
+    // Get wallet keypair from encrypted key in config
+    if (!config.treasuryKeyCiphertext || !config.treasuryKeyIv || !config.treasuryKeyAuthTag) {
+      console.error(`[Standalone AI Bot] No treasury key configured for wallet ${ownerWalletAddress}`);
+      return;
+    }
+
+    const { decrypt } = await import("./crypto");
+    const treasuryKeyBase58 = decrypt(
+      config.treasuryKeyCiphertext,
+      config.treasuryKeyIv,
+      config.treasuryKeyAuthTag
+    );
+    const treasuryKeypair = loadKeypairFromPrivateKey(treasuryKeyBase58);
+
+    // Check total budget and remaining balance
+    const totalBudget = parseFloat(config.totalBudget || "0");
+    const budgetUsed = parseFloat(config.budgetUsed || "0");
+    const remainingBudget = totalBudget - budgetUsed;
+    const budgetPerTrade = parseFloat(config.budgetPerTrade || "0");
+
+    if (totalBudget > 0 && remainingBudget <= 0) {
+      console.log(`[Standalone AI Bot] Budget exhausted: ${budgetUsed}/${totalBudget} SOL used`);
+      return;
+    }
+
+    // Reserve 0.01 SOL for transaction fees
+    const FEE_RESERVE = 0.01;
+    
+    if (totalBudget > 0 && remainingBudget < budgetPerTrade + FEE_RESERVE) {
+      console.log(`[Standalone AI Bot] Insufficient budget: ${remainingBudget.toFixed(4)} SOL remaining (need ${budgetPerTrade} SOL + ${FEE_RESERVE} SOL fee reserve)`);
+      return;
+    }
+
+    // Check SOL balance (with fee reserve)
+    const solBalance = await getWalletBalance(treasuryKeypair.publicKey.toString());
+    
+    if (solBalance < budgetPerTrade + FEE_RESERVE) {
+      console.log(`[Standalone AI Bot] Insufficient SOL balance: ${solBalance.toFixed(4)} SOL (need ${budgetPerTrade} SOL + ${FEE_RESERVE} SOL for fees)`);
+      return;
+    }
+
+    console.log(`[Standalone AI Bot] Budget status: ${budgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used (${remainingBudget.toFixed(4)} remaining)`);
+
+    // Fetch trending tokens
+    const trendingTokens = await fetchTrendingPumpFunTokens();
+    
+    // Filter by volume threshold
+    const minVolumeUSD = parseFloat(config.minVolumeUSD || "1000");
+    const filteredTokens = trendingTokens.filter((t) => t.volumeUSD24h >= minVolumeUSD);
+
+    if (filteredTokens.length === 0) {
+      console.log("[Standalone AI Bot] No tokens meet volume criteria");
+      return;
+    }
+
+    console.log(`[Standalone AI Bot] Analyzing ${filteredTokens.length} tokens...`);
+
+    // Analyze tokens with Grok AI
+    const riskTolerance = (config.riskTolerance || "medium") as "low" | "medium" | "high";
+    
+    for (const token of filteredTokens) {
+      // Check if we've hit daily limit
+      if (botState.dailyTradesExecuted >= maxDailyTrades) {
+        break;
+      }
+
+      const analysis = await analyzeTokenWithGrok(token, riskTolerance, budgetPerTrade);
+
+      // Check minimum potential threshold (hardcoded 150% minimum)
+      const minPotential = Math.max(parseFloat(config.minPotentialPercent || "150"), 150);
+      if (analysis.potentialUpsidePercent < minPotential) {
+        console.log(`[Standalone AI Bot] ${token.symbol}: Potential ${analysis.potentialUpsidePercent}% below threshold ${minPotential}%`);
+        continue;
+      }
+
+      // Execute trade based on AI recommendation
+      if (analysis.action === "buy" && analysis.confidence >= 0.6) {
+        const amountSOL = analysis.suggestedBuyAmountSOL || budgetPerTrade;
+        
+        console.log(`[Standalone AI Bot] BUY signal: ${token.symbol} - ${amountSOL} SOL (confidence: ${(analysis.confidence * 100).toFixed(1)}%)`);
+        console.log(`[Standalone AI Bot] Reasoning: ${analysis.reasoning}`);
+
+        // Buy using Jupiter Ultra API for better routing and pricing
+        const result = await buyTokenWithJupiter(
+          treasuryKeyBase58,
+          token.mint,
+          amountSOL,
+          1000 // 10% slippage (1000 bps)
+        );
+
+        if (result.success && result.signature) {
+          // Update budget tracking
+          const newBudgetUsed = budgetUsed + amountSOL;
+          await storage.createOrUpdateAIBotConfig({
+            ownerWalletAddress,
+            budgetUsed: newBudgetUsed.toString(),
+          });
+          console.log(`[Standalone AI Bot] Budget updated: ${newBudgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used`);
+
+          // Record transaction (no project ID for standalone)
+          await storage.createTransaction({
+            projectId: "", // Empty for standalone AI bot transactions
+            type: "ai_buy",
+            amount: amountSOL.toString(),
+            tokenAmount: "0", // Would need to calculate from tx
+            txSignature: result.signature,
+            status: "completed",
+            expectedPriceSOL: token.priceSOL.toString(),
+            actualPriceSOL: token.priceSOL.toString(),
+          });
+
+          // Broadcast real-time update
+          realtimeService.broadcast({
+            type: "transaction_event",
+            data: {
+              projectId: ownerWalletAddress, // Use wallet address
+              transactionType: "ai_buy",
+              signature: result.signature,
+              amount: amountSOL,
+              token: token.symbol,
+              analysis: analysis.reasoning,
+            },
+            timestamp: Date.now(),
+          });
+
+          // Track position
+          botState.activePositions.set(token.mint, {
+            mint: token.mint,
+            entryPriceSOL: token.priceSOL,
+            amountSOL,
+          });
+
+          botState.dailyTradesExecuted++;
+          console.log(`[Standalone AI Bot] Trade executed successfully (${botState.dailyTradesExecuted}/${maxDailyTrades})`);
+        } else {
+          console.error(`[Standalone AI Bot] Trade failed: ${result.error}`);
+        }
+      }
+    }
+
+    console.log(`[Standalone AI Bot] Run complete for wallet ${ownerWalletAddress}`);
+  } catch (error) {
+    console.error(`[Standalone AI Bot] Error for wallet ${ownerWalletAddress}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Manual trigger for standalone AI bot (no project required)
+ */
+export async function triggerStandaloneAIBot(ownerWalletAddress: string) {
+  await executeStandaloneAIBot(ownerWalletAddress);
 }
