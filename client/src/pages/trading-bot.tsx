@@ -89,8 +89,8 @@ function TradingBotConfigDialog({ project }: { project: Project }) {
     mutationFn: async (data: BuyBotConfigFormData) => {
       return await apiRequest("PATCH", `/api/projects/${project.id}`, {
         buyBotEnabled: data.buyBotEnabled,
-        buyBotMaxSlippage: data.buyBotMaxSlippage,
-        buyBotLimitOrders: JSON.stringify(data.limitOrders),
+        buyBotMaxSlippage: data.buyBotMaxSlippage?.trim() || undefined,
+        buyBotLimitOrders: data.limitOrders.length > 0 ? JSON.stringify(data.limitOrders) : undefined,
       });
     },
     onSuccess: () => {

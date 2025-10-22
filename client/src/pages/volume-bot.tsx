@@ -58,7 +58,13 @@ function VolumeBotConfigDialog({ project }: { project: Project }) {
 
   const updateMutation = useMutation({
     mutationFn: async (data: VolumeBotConfigFormData) => {
-      return await apiRequest("PATCH", `/api/projects/${project.id}`, data);
+      // Convert empty strings to undefined for optional numeric fields
+      const payload = {
+        ...data,
+        volumeBotMinPriceSOL: data.volumeBotMinPriceSOL?.trim() || undefined,
+        volumeBotMaxPriceSOL: data.volumeBotMaxPriceSOL?.trim() || undefined,
+      };
+      return await apiRequest("PATCH", `/api/projects/${project.id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects/owner", publicKey?.toString()] });
