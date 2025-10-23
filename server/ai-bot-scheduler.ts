@@ -704,10 +704,10 @@ export function startAITradingBotScheduler() {
 
   console.log("[AI Bot Scheduler] Starting...");
 
-  // Run every 5 minutes in development, every 30 minutes in production
+  // Run every 2 minutes in development, every 10 minutes in production
   const isDev = process.env.NODE_ENV !== "production";
-  const cronExpression = isDev ? "*/5 * * * *" : "*/30 * * * *";
-  const interval = isDev ? "every 5 minutes" : "every 30 minutes";
+  const cronExpression = isDev ? "*/2 * * * *" : "*/10 * * * *";
+  const interval = isDev ? "every 2 minutes" : "every 10 minutes";
 
   cron.schedule(cronExpression, () => {
     runAITradingBots().catch((error) => {

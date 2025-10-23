@@ -37,7 +37,7 @@ A dedicated scheduler service automates buyback execution using `node-cron`. It 
 **Scheduler Timing:**
 - Development: Checks every 5 minutes for faster testing
 - Production: Checks every hour for efficiency
-- AI Bot: Every 5 minutes (dev) / 30 minutes (prod)
+- AI Bot: Every 2 minutes (dev) / 10 minutes (prod) - optimized for catching opportunities quickly
 
 **Manual vs Automated Execution:**
 - Manual: Uses connected wallet signatures (browser wallet interaction)
