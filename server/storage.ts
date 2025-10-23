@@ -370,6 +370,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(aiBotPositions.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
   }
+
+  async deleteAIBotPositionByMint(ownerWalletAddress: string, tokenMint: string): Promise<boolean> {
+    const { and } = await import("drizzle-orm");
+    const result = await db
+      .delete(aiBotPositions)
+      .where(
+        and(
+          eq(aiBotPositions.ownerWalletAddress, ownerWalletAddress),
+          eq(aiBotPositions.tokenMint, tokenMint)
+        )
+      );
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
 }
 
 export const storage = new DatabaseStorage();

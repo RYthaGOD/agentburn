@@ -634,11 +634,27 @@ async function executeAITradingBot(project: Project) {
             timestamp: Date.now(),
           });
 
-          // Track position
+          // Track position (both in-memory and database)
           botState.activePositions.set(token.mint, {
             mint: token.mint,
             entryPriceSOL: token.priceSOL,
             amountSOL,
+          });
+
+          // Save position to database for persistence across restarts
+          await storage.createAIBotPosition({
+            ownerWalletAddress: project.ownerWalletAddress,
+            tokenMint: token.mint,
+            tokenSymbol: token.symbol,
+            tokenName: token.name,
+            entryPriceSOL: token.priceSOL.toString(),
+            amountSOL: amountSOL.toString(),
+            tokenAmount: "0", // Would need to calculate from tx
+            buyTxSignature: result.signature,
+            lastCheckPriceSOL: token.priceSOL.toString(),
+            lastCheckProfitPercent: "0",
+            aiConfidenceAtBuy: analysis.confidence,
+            aiPotentialAtBuy: analysis.potentialPercent.toString(),
           });
 
           botState.dailyTradesExecuted++;
@@ -1000,11 +1016,27 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
             timestamp: Date.now(),
           });
 
-          // Track position
+          // Track position (both in-memory and database)
           botState.activePositions.set(token.mint, {
             mint: token.mint,
             entryPriceSOL: token.priceSOL,
             amountSOL,
+          });
+
+          // Save position to database for persistence across restarts
+          await storage.createAIBotPosition({
+            ownerWalletAddress,
+            tokenMint: token.mint,
+            tokenSymbol: token.symbol,
+            tokenName: token.name,
+            entryPriceSOL: token.priceSOL.toString(),
+            amountSOL: amountSOL.toString(),
+            tokenAmount: "0", // Would need to calculate from tx
+            buyTxSignature: result.signature,
+            lastCheckPriceSOL: token.priceSOL.toString(),
+            lastCheckProfitPercent: "0",
+            aiConfidenceAtBuy: analysis.confidence,
+            aiPotentialAtBuy: analysis.potentialPercent.toString(),
           });
 
           botState.dailyTradesExecuted++;
@@ -1115,6 +1147,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
             if (tokenAccount.value.length === 0) {
               addLog(`⚠️ No token account found for ${mint.slice(0, 8)}... - position may already be closed`, "warning");
               botState.activePositions.delete(mint);
+              await storage.deleteAIBotPositionByMint(ownerWalletAddress, mint);
               continue;
             }
 
@@ -1168,8 +1201,9 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
                 timestamp: Date.now(),
               });
 
-              // Remove from active positions
+              // Remove from active positions (both in-memory and database)
               botState.activePositions.delete(mint);
+              await storage.deleteAIBotPositionByMint(ownerWalletAddress, mint);
               addLog(`✅ Sold successfully! Profit: ${profitPercent.toFixed(2)}% | Received: ${solReceived.toFixed(6)} SOL | TX: ${sellResult.signature.slice(0, 8)}...`, "success");
             } else {
               addLog(`❌ Sell failed: ${sellResult.error}`, "error");
@@ -1364,7 +1398,7 @@ Respond in JSON format:
 }
 
 /**
- * Get active positions for a wallet address
+ * Get active positions for a wallet address (reads from database)
  */
 export async function getActivePositions(ownerWalletAddress: string): Promise<Array<{
   mint: string;
@@ -1373,41 +1407,48 @@ export async function getActivePositions(ownerWalletAddress: string): Promise<Ar
   currentPriceSOL: number;
   profitPercent: number;
 }>> {
-  const botState = aiBotStates.get(ownerWalletAddress);
-  if (!botState || botState.activePositions.size === 0) {
+  try {
+    // Read positions from database (persisted across restarts)
+    const dbPositions = await storage.getAIBotPositions(ownerWalletAddress);
+    
+    if (dbPositions.length === 0) {
+      return [];
+    }
+
+    const positions = [];
+    
+    for (const position of dbPositions) {
+      try {
+        // Get current price for profit calculation
+        const currentPriceSOL = await getTokenPrice(position.tokenMint);
+        const entryPrice = parseFloat(position.entryPriceSOL);
+        const profitPercent = currentPriceSOL 
+          ? ((currentPriceSOL - entryPrice) / entryPrice) * 100
+          : 0;
+
+        positions.push({
+          mint: position.tokenMint,
+          entryPriceSOL: entryPrice,
+          amountSOL: parseFloat(position.amountSOL),
+          currentPriceSOL: currentPriceSOL || 0,
+          profitPercent,
+        });
+      } catch (error) {
+        console.error(`Error fetching price for ${position.tokenMint}:`, error);
+        // Still include position but with 0 current price
+        positions.push({
+          mint: position.tokenMint,
+          entryPriceSOL: parseFloat(position.entryPriceSOL),
+          amountSOL: parseFloat(position.amountSOL),
+          currentPriceSOL: 0,
+          profitPercent: 0,
+        });
+      }
+    }
+
+    return positions;
+  } catch (error) {
+    console.error(`Error fetching active positions for ${ownerWalletAddress}:`, error);
     return [];
   }
-
-  const positions = [];
-  const positionsArray = Array.from(botState.activePositions.entries());
-  
-  for (const [mint, position] of positionsArray) {
-    try {
-      // Get current price for profit calculation
-      const currentPriceSOL = await getTokenPrice(mint);
-      const profitPercent = currentPriceSOL 
-        ? ((currentPriceSOL - position.entryPriceSOL) / position.entryPriceSOL) * 100
-        : 0;
-
-      positions.push({
-        mint,
-        entryPriceSOL: position.entryPriceSOL,
-        amountSOL: position.amountSOL,
-        currentPriceSOL: currentPriceSOL || 0,
-        profitPercent,
-      });
-    } catch (error) {
-      console.error(`Error fetching price for ${mint}:`, error);
-      // Still include position but with 0 current price
-      positions.push({
-        mint,
-        entryPriceSOL: position.entryPriceSOL,
-        amountSOL: position.amountSOL,
-        currentPriceSOL: 0,
-        profitPercent: 0,
-      });
-    }
-  }
-
-  return positions;
 }
