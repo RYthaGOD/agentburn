@@ -56,7 +56,7 @@ export const projects = pgTable("projects", {
 
 export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id),
+  projectId: varchar("project_id").references(() => projects.id), // Nullable for standalone AI bot transactions
   type: text("type").notNull(), // claim, buyback, burn, volume_buy, volume_sell, limit_buy, ai_buy, ai_sell
   amount: decimal("amount", { precision: 18, scale: 9 }).notNull(),
   tokenAmount: decimal("token_amount", { precision: 18, scale: 9 }),
