@@ -62,25 +62,29 @@ The platform includes three types of automated trading bots with comprehensive c
 **Hive Mind AI System (Multi-Model Consensus):**
 The AI bot uses a revolutionary "hive mind" approach where **multiple AI models vote together** on each trading decision:
 - **Cerebras AI** (Llama 3.3-70B) - Primary, ultra-fast, free tier
-- **ChatAnywhere GPT-4o-mini** (OpenAI GPT-4o-mini) - Secondary, 200 req/day free, high quality
-- **Together AI** (Llama 3.1-70B Turbo) - Tertiary, 200+ models, free tier  
-- **Groq** (Llama 3.3-70B) - Quaternary, completely free backup
+- **Google Gemini** (Gemini 2.0 Flash) - 1M tokens/min free, highest volume
+- **DeepSeek V3** (deepseek-chat) - 5M free tokens, ultra-cheap after, OpenAI compatible
+- **ChatAnywhere GPT-4o-mini** (OpenAI GPT-4o-mini) - 200 req/day free, high quality
+- **Together AI** (Llama 3.1-70B Turbo) - 200+ models, free tier  
+- **OpenRouter** (Llama 3.3-70B) - 300+ models, free tier, variety fallback
+- **Groq** (Llama 3.3-70B) - Completely free backup
 - **xAI Grok** (grok-4-fast-reasoning) - Paid fallback (optional)
 
 **Consensus Voting Rules:**
-- All available models analyze each token in parallel
-- Requires 60% agreement (e.g., 2 out of 3 models) for BUY/SELL decisions
+- All available models analyze each token in parallel (up to 8 providers)
+- Requires 60% agreement for BUY/SELL decisions
 - Weighted by confidence scores (not simple majority)
 - Aggregates risk assessment (uses most conservative)
 - Averages potential upside predictions
-- Degrades gracefully if providers fail (works with 1-3 models)
+- Degrades gracefully if providers fail (works with 1-8 models)
 
 **Benefits:**
 - 50% lower trading variance vs single-model decisions
-- Distributes load across multiple free-tier APIs (avoids rate limits)
+- Distributes load across up to 8 free-tier APIs (avoids rate limits)
 - More reliable signals - filters out false positives
-- No single point of failure
+- No single point of failure - redundancy with 8 providers
 - Higher quality trades with better risk-adjusted returns
+- 1M+ tokens/min capacity (Google Gemini alone)
 
 **Trading Logic:** Scans trending tokens from DexScreener, analyzes with hive mind consensus, and executes buy orders ONLY when:
   - Hive mind consensus reaches BUY (≥60% model agreement)
@@ -170,9 +174,12 @@ A 0.5% transaction fee applies to all transaction types (buybacks, volume bot, b
 - PumpFun Lightning API (creator rewards only)
 - **AI Hive Mind Providers (Multi-Model Consensus):**
   - Cerebras AI (Llama 3.3-70B - ultra-fast, free tier, primary)
-  - ChatAnywhere API (GPT-4o-mini - 200 req/day free, high quality, secondary)
-  - Together AI (Llama 3.1-70B Turbo - 200+ models, free tier, tertiary)
-  - Groq API (Llama 3.3-70B - completely free, quaternary backup)
+  - Google Gemini (Gemini 2.0 Flash - 1M tokens/min free, highest volume)
+  - DeepSeek V3 (deepseek-chat - 5M free tokens, ultra-cheap, OpenAI compatible)
+  - ChatAnywhere API (GPT-4o-mini - 200 req/day free, high quality)
+  - Together AI (Llama 3.1-70B Turbo - 200+ models, free tier)
+  - OpenRouter (Llama 3.3-70B - 300+ models, free tier, variety fallback)
+  - Groq API (Llama 3.3-70B - completely free backup)
   - xAI Grok API (grok-4-fast-reasoning - paid fallback, optional)
 - DexScreener API (free real-time token market data)
 

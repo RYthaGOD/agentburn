@@ -21,6 +21,30 @@ function getAllAIClients(): Array<{ client: OpenAI; model: string; provider: str
     });
   }
 
+  // Google Gemini 2.5 Flash (1M tokens/min free, highest volume)
+  if (process.env.GOOGLE_AI_KEY) {
+    clients.push({
+      client: new OpenAI({
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+        apiKey: process.env.GOOGLE_AI_KEY,
+      }),
+      model: "gemini-2.0-flash-exp",
+      provider: "Google Gemini",
+    });
+  }
+
+  // DeepSeek V3 (5M free tokens, ultra-cheap after, OpenAI compatible)
+  if (process.env.DEEPSEEK_API_KEY) {
+    clients.push({
+      client: new OpenAI({
+        baseURL: "https://api.deepseek.com",
+        apiKey: process.env.DEEPSEEK_API_KEY,
+      }),
+      model: "deepseek-chat",
+      provider: "DeepSeek",
+    });
+  }
+
   // ChatAnywhere GPT-4o-mini (200 req/day free, high quality)
   if (process.env.CHATANYWHERE_API_KEY) {
     clients.push({
@@ -42,6 +66,18 @@ function getAllAIClients(): Array<{ client: OpenAI; model: string; provider: str
       }),
       model: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
       provider: "Together AI",
+    });
+  }
+
+  // OpenRouter (300+ models, free tier, fallback for variety)
+  if (process.env.OPENROUTER_API_KEY) {
+    clients.push({
+      client: new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: process.env.OPENROUTER_API_KEY,
+      }),
+      model: "meta-llama/llama-3.3-70b-instruct",
+      provider: "OpenRouter",
     });
   }
 
@@ -79,7 +115,7 @@ function getAIClient(): { client: OpenAI; model: string; provider: string } {
   const clients = getAllAIClients();
   
   if (clients.length === 0) {
-    throw new Error("No AI API key configured. Set CEREBRAS_API_KEY, CHATANYWHERE_API_KEY, TOGETHER_API_KEY, GROQ_API_KEY, or XAI_API_KEY");
+    throw new Error("No AI API key configured. Set CEREBRAS_API_KEY, GOOGLE_AI_KEY, DEEPSEEK_API_KEY, CHATANYWHERE_API_KEY, TOGETHER_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY, or XAI_API_KEY");
   }
 
   // Return first available
@@ -90,8 +126,11 @@ function getAIClient(): { client: OpenAI; model: string; provider: string } {
 export function isGrokConfigured(): boolean {
   return !!(
     process.env.CEREBRAS_API_KEY || 
+    process.env.GOOGLE_AI_KEY ||
+    process.env.DEEPSEEK_API_KEY ||
     process.env.CHATANYWHERE_API_KEY ||
-    process.env.TOGETHER_API_KEY || 
+    process.env.TOGETHER_API_KEY ||
+    process.env.OPENROUTER_API_KEY ||
     process.env.GROQ_API_KEY || 
     process.env.XAI_API_KEY
   );
