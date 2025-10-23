@@ -60,10 +60,11 @@ The platform includes three types of automated trading bots with comprehensive c
 - Stores encrypted treasury keys directly in AI bot config (separate from project secrets)
 
 **Hive Mind AI System (Multi-Model Consensus):**
-The AI bot uses a revolutionary "hive mind" approach where **3 different AI models vote together** on each trading decision:
+The AI bot uses a revolutionary "hive mind" approach where **multiple AI models vote together** on each trading decision:
 - **Cerebras AI** (Llama 3.3-70B) - Primary, ultra-fast, free tier
-- **Together AI** (Llama 3.1-70B Turbo) - Secondary, 200+ models, free tier  
-- **Groq** (Llama 3.3-70B) - Tertiary, completely free backup
+- **ChatAnywhere GPT-4o-mini** (OpenAI GPT-4o-mini) - Secondary, 200 req/day free, high quality
+- **Together AI** (Llama 3.1-70B Turbo) - Tertiary, 200+ models, free tier  
+- **Groq** (Llama 3.3-70B) - Quaternary, completely free backup
 - **xAI Grok** (grok-4-fast-reasoning) - Paid fallback (optional)
 
 **Consensus Voting Rules:**
@@ -169,8 +170,9 @@ A 0.5% transaction fee applies to all transaction types (buybacks, volume bot, b
 - PumpFun Lightning API (creator rewards only)
 - **AI Hive Mind Providers (Multi-Model Consensus):**
   - Cerebras AI (Llama 3.3-70B - ultra-fast, free tier, primary)
-  - Together AI (Llama 3.1-70B Turbo - 200+ models, free tier, secondary)
-  - Groq API (Llama 3.3-70B - completely free, tertiary backup)
+  - ChatAnywhere API (GPT-4o-mini - 200 req/day free, high quality, secondary)
+  - Together AI (Llama 3.1-70B Turbo - 200+ models, free tier, tertiary)
+  - Groq API (Llama 3.3-70B - completely free, quaternary backup)
   - xAI Grok API (grok-4-fast-reasoning - paid fallback, optional)
 - DexScreener API (free real-time token market data)
 

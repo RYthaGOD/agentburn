@@ -21,6 +21,18 @@ function getAllAIClients(): Array<{ client: OpenAI; model: string; provider: str
     });
   }
 
+  // ChatAnywhere GPT-4o-mini (200 req/day free, high quality)
+  if (process.env.CHATANYWHERE_API_KEY) {
+    clients.push({
+      client: new OpenAI({
+        baseURL: "https://api.chatanywhere.tech/v1",
+        apiKey: process.env.CHATANYWHERE_API_KEY,
+      }),
+      model: "gpt-4o-mini",
+      provider: "ChatAnywhere",
+    });
+  }
+
   // Together AI (200+ models, free tier)
   if (process.env.TOGETHER_API_KEY) {
     clients.push({
@@ -67,7 +79,7 @@ function getAIClient(): { client: OpenAI; model: string; provider: string } {
   const clients = getAllAIClients();
   
   if (clients.length === 0) {
-    throw new Error("No AI API key configured. Set CEREBRAS_API_KEY, TOGETHER_API_KEY, GROQ_API_KEY, or XAI_API_KEY");
+    throw new Error("No AI API key configured. Set CEREBRAS_API_KEY, CHATANYWHERE_API_KEY, TOGETHER_API_KEY, GROQ_API_KEY, or XAI_API_KEY");
   }
 
   // Return first available
@@ -78,6 +90,7 @@ function getAIClient(): { client: OpenAI; model: string; provider: string } {
 export function isGrokConfigured(): boolean {
   return !!(
     process.env.CEREBRAS_API_KEY || 
+    process.env.CHATANYWHERE_API_KEY ||
     process.env.TOGETHER_API_KEY || 
     process.env.GROQ_API_KEY || 
     process.env.XAI_API_KEY
