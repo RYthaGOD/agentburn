@@ -3,7 +3,7 @@
 
 import cron from "node-cron";
 import { storage } from "./storage";
-import { analyzeTokenWithGrok, isGrokConfigured, type TokenMarketData } from "./grok-analysis";
+import { analyzeTokenWithGrok, analyzeTokenWithHiveMind, isGrokConfigured, type TokenMarketData } from "./grok-analysis";
 import { buyTokenWithJupiter, getTokenPrice, getSwapOrder, executeSwapOrder } from "./jupiter";
 import OpenAI from "openai";
 import { sellTokenOnPumpFun } from "./pumpfun";
@@ -544,12 +544,15 @@ async function executeAITradingBot(project: Project) {
       console.log(`[AI Bot]    💧 Liquidity: $${(token.liquidityUSD || 0).toLocaleString()}`);
       console.log(`[AI Bot]    📊 Change 24h: ${(token.priceChange24h || 0) > 0 ? '+' : ''}${(token.priceChange24h || 0).toFixed(2)}%`);
 
-      const analysis = await analyzeTokenWithGrok(token, riskTolerance, budgetPerTrade);
+      // Use Hive Mind for multi-model consensus
+      const hiveMindResult = await analyzeTokenWithHiveMind(token, riskTolerance, budgetPerTrade, 0.6);
+      const analysis = hiveMindResult.analysis;
 
-      console.log(`[AI Bot] 🤖 AI Analysis:`);
+      console.log(`[AI Bot] 🧠 Hive Mind Consensus: ${hiveMindResult.consensus}`);
       console.log(`[AI Bot]    Action: ${analysis.action.toUpperCase()}`);
       console.log(`[AI Bot]    Confidence: ${(analysis.confidence * 100).toFixed(1)}%`);
       console.log(`[AI Bot]    Potential Upside: ${analysis.potentialUpsidePercent.toFixed(1)}%`);
+      console.log(`[AI Bot]    Model Votes:`);
       console.log(`[AI Bot]    💭 Reasoning: ${analysis.reasoning}`);
 
       // Check minimum potential threshold
@@ -910,7 +913,17 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
         priceChange24h: token.priceChange24h,
       });
 
-      const analysis = await analyzeTokenWithGrok(token, riskTolerance, budgetPerTrade);
+      // Use Hive Mind for multi-model consensus
+      const hiveMindResult = await analyzeTokenWithHiveMind(token, riskTolerance, budgetPerTrade, 0.6);
+      const analysis = hiveMindResult.analysis;
+
+      addLog(`🧠 Hive Mind: ${hiveMindResult.consensus}`, "info", { symbol: token.symbol });
+      hiveMindResult.votes.forEach(vote => {
+        addLog(`  ${vote.success ? '✅' : '❌'} ${vote.provider}: ${vote.analysis.action.toUpperCase()} (${(vote.analysis.confidence * 100).toFixed(0)}%)`, 
+          vote.success ? "info" : "warning", 
+          { provider: vote.provider, success: vote.success }
+        );
+      });
 
       addLog(`🤖 AI Analysis: ${analysis.action.toUpperCase()} | Confidence: ${(analysis.confidence * 100).toFixed(1)}% | Potential: ${analysis.potentialUpsidePercent.toFixed(1)}%`, "info", {
         symbol: token.symbol,
