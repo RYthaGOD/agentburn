@@ -5,6 +5,7 @@ import cron from "node-cron";
 import { storage } from "./storage";
 import { analyzeTokenWithGrok, isGrokConfigured, type TokenMarketData } from "./grok-analysis";
 import { buyTokenWithJupiter, getTokenPrice, getSwapOrder, executeSwapOrder } from "./jupiter";
+import OpenAI from "openai";
 import { sellTokenOnPumpFun } from "./pumpfun";
 import { getTreasuryKey } from "./key-manager";
 import { getWalletBalance } from "./solana";
@@ -13,6 +14,37 @@ import { realtimeService } from "./realtime";
 import { Keypair, Connection, PublicKey } from "@solana/web3.js";
 import { loadKeypairFromPrivateKey, getConnection } from "./solana-sdk";
 import type { Project } from "@shared/schema";
+
+/**
+ * Get AI client for analysis (Groq free or xAI paid)
+ */
+function getAIClient(): { client: OpenAI; model: string; provider: string } {
+  // Prefer Groq (completely free)
+  if (process.env.GROQ_API_KEY) {
+    return {
+      client: new OpenAI({
+        baseURL: "https://api.groq.com/openai/v1",
+        apiKey: process.env.GROQ_API_KEY,
+      }),
+      model: "llama-3.3-70b-versatile",
+      provider: "Groq (free)",
+    };
+  }
+  
+  // Fallback to xAI Grok (paid)
+  if (process.env.XAI_API_KEY) {
+    return {
+      client: new OpenAI({
+        baseURL: "https://api.x.ai/v1",
+        apiKey: process.env.XAI_API_KEY,
+      }),
+      model: "grok-4-fast-reasoning",
+      provider: "xAI Grok",
+    };
+  }
+
+  throw new Error("No AI API key configured");
+}
 
 interface AIBotState {
   projectId: string;
@@ -1251,30 +1283,40 @@ Respond in JSON format:
   "reasoning": "<your analysis>"
 }`;
 
-    // Call AI analysis
-    const analysis = await analyzeTokenWithGrok(
-      marketData.symbol,
-      prompt,
-      {
-        ...marketData,
-        mint: tokenMint,
-      }
-    );
+    // Call AI analysis directly with OpenAI client
+    const { client, model, provider } = getAIClient();
+    
+    const aiApiResponse = await client.chat.completions.create({
+      model: model,
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional cryptocurrency trading analyst. Analyze token positions and provide sell/hold recommendations. Always respond with valid JSON."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+      max_tokens: 500,
+    });
+
+    const analysisText = aiApiResponse.choices[0].message.content;
+    if (!analysisText) {
+      throw new Error("No response from AI");
+    }
 
     // Parse AI response
     let aiResponse: any;
     try {
-      // Remove markdown code blocks if present
-      let cleanedText = analysis.analysisText.trim();
-      if (cleanedText.startsWith("```")) {
-        cleanedText = cleanedText.replace(/```json?\n?/g, "").replace(/```\n?/g, "").trim();
-      }
-      aiResponse = JSON.parse(cleanedText);
+      aiResponse = JSON.parse(analysisText);
     } catch (parseError) {
-      console.error("[AI Re-analysis] Failed to parse AI response:", analysis.analysisText);
+      console.error("[AI Re-analysis] Failed to parse AI response:", analysisText);
       // Fallback: extract confidence and recommendation from text
-      const confidenceMatch = analysis.analysisText.match(/confidence["\s:]+(\d+)/i);
-      const recommendationMatch = analysis.analysisText.match(/recommendation["\s:]+([A-Z]+)/i);
+      const confidenceMatch = analysisText.match(/confidence["\s:]+(\d+)/i);
+      const recommendationMatch = analysisText.match(/recommendation["\s:]+([A-Z]+)/i);
       
       aiResponse = {
         confidence: confidenceMatch ? parseInt(confidenceMatch[1]) : 50,
