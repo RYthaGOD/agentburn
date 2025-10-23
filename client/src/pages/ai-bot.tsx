@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Brain, Loader2, Zap, AlertCircle, Play, Power, Scan, TrendingUp, Activity, CheckCircle, XCircle, Clock, Key, Eye, EyeOff, Shield, Lock } from "lucide-react";
+import { Brain, Loader2, Zap, AlertCircle, Play, Power, Scan, TrendingUp, Activity, CheckCircle, XCircle, Clock, Key, Eye, EyeOff, Shield, Lock, ChevronDown } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -16,6 +16,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { AIBotConfig } from "@shared/schema";
 import bs58 from "bs58";
 import {
@@ -275,6 +276,10 @@ export default function AIBot() {
         minPotentialPercent: data.minPotentialPercent,
         maxDailyTrades: parseInt(data.maxDailyTrades),
         profitTargetPercent: data.profitTargetPercent,
+        minOrganicScore: parseInt(data.minOrganicScore),
+        minQualityScore: parseInt(data.minQualityScore),
+        minLiquidityUSD: data.minLiquidityUSD,
+        minTransactions24h: parseInt(data.minTransactions24h),
         riskTolerance: data.riskTolerance,
         enabled: aiConfig?.enabled || false, // Preserve enabled state
       });
@@ -1048,6 +1053,85 @@ export default function AIBot() {
                   )}
                 />
               </div>
+
+              {/* Advanced Filters - Collapsible Section */}
+              <Collapsible className="border rounded-md">
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-4 hover-elevate active-elevate-2" data-testid="button-toggle-advanced-filters">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-primary" />
+                    <span className="font-medium">Advanced Organic Volume Filters</span>
+                  </div>
+                  <ChevronDown className="h-4 w-4 transition-transform" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="px-4 pb-4">
+                  <div className="pt-4 space-y-4 border-t">
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Configure advanced filters to detect organic volume and filter out wash trading. Lower scores = stricter filtering.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="minOrganicScore"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Min Organic Score (0-100)</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="number" placeholder="40" data-testid="input-min-organic-score" />
+                            </FormControl>
+                            <FormDescription>Filters wash trading based on volume patterns</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="minQualityScore"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Min Quality Score (0-100)</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="number" placeholder="30" data-testid="input-min-quality-score" />
+                            </FormControl>
+                            <FormDescription>Overall token quality (volume + liquidity + momentum)</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="minLiquidityUSD"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Min Liquidity (USD)</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="number" step="1000" placeholder="5000" data-testid="input-min-liquidity" />
+                            </FormControl>
+                            <FormDescription>Minimum pool liquidity (prevents low-liquidity traps)</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="minTransactions24h"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Min Transactions (24h)</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="number" placeholder="20" data-testid="input-min-transactions" />
+                            </FormControl>
+                            <FormDescription>Minimum trading activity (buy + sell count)</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
 
               <Button type="submit" className="w-full" disabled={isSaving} data-testid="button-save-config">
                 {isSaving ? (
