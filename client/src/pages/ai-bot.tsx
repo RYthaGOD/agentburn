@@ -49,6 +49,10 @@ const aiBotConfigSchema = z.object({
     (val) => !isNaN(parseInt(val)) && parseInt(val) >= 1,
     "Must be at least 1"
   ),
+  profitTargetPercent: z.string().min(1).refine(
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 10,
+    "Must be at least 10%"
+  ),
   riskTolerance: z.enum(["low", "medium", "high"]),
 });
 
@@ -94,6 +98,7 @@ export default function AIBot() {
       minVolumeUSD: aiConfig?.minVolumeUSD || "5000",
       minPotentialPercent: aiConfig?.minPotentialPercent || "150",
       maxDailyTrades: aiConfig?.maxDailyTrades?.toString() || "5",
+      profitTargetPercent: aiConfig?.profitTargetPercent || "50",
       riskTolerance: (aiConfig?.riskTolerance as "low" | "medium" | "high") || "medium",
     },
   });
@@ -233,6 +238,7 @@ export default function AIBot() {
         minVolumeUSD: data.minVolumeUSD,
         minPotentialPercent: data.minPotentialPercent,
         maxDailyTrades: parseInt(data.maxDailyTrades),
+        profitTargetPercent: data.profitTargetPercent,
         riskTolerance: data.riskTolerance,
         enabled: aiConfig?.enabled || false, // Preserve enabled state
       });
@@ -868,6 +874,21 @@ export default function AIBot() {
                         <Input {...field} type="number" placeholder="5" data-testid="input-max-daily-trades" />
                       </FormControl>
                       <FormDescription>Limit trades per day</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="profitTargetPercent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Profit Target (%)</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" step="10" placeholder="50" data-testid="input-profit-target" />
+                      </FormControl>
+                      <FormDescription>Auto-sell when profit reaches this %</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

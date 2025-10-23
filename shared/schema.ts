@@ -110,6 +110,7 @@ export const aiBotConfigs = pgTable("ai_bot_configs", {
   minPotentialPercent: decimal("min_potential_percent", { precision: 18, scale: 2 }).notNull().default("150"),
   maxDailyTrades: integer("max_daily_trades").notNull().default(5),
   riskTolerance: text("risk_tolerance").notNull().default("medium"), // "low", "medium", "high"
+  profitTargetPercent: decimal("profit_target_percent", { precision: 18, scale: 2 }).notNull().default("50"), // Sell when profit >= this %
   
   // Encrypted treasury key for AI bot trading
   treasuryKeyCiphertext: text("treasury_key_ciphertext"),

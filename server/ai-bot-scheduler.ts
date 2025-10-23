@@ -4,14 +4,14 @@
 import cron from "node-cron";
 import { storage } from "./storage";
 import { analyzeTokenWithGrok, isGrokConfigured, type TokenMarketData } from "./grok-analysis";
-import { buyTokenWithJupiter } from "./jupiter";
+import { buyTokenWithJupiter, getTokenPrice, getSwapOrder, executeSwapOrder } from "./jupiter";
 import { sellTokenOnPumpFun } from "./pumpfun";
 import { getTreasuryKey } from "./key-manager";
 import { getWalletBalance } from "./solana";
 import { deductTransactionFee } from "./transaction-fee";
 import { realtimeService } from "./realtime";
-import { Keypair } from "@solana/web3.js";
-import { loadKeypairFromPrivateKey } from "./solana-sdk";
+import { Keypair, Connection, PublicKey } from "@solana/web3.js";
+import { loadKeypairFromPrivateKey, getConnection } from "./solana-sdk";
 import type { Project } from "@shared/schema";
 
 interface AIBotState {
@@ -22,6 +22,69 @@ interface AIBotState {
 }
 
 const aiBotStates = new Map<string, AIBotState>();
+
+/**
+ * Sell all tokens of a specific mint for SOL using Jupiter Ultra API
+ */
+async function sellTokenWithJupiter(
+  walletPrivateKey: string,
+  tokenMint: string,
+  slippageBps: number = 1000
+): Promise<{
+  success: boolean;
+  signature?: string;
+  error?: string;
+}> {
+  try {
+    const SOL_MINT = "So11111111111111111111111111111111111111112";
+    const keypair = loadKeypairFromPrivateKey(walletPrivateKey);
+    const walletAddress = keypair.publicKey.toString();
+    
+    // Get token balance
+    const connection = getConnection();
+    const tokenAccounts = await connection.getTokenAccountsByOwner(keypair.publicKey, {
+      mint: new PublicKey(tokenMint),
+    });
+
+    if (tokenAccounts.value.length === 0) {
+      throw new Error("No token account found");
+    }
+
+    const tokenAccountInfo = await connection.getTokenAccountBalance(tokenAccounts.value[0].pubkey);
+    const tokenBalance = parseInt(tokenAccountInfo.value.amount);
+
+    if (tokenBalance === 0) {
+      throw new Error("Token balance is zero");
+    }
+
+    console.log(`[Jupiter] Selling ${tokenBalance} tokens of ${tokenMint} for SOL`);
+    
+    // Get swap order (sell token for SOL)
+    const swapOrder = await getSwapOrder(
+      tokenMint, // input: token we're selling
+      SOL_MINT, // output: SOL we're getting
+      tokenBalance, // sell all tokens
+      walletAddress,
+      slippageBps
+    );
+    
+    // Execute swap
+    const result = await executeSwapOrder(swapOrder, walletPrivateKey);
+    
+    console.log(`[Jupiter] Sell successful: ${result.transactionId}`);
+    
+    return {
+      success: true,
+      signature: result.transactionId,
+    };
+  } catch (error) {
+    console.error(`[Jupiter] Sell failed:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
 
 /**
  * Fetch trending PumpFun tokens from DexScreener API
@@ -699,6 +762,88 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
           });
         } else {
           addLog(`❌ Trade failed: ${result.error}`, "error");
+        }
+      }
+    }
+
+    // Check active positions for profit-taking
+    const profitTargetPercent = parseFloat(config.profitTargetPercent || "50");
+    if (botState.activePositions.size > 0) {
+      addLog(`📊 Checking ${botState.activePositions.size} active positions for profit-taking (target: ${profitTargetPercent}%)`, "info");
+
+      // Convert Map to array for iteration
+      const positionsArray = Array.from(botState.activePositions.entries());
+      for (const [mint, position] of positionsArray) {
+        try {
+          // Get current SOL price for the token
+          const currentPriceSOL = await getTokenPrice(mint);
+          if (!currentPriceSOL) {
+            addLog(`⏭️ Skip position ${mint}: Unable to fetch current price`, "warning");
+            continue;
+          }
+
+          // Calculate profit percentage
+          const profitPercent = ((currentPriceSOL - position.entryPriceSOL) / position.entryPriceSOL) * 100;
+          
+          addLog(`💹 Position ${mint.slice(0, 8)}... | Entry: ${position.entryPriceSOL.toFixed(8)} SOL | Current: ${currentPriceSOL.toFixed(8)} SOL | Profit: ${profitPercent > 0 ? '+' : ''}${profitPercent.toFixed(2)}%`, "info");
+
+          // Check if profit target is reached
+          if (profitPercent >= profitTargetPercent) {
+            addLog(`🎯 Profit target reached! Selling ${mint.slice(0, 8)}... (${profitPercent.toFixed(2)}% profit)`, "success");
+
+            // Get token balance to sell
+            const connection = getConnection();
+            const tokenAccount = await connection.getTokenAccountsByOwner(treasuryKeypair.publicKey, {
+              mint: new PublicKey(mint),
+            });
+
+            if (tokenAccount.value.length === 0) {
+              addLog(`⚠️ No token account found for ${mint.slice(0, 8)}... - position may already be closed`, "warning");
+              botState.activePositions.delete(mint);
+              continue;
+            }
+
+            // Sell using Jupiter Ultra API
+            const sellResult = await sellTokenWithJupiter(
+              treasuryKeyBase58,
+              mint,
+              1000 // 10% slippage
+            );
+
+            if (sellResult.success && sellResult.signature) {
+              // Record sell transaction
+              await storage.createTransaction({
+                projectId: "", // Empty for standalone AI bot
+                type: "ai_sell",
+                amount: "0", // SOL received from sale
+                tokenAmount: "0",
+                txSignature: sellResult.signature,
+                status: "completed",
+                expectedPriceSOL: currentPriceSOL.toString(),
+                actualPriceSOL: currentPriceSOL.toString(),
+              });
+
+              // Broadcast real-time update
+              realtimeService.broadcast({
+                type: "transaction_event",
+                data: {
+                  projectId: ownerWalletAddress,
+                  transactionType: "ai_sell",
+                  signature: sellResult.signature,
+                  profit: profitPercent,
+                },
+                timestamp: Date.now(),
+              });
+
+              // Remove from active positions
+              botState.activePositions.delete(mint);
+              addLog(`✅ Sold successfully! Profit: ${profitPercent.toFixed(2)}% | TX: ${sellResult.signature.slice(0, 8)}...`, "success");
+            } else {
+              addLog(`❌ Sell failed: ${sellResult.error}`, "error");
+            }
+          }
+        } catch (error) {
+          addLog(`❌ Error checking position ${mint.slice(0, 8)}...: ${error instanceof Error ? error.message : String(error)}`, "error");
         }
       }
     }
