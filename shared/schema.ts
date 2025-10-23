@@ -112,6 +112,12 @@ export const aiBotConfigs = pgTable("ai_bot_configs", {
   riskTolerance: text("risk_tolerance").notNull().default("medium"), // "low", "medium", "high"
   profitTargetPercent: decimal("profit_target_percent", { precision: 18, scale: 2 }).notNull().default("50"), // Sell when profit >= this %
   
+  // Organic volume filtering (wash trading detection)
+  minOrganicScore: integer("min_organic_score").notNull().default(40), // 0-100, filters wash trading
+  minQualityScore: integer("min_quality_score").notNull().default(30), // 0-100, overall token quality
+  minLiquidityUSD: decimal("min_liquidity_usd", { precision: 18, scale: 2 }).notNull().default("5000"), // Minimum liquidity
+  minTransactions24h: integer("min_transactions_24h").notNull().default(20), // Minimum 24h transaction count
+  
   // Encrypted treasury key for AI bot trading
   treasuryKeyCiphertext: text("treasury_key_ciphertext"),
   treasuryKeyIv: text("treasury_key_iv"),

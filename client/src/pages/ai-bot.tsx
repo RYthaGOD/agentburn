@@ -55,6 +55,22 @@ const aiBotConfigSchema = z.object({
     (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 10,
     "Must be at least 10%"
   ),
+  minOrganicScore: z.string().min(1).refine(
+    (val) => !isNaN(parseInt(val)) && parseInt(val) >= 0 && parseInt(val) <= 100,
+    "Must be between 0-100"
+  ),
+  minQualityScore: z.string().min(1).refine(
+    (val) => !isNaN(parseInt(val)) && parseInt(val) >= 0 && parseInt(val) <= 100,
+    "Must be between 0-100"
+  ),
+  minLiquidityUSD: z.string().min(1).refine(
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 1000,
+    "Must be at least $1,000"
+  ),
+  minTransactions24h: z.string().min(1).refine(
+    (val) => !isNaN(parseInt(val)) && parseInt(val) >= 10,
+    "Must be at least 10"
+  ),
   riskTolerance: z.enum(["low", "medium", "high"]),
 });
 
@@ -114,6 +130,10 @@ export default function AIBot() {
       minPotentialPercent: aiConfig?.minPotentialPercent || "150",
       maxDailyTrades: aiConfig?.maxDailyTrades?.toString() || "5",
       profitTargetPercent: aiConfig?.profitTargetPercent || "50",
+      minOrganicScore: aiConfig?.minOrganicScore?.toString() || "40",
+      minQualityScore: aiConfig?.minQualityScore?.toString() || "30",
+      minLiquidityUSD: aiConfig?.minLiquidityUSD || "5000",
+      minTransactions24h: aiConfig?.minTransactions24h?.toString() || "20",
       riskTolerance: (aiConfig?.riskTolerance as "low" | "medium" | "high") || "medium",
     },
   });

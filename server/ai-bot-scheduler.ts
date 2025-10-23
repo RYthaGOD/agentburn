@@ -87,10 +87,178 @@ async function sellTokenWithJupiter(
 }
 
 /**
- * Fetch trending PumpFun tokens from DexScreener API
- * Uses free DexScreener API to get real-time trading data for Solana tokens
+ * Calculate organic volume score (0-100)
+ * Detects wash trading and filters for genuinely trending tokens
  */
-async function fetchTrendingPumpFunTokens(): Promise<TokenMarketData[]> {
+function calculateOrganicVolumeScore(pair: any): number {
+  let score = 100;
+  
+  // 1. Volume/Liquidity Ratio Check (high ratio = potential wash trading)
+  const volumeUSD = pair.volume?.h24 || 0;
+  const liquidityUSD = pair.liquidity?.usd || 0;
+  
+  if (liquidityUSD > 0) {
+    const volumeLiquidityRatio = volumeUSD / liquidityUSD;
+    
+    // Healthy organic trading: 0.5-10x volume/liquidity ratio
+    // Suspicious: >15x (wash trading), <0.3x (dead token)
+    if (volumeLiquidityRatio > 15) {
+      score -= 30; // Likely wash trading
+    } else if (volumeLiquidityRatio > 10) {
+      score -= 15;
+    } else if (volumeLiquidityRatio < 0.3) {
+      score -= 20; // Dead/low activity
+    }
+  }
+  
+  // 2. Transaction Count Analysis
+  const txns24h = (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0);
+  if (txns24h > 0 && volumeUSD > 0) {
+    const avgTxSize = volumeUSD / txns24h;
+    
+    // Organic: many small transactions ($10-$1000 avg)
+    // Suspicious: few large transactions (>$10k avg)
+    if (avgTxSize > 10000) {
+      score -= 25; // Large transactions = potential wash trading
+    } else if (avgTxSize > 5000) {
+      score -= 15;
+    } else if (avgTxSize < 10) {
+      score -= 10; // Too small, might be bots
+    } else {
+      score += 10; // Good organic transaction size
+    }
+  }
+  
+  // 3. Buy/Sell Pressure Balance
+  const buys = pair.txns?.h24?.buys || 0;
+  const sells = pair.txns?.h24?.sells || 0;
+  const totalTxns = buys + sells;
+  
+  if (totalTxns > 0) {
+    const buyRatio = buys / totalTxns;
+    
+    // Healthy: 40-60% buy ratio
+    // Suspicious: extreme imbalance
+    if (buyRatio > 0.4 && buyRatio < 0.6) {
+      score += 15; // Good balance = organic
+    } else if (buyRatio > 0.7 || buyRatio < 0.3) {
+      score -= 20; // Extreme imbalance = manipulation
+    }
+  }
+  
+  // 4. Price Change Consistency
+  const priceChange1h = Math.abs(pair.priceChange?.h1 || 0);
+  const priceChange24h = Math.abs(pair.priceChange?.h24 || 0);
+  
+  // Organic growth: steady gains
+  // Pump & dump: massive short-term spikes
+  if (priceChange1h > 100 || priceChange24h > 500) {
+    score -= 30; // Likely pump & dump
+  } else if (priceChange24h > 0 && priceChange24h < 200) {
+    score += 10; // Healthy growth
+  }
+  
+  // 5. Liquidity Depth (minimum requirement)
+  if (liquidityUSD < 5000) {
+    score -= 40; // Very low liquidity = risky/manipulated
+  } else if (liquidityUSD < 10000) {
+    score -= 20;
+  } else if (liquidityUSD > 100000) {
+    score += 15; // Deep liquidity = more organic
+  }
+  
+  // 6. Market Cap/Liquidity Ratio
+  const marketCap = pair.fdv || pair.marketCap || 0;
+  if (marketCap > 0 && liquidityUSD > 0) {
+    const mcLiqRatio = marketCap / liquidityUSD;
+    
+    // Healthy: 3-20x MC/Liquidity
+    // Suspicious: >50x (unlocked supply dump risk)
+    if (mcLiqRatio > 50) {
+      score -= 25;
+    } else if (mcLiqRatio > 30) {
+      score -= 10;
+    } else if (mcLiqRatio >= 3 && mcLiqRatio <= 20) {
+      score += 10;
+    }
+  }
+  
+  return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * Calculate comprehensive token quality score (0-100)
+ * Combines multiple factors for optimal token selection
+ */
+function calculateTokenQualityScore(pair: any, organicScore: number): number {
+  let score = organicScore * 0.4; // Organic volume is 40% of total score
+  
+  // 1. Momentum Score (30% weight)
+  const priceChange1h = pair.priceChange?.h1 || 0;
+  const priceChange6h = pair.priceChange?.h6 || 0;
+  const priceChange24h = pair.priceChange?.h24 || 0;
+  
+  let momentumScore = 0;
+  // Positive momentum across timeframes
+  if (priceChange1h > 0 && priceChange6h > 0 && priceChange24h > 0) {
+    momentumScore = 30; // Strong uptrend
+  } else if (priceChange1h > 0 && priceChange24h > 0) {
+    momentumScore = 20; // Good momentum
+  } else if (priceChange24h > 0) {
+    momentumScore = 10; // Some momentum
+  }
+  
+  // Bonus for accelerating momentum
+  if (priceChange1h > priceChange24h / 24) {
+    momentumScore += 10; // Recent acceleration
+  }
+  
+  score += Math.min(30, momentumScore);
+  
+  // 2. Volume Trend (20% weight)
+  const volumeChange = pair.volume?.h24ChangePercent || 0;
+  let volumeScore = 0;
+  
+  if (volumeChange > 100) {
+    volumeScore = 20; // Volume exploding
+  } else if (volumeChange > 50) {
+    volumeScore = 15; // Strong volume growth
+  } else if (volumeChange > 0) {
+    volumeScore = 10; // Growing volume
+  }
+  
+  score += volumeScore;
+  
+  // 3. Transaction Activity (10% weight)
+  const txns24h = (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0);
+  let activityScore = 0;
+  
+  if (txns24h > 1000) {
+    activityScore = 10; // Very active
+  } else if (txns24h > 500) {
+    activityScore = 7;
+  } else if (txns24h > 100) {
+    activityScore = 5;
+  } else if (txns24h > 50) {
+    activityScore = 3;
+  }
+  
+  score += activityScore;
+  
+  return Math.min(100, score);
+}
+
+/**
+ * Fetch trending PumpFun tokens from DexScreener API with advanced filtering
+ * Uses free DexScreener API to get real-time trading data for Solana tokens
+ * Implements organic volume detection and wash trading filters
+ */
+async function fetchTrendingPumpFunTokens(config?: {
+  minOrganicScore?: number;
+  minQualityScore?: number;
+  minLiquidityUSD?: number;
+  minTransactions24h?: number;
+}): Promise<TokenMarketData[]> {
   try {
     console.log("[AI Bot] Fetching trending PumpFun tokens from DexScreener...");
     
@@ -137,14 +305,49 @@ async function fetchTrendingPumpFunTokens(): Promise<TokenMarketData[]> {
       return true;
     });
     
-    // Sort by 24h volume (highest first) and take top 50
-    const sortedPairs = uniquePairs
+    // Apply organic volume scoring and quality filtering
+    const scoredPairs = uniquePairs
       .filter((pair: any) => pair.volume?.h24 > 0) // Must have volume
-      .sort((a: any, b: any) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0))
-      .slice(0, 50);
+      .map((pair: any) => {
+        const organicScore = calculateOrganicVolumeScore(pair);
+        const qualityScore = calculateTokenQualityScore(pair, organicScore);
+        return {
+          ...pair,
+          organicScore,
+          qualityScore,
+        };
+      })
+      .filter((pair: any) => {
+        // Use config values or defaults
+        const minOrganicScore = config?.minOrganicScore ?? 40;
+        const minQualityScore = config?.minQualityScore ?? 30;
+        const minLiquidity = config?.minLiquidityUSD ?? 5000;
+        const minTxns = config?.minTransactions24h ?? 20;
+        
+        const txns24h = (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0);
+        const liquidityUSD = pair.liquidity?.usd || 0;
+        
+        return (
+          pair.organicScore >= minOrganicScore &&
+          pair.qualityScore >= minQualityScore &&
+          liquidityUSD >= minLiquidity &&
+          txns24h >= minTxns
+        );
+      })
+      .sort((a: any, b: any) => b.qualityScore - a.qualityScore) // Sort by quality score (best first)
+      .slice(0, 35); // Take top 35 highest quality tokens
+    
+    const minOrganicScore = config?.minOrganicScore ?? 40;
+    const minQualityScore = config?.minQualityScore ?? 30;
+    
+    console.log(`[AI Bot] 📊 Filtered to ${scoredPairs.length} tokens with organic volume (min ${minOrganicScore}% organic, min ${minQualityScore}% quality)`);
+    if (scoredPairs.length > 0) {
+      const top = scoredPairs[0];
+      console.log(`[AI Bot] 🏆 Top token: ${top.baseToken?.symbol} - Quality: ${top.qualityScore.toFixed(1)}%, Organic: ${top.organicScore.toFixed(1)}%`);
+    }
     
     // Map to TokenMarketData format
-    const tokens: TokenMarketData[] = sortedPairs.map((pair: any) => ({
+    const tokens: TokenMarketData[] = scoredPairs.map((pair: any) => ({
       mint: pair.baseToken.address,
       name: pair.baseToken.name || 'Unknown',
       symbol: pair.baseToken.symbol || 'UNKNOWN',
@@ -632,9 +835,14 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
 
     addLog(`💰 Budget status: ${budgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used (${remainingBudget.toFixed(4)} remaining)`, "success");
 
-    // Fetch trending tokens
-    addLog(`🔍 Fetching trending tokens from DexScreener...`, "info");
-    const trendingTokens = await fetchTrendingPumpFunTokens();
+    // Fetch trending tokens with organic volume filtering
+    addLog(`🔍 Fetching trending tokens from DexScreener with organic volume filters...`, "info");
+    const trendingTokens = await fetchTrendingPumpFunTokens({
+      minOrganicScore: config.minOrganicScore || 40,
+      minQualityScore: config.minQualityScore || 30,
+      minLiquidityUSD: parseFloat(config.minLiquidityUSD || "5000"),
+      minTransactions24h: config.minTransactions24h || 20,
+    });
     
     // Filter by volume threshold
     const minVolumeUSD = parseFloat(config.minVolumeUSD || "1000");
