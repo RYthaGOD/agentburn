@@ -811,17 +811,34 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
             );
 
             if (sellResult.success && sellResult.signature) {
+              // Calculate SOL received (approximate based on price and original investment)
+              const solReceived = position.amountSOL * (1 + profitPercent / 100);
+              
               // Record sell transaction
               await storage.createTransaction({
                 projectId: "", // Empty for standalone AI bot
                 type: "ai_sell",
-                amount: "0", // SOL received from sale
-                tokenAmount: "0",
+                amount: solReceived.toFixed(6), // SOL received from sale
+                tokenAmount: "0", // We don't track exact token amount
                 txSignature: sellResult.signature,
                 status: "completed",
                 expectedPriceSOL: currentPriceSOL.toString(),
                 actualPriceSOL: currentPriceSOL.toString(),
               });
+
+              // Update budget: return original investment to available budget
+              const currentConfig = await storage.getAIBotConfig(ownerWalletAddress);
+              if (currentConfig) {
+                const currentBudgetUsed = parseFloat(currentConfig.budgetUsed || "0");
+                const newBudgetUsed = Math.max(0, currentBudgetUsed - position.amountSOL);
+                
+                await storage.createOrUpdateAIBotConfig({
+                  ownerWalletAddress,
+                  budgetUsed: newBudgetUsed.toFixed(6),
+                });
+                
+                addLog(`💰 Budget updated: ${currentBudgetUsed.toFixed(3)} → ${newBudgetUsed.toFixed(3)} SOL used (returned ${position.amountSOL.toFixed(3)} SOL)`, "info");
+              }
 
               // Broadcast real-time update
               realtimeService.broadcast({
@@ -831,13 +848,14 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
                   transactionType: "ai_sell",
                   signature: sellResult.signature,
                   profit: profitPercent,
+                  solReceived: solReceived.toFixed(6),
                 },
                 timestamp: Date.now(),
               });
 
               // Remove from active positions
               botState.activePositions.delete(mint);
-              addLog(`✅ Sold successfully! Profit: ${profitPercent.toFixed(2)}% | TX: ${sellResult.signature.slice(0, 8)}...`, "success");
+              addLog(`✅ Sold successfully! Profit: ${profitPercent.toFixed(2)}% | Received: ${solReceived.toFixed(6)} SOL | TX: ${sellResult.signature.slice(0, 8)}...`, "success");
             } else {
               addLog(`❌ Sell failed: ${sellResult.error}`, "error");
             }
