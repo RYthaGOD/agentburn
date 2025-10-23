@@ -137,6 +137,26 @@ export const aiBotConfigs = pgTable("ai_bot_configs", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Active AI bot positions (trades that haven't been sold yet)
+export const aiBotPositions = pgTable("ai_bot_positions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerWalletAddress: text("owner_wallet_address").notNull(),
+  tokenMint: text("token_mint").notNull(),
+  tokenSymbol: text("token_symbol"),
+  tokenName: text("token_name"),
+  entryPriceSOL: decimal("entry_price_sol", { precision: 18, scale: 9 }).notNull(),
+  amountSOL: decimal("amount_sol", { precision: 18, scale: 9 }).notNull(),
+  tokenAmount: decimal("token_amount", { precision: 18, scale: 9 }).notNull(),
+  buyTxSignature: text("buy_tx_signature").notNull(),
+  buyTimestamp: timestamp("buy_timestamp").notNull().defaultNow(),
+  lastCheckTimestamp: timestamp("last_check_timestamp").notNull().defaultNow(),
+  lastCheckPriceSOL: decimal("last_check_price_sol", { precision: 18, scale: 9 }),
+  lastCheckProfitPercent: decimal("last_check_profit_percent", { precision: 10, scale: 2 }),
+  aiConfidenceAtBuy: integer("ai_confidence_at_buy"),
+  aiPotentialAtBuy: decimal("ai_potential_at_buy", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Encrypted private key storage for automated buybacks
 export const projectSecrets = pgTable("project_secrets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -300,3 +320,13 @@ export type InsertProjectSecret = z.infer<typeof insertProjectSecretSchema>;
 export type SetProjectKeys = z.infer<typeof setProjectKeysSchema>;
 export type AIBotConfig = typeof aiBotConfigs.$inferSelect;
 export type InsertAIBotConfig = z.infer<typeof insertAIBotConfigSchema>;
+
+export const insertAIBotPositionSchema = createInsertSchema(aiBotPositions).omit({
+  id: true,
+  createdAt: true,
+  buyTimestamp: true,
+  lastCheckTimestamp: true,
+});
+
+export type AIBotPosition = typeof aiBotPositions.$inferSelect;
+export type InsertAIBotPosition = z.infer<typeof insertAIBotPositionSchema>;

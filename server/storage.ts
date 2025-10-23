@@ -5,6 +5,7 @@ import {
   usedSignatures,
   projectSecrets,
   aiBotConfigs,
+  aiBotPositions,
   type Project,
   type InsertProject,
   type Transaction,
@@ -17,6 +18,8 @@ import {
   type InsertProjectSecret,
   type AIBotConfig,
   type InsertAIBotConfig,
+  type AIBotPosition,
+  type InsertAIBotPosition,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -59,6 +62,13 @@ export interface IStorage {
   getAllAIBotConfigs(): Promise<AIBotConfig[]>;
   createOrUpdateAIBotConfig(config: Partial<InsertAIBotConfig> & { ownerWalletAddress: string }): Promise<AIBotConfig>;
   deleteAIBotConfig(ownerWalletAddress: string): Promise<boolean>;
+
+  // AI Bot Position operations (active trades)
+  getAIBotPositions(ownerWalletAddress: string): Promise<AIBotPosition[]>;
+  getAIBotPosition(id: string): Promise<AIBotPosition | undefined>;
+  createAIBotPosition(position: InsertAIBotPosition): Promise<AIBotPosition>;
+  updateAIBotPosition(id: string, updates: Partial<InsertAIBotPosition>): Promise<AIBotPosition | undefined>;
+  deleteAIBotPosition(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -317,6 +327,47 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(aiBotConfigs)
       .where(eq(aiBotConfigs.ownerWalletAddress, ownerWalletAddress));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // AI Bot Position operations
+  async getAIBotPositions(ownerWalletAddress: string): Promise<AIBotPosition[]> {
+    return db
+      .select()
+      .from(aiBotPositions)
+      .where(eq(aiBotPositions.ownerWalletAddress, ownerWalletAddress))
+      .orderBy(desc(aiBotPositions.buyTimestamp));
+  }
+
+  async getAIBotPosition(id: string): Promise<AIBotPosition | undefined> {
+    const [position] = await db
+      .select()
+      .from(aiBotPositions)
+      .where(eq(aiBotPositions.id, id));
+    return position || undefined;
+  }
+
+  async createAIBotPosition(position: InsertAIBotPosition): Promise<AIBotPosition> {
+    const [created] = await db
+      .insert(aiBotPositions)
+      .values(position)
+      .returning();
+    return created;
+  }
+
+  async updateAIBotPosition(id: string, updates: Partial<InsertAIBotPosition>): Promise<AIBotPosition | undefined> {
+    const [updated] = await db
+      .update(aiBotPositions)
+      .set(updates)
+      .where(eq(aiBotPositions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteAIBotPosition(id: string): Promise<boolean> {
+    const result = await db
+      .delete(aiBotPositions)
+      .where(eq(aiBotPositions.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
   }
 }
