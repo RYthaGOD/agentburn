@@ -16,11 +16,15 @@ Preferred communication style: Simple, everyday language.
 - **Implemented smart scanning system to reduce API usage**
   - Added 10-minute cache for DexScreener data (prevents repeated API calls)
   - Two-tier scanning approach:
-    - Quick scans: Every 10 minutes using technical filters only (no AI)
-    - Deep scans: Every 30 minutes with full 6-model AI analysis
+    - Quick scans: Every 10 minutes using technical filters + fast Cerebras AI (free)
+      - Analyzes top 2 opportunities with single-model AI
+      - Executes trades immediately when AI confidence >= 75%
+      - 3x faster response on high-quality opportunities
+    - Deep scans: Every 30 minutes with full 6-model AI consensus
+      - All opportunities analyzed by all 6 models
+      - Executes trades when consensus confidence >= 55%
   - Cache shared across all scans within 10-minute window
   - Significantly reduces API calls while increasing scan frequency
-  - Quick scans identify opportunities for deep AI analysis
 - **Implemented Cerebras-powered position monitoring system** (runs every 5 minutes, free API)
   - Monitors all active AI bot positions in real-time
   - Updates current prices and profit percentages in database
