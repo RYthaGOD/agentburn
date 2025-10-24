@@ -299,8 +299,13 @@ async function analyzeSingleModel(
   budgetPerTrade: number
 ): Promise<TradingAnalysis> {
   // Calculate additional metrics for deeper analysis
-  const volumeToMarketCapRatio = tokenData.volumeUSD24h / tokenData.marketCapUSD;
-  const liquidityToMarketCapRatio = (tokenData.liquidityUSD || 0) / tokenData.marketCapUSD;
+  // Add safeguards for zero/near-zero values to prevent Infinity/NaN
+  const safeMarketCap = Math.max(tokenData.marketCapUSD, 0.01);
+  const safeVolume = Math.max(tokenData.volumeUSD24h, 0);
+  const safeLiquidity = Math.max(tokenData.liquidityUSD || 0, 0);
+  
+  const volumeToMarketCapRatio = safeVolume / safeMarketCap;
+  const liquidityToMarketCapRatio = safeLiquidity / safeMarketCap;
   const priceVolatility = Math.abs(tokenData.priceChange24h || 0);
   const hasRecentMomentum = (tokenData.priceChange1h || 0) > 0 && (tokenData.priceChange24h || 0) > 0;
   
