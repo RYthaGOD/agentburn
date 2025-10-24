@@ -1,128 +1,26 @@
 # BurnBot - Solana Token Buyback & Burn SaaS Platform
 
 ## Overview
-BurnBot is a SaaS platform for Solana SPL token creators, automating token buyback and burn operations. It provides a no-code solution with a comprehensive dashboard, flexible scheduling (hourly, daily, weekly, custom cron), and transaction monitoring. The platform aims to enhance tokenomics through a streamlined, automated, and verifiable burn mechanism.
+BurnBot is a SaaS platform designed for Solana SPL token creators, automating token buyback and burn operations. It offers a no-code solution with a comprehensive dashboard, flexible scheduling (hourly, daily, weekly, custom cron), and transaction monitoring. The platform aims to enhance tokenomics through a streamlined, automated, and verifiable burn mechanism.
 
-The platform also features three types of trading bots:
-1.  **Volume Bot:** Generates trading volume via automated buy/sell cycles.
+The platform also includes three types of trading bots:
+1.  **Volume Bot:** Generates trading volume through automated buy/sell cycles.
 2.  **Buy Bot:** Executes limit orders based on target SOL prices.
-3.  **AI Trading Bot:** A standalone bot that scans trending tokens, analyzes them with a 6-model AI consensus system, and executes trades based on AI confidence and profit potential. This bot operates independently of buyback/burn projects.
+3.  **AI Trading Bot:** A standalone bot that scans trending tokens, analyzes them using a 6-model AI consensus system, and executes trades based on AI confidence and profit potential. This bot operates independently of buyback/burn projects.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes
-
-- **Enhanced In-Depth Token Analysis for Improved Accuracy**
-  - AI models now perform comprehensive 4-dimensional analysis framework:
-    - **Fundamental Quality Assessment (40% weight)**: Token utility, project legitimacy, development activity, community engagement, distribution risks, liquidity sustainability
-    - **Technical Price Action Analysis (25% weight)**: Short-term momentum, volume patterns, support/resistance, volatility, price-volume correlation
-    - **Market Conditions & Timing (20% weight)**: Market cap positioning, volume/liquidity adequacy, market cycle stage, competitive analysis, catalysts
-    - **Risk Evaluation (15% weight)**: Rug pull indicators, holder concentration, smart contract security, pump-dump patterns, exit liquidity
-  - Enhanced prompts request detailed multi-paragraph reasoning covering all dimensions
-  - Added pre-calculated advanced metrics:
-    - Volume/Market Cap ratio with interpretation (HIGH/MODERATE/LOW activity)
-    - Liquidity/Market Cap ratio with strength assessment (STRONG/ADEQUATE/WEAK)
-    - Price volatility analysis with risk categorization
-    - Momentum status tracking (positive/neutral/negative)
-    - Holder distribution quality assessment
-  - Temperature reduced to 0.3 (from 0.8) for more consistent, analytical responses
-  - Max tokens increased to 2000 (from 1000) for detailed analysis
-  - Conservative analysis approach: Only BUY at 70%+ confidence for high-quality setups
-  - System prompts emphasize thoroughness, selectivity, and quality over speed
-
-- **Conservative Compounding Strategy (Maximize Gains Through Consistent Wins)**
-  - Hivemind now implements a conservative compounding approach by default
-  - **Focus on high-probability trades** with strict quality filters (50%+ organic score, 40%+ quality)
-  - **Smaller position sizes** (0.02-0.04 SOL) for capital preservation and compounding
-  - **Higher confidence thresholds** across all market conditions (65-80% vs previous 45-75%)
-  - **Quality over quantity**: Max 2-5 trades/day (vs previous 2-10)
-  - **Very high confidence trigger**: Only becomes aggressive when AI confidence ≥85%
-  - **Conservative defaults**:
-    - Neutral markets: 68% confidence, 0.03 SOL trades, 3 trades/day max
-    - Bullish markets: 65% confidence, 0.04 SOL trades, 5 trades/day max (moderate, not aggressive)
-    - Bearish markets: 80% confidence, 0.02 SOL trades, 2 trades/day max
-    - Volatile markets: 72% confidence, 0.03 SOL trades, 3 trades/day max
-  - **Aggressive mode**: Only activated when confidence ≥85%, then increases position size 1.5x and trades to 8/day max
-  - Strategy: Build wealth through consistent small wins that compound, not high-risk moonshots
-
-- **Hivemind Controls 100% of Trading Parameters (Fully Autonomous)**
-  - Removed ALL manual parameter dependencies - hivemind runs the system autonomously
-  - Hivemind dynamically generates ALL trading parameters every 6 hours based on market sentiment
-  - Manual config only maintains essential settings: enabled flag, total budget, treasury key, AI sell decisions
-  - Deep scan and quick scan both operate 100% on hivemind-generated parameters
-  - System self-regulates and adapts to market conditions without human intervention
-- **Added PumpFun API scanning for very low market cap tokens**
-  - Scans PumpFun API directly for brand new token launches
-  - Filters for ultra-low market cap tokens (<$100k) for aggressive meme trading
-  - Combines PumpFun new tokens with DexScreener trending tokens
-  - All tokens analyzed by AI consensus system for trade decisions
-- **Implemented intelligent position re-buy logic with 2-rebuy maximum**
-  - System checks if wallet already holds a token before buying more
-  - Maximum 2 re-buys per position to prevent excessive averaging down
-  - Only allows adding to existing positions if ALL conditions are met:
-    - Price has dropped at least 10% from entry (drawback/dip detected)
-    - New AI confidence is higher than previous buy confidence
-    - Haven't exceeded maximum 2 re-buys
-  - When re-buying:
-    - Updates position with weighted average entry price
-    - Adds new SOL amount to total position size
-    - Increments rebuyCount in database
-    - Updates aiConfidenceAtBuy to latest confidence
-  - Prevents mindlessly averaging down on losing positions
-  - Enables smart dollar-cost averaging on high-conviction dips (limited to 2 additions)
-  - Works in all execution paths: quick scans, deep scans, and legacy project-based bot
-- **Implemented smart wallet management and dynamic trade sizing**
-  - Scans actual wallet balance before every trade for accuracy
-  - Always keeps 0.01 SOL buffer for transaction fees
-  - Automatically claims PumpFun creator rewards when balance is low (<0.05 SOL)
-  - Dynamic trade amounts based on AI confidence:
-    - 90-100% confidence: 2.0x base amount (very high confidence)
-    - 80-89% confidence: 1.75x base amount (high confidence)
-    - 75-79% confidence: 1.5x base amount (above threshold)
-    - 65-74% confidence: 1.25x base amount (medium-high)
-    - 55-64% confidence: 1.0x base amount (medium)
-    - <55% confidence: 0.5x base amount (low)
-  - Caps trade amounts at available wallet balance
-- **Implemented smart scanning system to reduce API usage**
-  - Extended token data cache from 10 to 15 minutes (reduces DexScreener/PumpFun API calls)
-  - Added AI analysis cache (30 minutes) - prevents re-analyzing same tokens repeatedly
-  - Two-tier scanning approach:
-    - Quick scans: Every 10 minutes using technical filters + fast Cerebras AI (free)
-      - Analyzes top 2 opportunities with single-model AI
-      - Executes trades immediately when AI confidence >= 75%
-      - 3x faster response on high-quality opportunities
-      - Uses AI analysis cache to skip already-analyzed tokens
-    - Deep scans: Every 30 minutes with full 6-model AI consensus
-      - All opportunities analyzed by all 6 models
-      - Executes trades when consensus confidence >= 55%
-      - Fetches positions once per scan (not per-token) for efficiency
-  - Position monitoring reduced from every 5 to every 10 minutes (50% fewer API calls)
-  - Significantly reduces API calls while maintaining responsiveness
-- **Implemented Cerebras-powered position monitoring system** (runs every 10 minutes, free API)
-  - Monitors all active AI bot positions in real-time
-  - Updates current prices and profit percentages in database
-  - Uses free Cerebras API to avoid costs
-  - Reduced from 5 to 10 minutes to cut API calls in half
-- **Simplified AI Bot UI/UX for Full Hivemind Autonomy**
-  - Removed all manual parameter inputs (now controlled by hivemind)
-  - Added real-time hivemind strategy status display showing active parameters
-  - Shows: market sentiment, risk level, confidence thresholds, trade sizes, token filters
-  - Clean 3-card dashboard: Bot Status, Active Positions, Budget
-  - Only essential controls: total budget limit, enable/disable toggle, treasury key
-  - Position monitoring increased to every 2.5 minutes for active management
-  - Real-time position updates with AI confidence tracking
-
 ## System Architecture
 
 ### Frontend
-Built with React 18+, TypeScript, and Vite, the frontend uses Wouter for routing, shadcn/ui (New York variant) on Radix UI primitives, and Tailwind CSS for dark mode styling. TanStack Query manages server state, and React Hook Form with Zod handles form validation. The design features a "Fire/Molten" theme. Navigation includes Overview, New Project, Volume Bot, Trading Bot, AI Trading Bot, Transactions, and Settings. Manual buyback controls require wallet signature authentication.
+The frontend is built with React 18+, TypeScript, and Vite, using Wouter for routing, shadcn/ui (New York variant) on Radix UI primitives, and Tailwind CSS for dark mode styling. TanStack Query manages server state, and React Hook Form with Zod handles form validation. The design features a "Fire/Molten" theme. Navigation includes Overview, New Project, Volume Bot, Trading Bot, AI Trading Bot, Transactions, and Settings. Manual buyback controls require wallet signature authentication.
 
 ### Backend
-The backend is an Express.js server in TypeScript, utilizing an ESM module system and a RESTful API. It includes centralized error handling, Zod schema validation, a storage abstraction layer, and a repository pattern for database operations.
+The backend is an Express.js server in TypeScript, utilizing an ESM module system and a RESTful API. It features centralized error handling, Zod schema validation, a storage abstraction layer, and a repository pattern for database operations.
 
 ### Scheduling System
-A dedicated scheduler service automates buyback execution using `node-cron`. It performs hourly checks (5 min in dev, 30 min for AI Bot), validates payments, verifies treasury balances, integrates with Jupiter Ultra API for swaps, and claims PumpFun creator rewards. Token burns use the SPL Token burn instruction. Automation requires an active project, a stored treasury private key, sufficient SOL balance, and a valid payment/trial/whitelisted status.
+A dedicated scheduler service automates buyback execution using `node-cron`. It performs hourly checks, validates payments, verifies treasury balances, integrates with Jupiter Ultra API for swaps, and claims PumpFun creator rewards. Token burns use the SPL Token burn instruction. Automation requires an active project, a stored treasury private key, sufficient SOL balance, and a valid payment/trial/whitelisted status.
 
 ### Trading Bot System
 
@@ -131,35 +29,34 @@ A dedicated scheduler service automates buyback execution using `node-cron`. It 
 -   **Buy Bot (Limit Orders):** Executes buy orders when target SOL prices are met, with configurable limit orders and slippage protection.
 
 #### AI Trading Bot (Standalone)
-This bot operates independently, with configurations stored in a dedicated `aiBotConfigs` table. It uses a "hive mind" system where 6 AI models (Cerebras, Google Gemini, DeepSeek V3, ChatAnywhere, Groq, OpenAI) vote on trades. 
+This bot operates independently, with configurations stored in a dedicated `aiBotConfigs` table. It uses a "hive mind" system where 6 AI models vote on trades.
 
 **Conservative Compounding Strategy:**
-- Focus on high-probability trades with strict quality filters
-- Small position sizes (0.02-0.04 SOL) for capital preservation
-- Higher confidence thresholds (65-80%) across all market conditions
-- Quality over quantity: 2-5 trades per day maximum
-- Only becomes aggressive when AI confidence ≥85%
-- Stricter token filters: 50%+ organic score, 40%+ quality score, $15k+ volume, $8k+ liquidity
-- Strategy goal: Consistent small wins that compound over time, not moonshot gambling 
+- Focuses on high-probability trades with strict quality filters (50%+ organic score, 40%+ quality, $15k+ volume, $8k+ liquidity).
+- Employs small position sizes (0.02-0.04 SOL) for capital preservation and compounding.
+- Utilizes higher confidence thresholds (65-80%) across all market conditions.
+- Prioritizes quality over quantity, limiting trades to 2-5 per day.
+- Becomes aggressive only when AI confidence is ≥85%.
+- Implements comprehensive portfolio analysis to ensure diversification, with a 25% maximum concentration limit per position.
 
 **Token Discovery:**
-- Scans trending tokens from DexScreener API (organic volume scoring, quality filters)
-- Scans PumpFun API for brand new token launches (<$100k market cap)
-- Combines both sources, removing duplicates, and caches for 10 minutes
+- Scans trending tokens from DexScreener API.
+- Scans PumpFun API for new token launches (ultra-low market cap).
+- Combines and de-duplicates sources, caching data for efficiency.
 
-The bot executes trades via Jupiter Ultra API when conditions are met and within budget.
+The bot executes trades via Jupiter Ultra API when conditions are met and within budget, dynamically sizing trades based on AI confidence and wallet balance. It includes intelligent position re-buy logic with a maximum of two re-buys per position, triggered by price drops and increased AI confidence.
 
 ### Data Storage
-PostgreSQL, accessed via Neon's serverless driver and Drizzle ORM, handles data persistence. Key tables include `Projects`, `Transactions`, `Payments`, `ProjectSecrets` (encrypted keys), and `AIBotConfigs` for standalone AI bot settings. UUID primary keys, decimal types for balances, and automatic timestamps are standard.
+PostgreSQL, accessed via Neon's serverless driver and Drizzle ORM, handles data persistence. Key tables include `Projects`, `Transactions`, `Payments`, `ProjectSecrets` (encrypted keys), and `AIBotConfigs`. UUID primary keys, decimal types for balances, and automatic timestamps are standard.
 
 ### Authentication & Authorization
-Wallet-based authentication uses cryptographic signature verification via tweetnacl, with the owner's Solana wallet serving as the primary identifier. Solana Wallet Adapter is integrated for browser wallets.
+Wallet-based authentication uses cryptographic signature verification via tweetnacl, with the owner's Solana wallet as the primary identifier. Solana Wallet Adapter is integrated for browser wallets.
 
 ### Security Infrastructure
-The platform implements defense-in-depth security, including rate limiting, DDoS protection, security headers (Helmet.js), input validation (XSS, Solana address, Zod, SQL injection prevention), audit logging, and secure environment variable handling.
+The platform employs defense-in-depth security, including rate limiting, DDoS protection, security headers (Helmet.js), input validation (XSS, Solana address, Zod, SQL injection prevention), audit logging, and secure environment variable handling.
 
 ### Production Readiness & Automated Workflow
-The system supports secure encrypted key management. The automated workflow includes claiming PumpFun rewards, balance checks, optimal SOL to token swaps via Jupiter Ultra API, and token burns. A payment/trial system offers a 10-day free trial for the first 100 projects, with whitelisted wallets bypassing payment requirements.
+The system supports secure encrypted key management. The automated workflow includes claiming PumpFun rewards, balance checks, optimal SOL to token swaps via Jupiter Ultra API, and token burns. A payment/trial system offers a 10-day free trial, with whitelisted wallets bypassing payment requirements.
 
 ### Transaction Fee System
 A 0.5% transaction fee applies after the first 60 free transactions per project, deducted from the SOL amount and sent to a designated treasury wallet.
