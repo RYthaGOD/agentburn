@@ -768,8 +768,8 @@ export function startAITradingBotScheduler() {
   console.log("[AI Bot Scheduler] Starting...");
   console.log(`[AI Bot Scheduler] Active AI providers (${activeProviders.length}): ${activeProviders.join(", ")}`);
 
-  // Run every 10 minutes to reduce API usage
-  const cronExpression = "*/10 * * * *";
+  // Run every 30 minutes to scan for potential trades
+  const cronExpression = "*/30 * * * *";
 
   cron.schedule(cronExpression, () => {
     runAITradingBots().catch((error) => {
@@ -777,7 +777,7 @@ export function startAITradingBotScheduler() {
     });
   });
 
-  console.log("[AI Bot Scheduler] Active (checks every 10 minutes)");
+  console.log("[AI Bot Scheduler] Active (checks every 30 minutes)");
 }
 
 /**

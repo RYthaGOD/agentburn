@@ -37,7 +37,7 @@ A dedicated scheduler service automates buyback execution using `node-cron`. It 
 **Scheduler Timing:**
 - Development: Checks every 5 minutes for faster testing
 - Production: Checks every hour for efficiency
-- AI Bot: Every 2 minutes (dev) / 10 minutes (prod) - optimized for catching opportunities quickly
+- AI Bot: Every 30 minutes - scans for potential trades with 6-model consensus
 
 **Manual vs Automated Execution:**
 - Manual: Uses connected wallet signatures (browser wallet interaction)
@@ -97,7 +97,7 @@ AI models are prompted to identify:
 - **Maximum profit potential** - No artificial 150% minimum blocks good trades
 - **6-model redundancy** - Continues operating if 1-3 providers fail
 - **Diverse perspectives** - 2 GPT-4 class + 3 Llama + 1 Gemini models
-- **Fast execution** - 10-minute intervals catch opportunities quickly
+- **30-minute scanning** - Regular market scans for profitable opportunities
 - **Cost efficient** - Distributes load across 6 free/cheap APIs
 
 **Trading Logic:** Scans trending tokens from DexScreener, analyzes with 6-model consensus, and executes buy orders when:
