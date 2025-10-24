@@ -963,7 +963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/ai-bot/holdings/:ownerWalletAddress", async (req, res) => {
     try {
       const { getAllTokenAccounts, getWalletBalance } = await import("./solana");
-      const { getTokenPrice } = await import("./jupiter");
+      const { getBatchTokenPrices } = await import("./jupiter");
       const walletAddress = req.params.ownerWalletAddress;
 
       // Get SOL balance
@@ -974,6 +974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Process token holdings and collect mints for batch price fetching
       const tokenData = [];
+      const mints = [];
       
       for (const account of tokenAccounts) {
         try {
@@ -989,32 +990,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             balance,
             decimals: parsedData.tokenAmount.decimals,
           });
+          mints.push(mint);
         } catch (tokenError) {
           console.error(`[Holdings] Error processing token:`, tokenError);
         }
       }
 
-      // Fetch all token prices in parallel (batch processing)
-      const pricePromises = tokenData.map(async (token) => {
-        try {
-          const priceSOL = await getTokenPrice(token.mint);
-          return {
-            ...token,
-            priceSOL,
-            valueSOL: token.balance * priceSOL,
-          };
-        } catch (priceError) {
-          // Price not available - token might not be traded
-          console.log(`[Holdings] No price data for token ${token.mint.substring(0, 8)}...`);
-          return {
-            ...token,
-            priceSOL: 0,
-            valueSOL: 0,
-          };
-        }
-      });
+      // Fetch ALL token prices in a single batch API call (avoids rate limiting!)
+      const priceMap = await getBatchTokenPrices(mints);
 
-      const holdings = await Promise.all(pricePromises);
+      // Build holdings array with prices from the batch response
+      const holdings = tokenData.map((token) => {
+        const priceSOL = priceMap.get(token.mint) || 0;
+        return {
+          ...token,
+          priceSOL,
+          valueSOL: token.balance * priceSOL,
+        };
+      });
 
       // Calculate total token value (only count tokens with known prices)
       const totalTokenValueSOL = holdings.reduce((sum, h) => sum + h.valueSOL, 0);
