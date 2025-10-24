@@ -450,6 +450,111 @@ async function fetchTrendingPumpFunTokens(config?: {
 }
 
 /**
+ * Fetch very low market cap tokens directly from PumpFun API
+ * Targets brand new tokens with low market caps for aggressive meme trading
+ */
+async function fetchLowMarketCapPumpFunTokens(maxTokens: number = 10): Promise<TokenMarketData[]> {
+  try {
+    console.log("[AI Bot] 🔥 Scanning PumpFun API for very low market cap new tokens...");
+    
+    // Fetch latest new tokens from PumpFun API
+    const response = await fetch('https://api.pumpfunapi.org/pumpfun/new/tokens', {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[AI Bot] PumpFun API error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    
+    // Check if data is an array or has a tokens array
+    let newTokens: any[] = [];
+    if (Array.isArray(data)) {
+      newTokens = data;
+    } else if (data.tokens && Array.isArray(data.tokens)) {
+      newTokens = data.tokens;
+    } else {
+      console.error("[AI Bot] Unexpected PumpFun API response format");
+      return [];
+    }
+
+    console.log(`[AI Bot] 📡 Received ${newTokens.length} new tokens from PumpFun API`);
+
+    // Filter and map to TokenMarketData format
+    const processedTokens: TokenMarketData[] = [];
+    
+    for (const token of newTokens.slice(0, maxTokens)) {
+      try {
+        // Get current price and market data from Jupiter/DexScreener
+        const dexData = await fetch(
+          `https://api.dexscreener.com/latest/dex/tokens/${token.mint}`,
+          { headers: { 'Accept': 'application/json' } }
+        );
+
+        if (!dexData.ok) {
+          console.log(`[AI Bot] ⏭️  Skipping ${token.symbol || token.mint} - no market data yet`);
+          continue;
+        }
+
+        const dexJson = await dexData.json();
+        const pairs = dexJson.pairs || [];
+        
+        if (pairs.length === 0) {
+          console.log(`[AI Bot] ⏭️  Skipping ${token.symbol || token.mint} - no trading pairs`);
+          continue;
+        }
+
+        // Use the first pair (usually the main liquidity pool)
+        const pair = pairs[0];
+        const marketCapUSD = pair.fdv || pair.marketCap || 0;
+        
+        // Filter for VERY low market cap (under $100k for aggressive meme trading)
+        if (marketCapUSD > 100000) {
+          console.log(`[AI Bot] ⏭️  Skipping ${token.symbol || token.mint} - market cap too high ($${marketCapUSD.toLocaleString()})`);
+          continue;
+        }
+
+        const tokenData: TokenMarketData = {
+          mint: token.mint,
+          name: token.name || 'Unknown',
+          symbol: token.symbol || 'UNKNOWN',
+          priceUSD: parseFloat(pair.priceUsd || '0'),
+          priceSOL: parseFloat(pair.priceNative || '0'),
+          volumeUSD24h: pair.volume?.h24 || 0,
+          marketCapUSD: marketCapUSD,
+          liquidityUSD: pair.liquidity?.usd || 0,
+          priceChange24h: pair.priceChange?.h24 || 0,
+          priceChange1h: pair.priceChange?.h1 || 0,
+          holderCount: undefined,
+          createdAt: token.timestamp ? new Date(token.timestamp * 1000) : undefined,
+          description: token.metadata || undefined,
+        };
+
+        processedTokens.push(tokenData);
+        console.log(`[AI Bot] ✅ Found low cap token: ${tokenData.symbol} - MC: $${marketCapUSD.toLocaleString()}, Vol: $${tokenData.volumeUSD24h.toLocaleString()}`);
+
+        // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300));
+      } catch (error) {
+        console.error(`[AI Bot] Error processing token ${token.mint}:`, error);
+        continue;
+      }
+    }
+
+    console.log(`[AI Bot] 🔥 Found ${processedTokens.length} very low market cap tokens (<$100k MC) from PumpFun`);
+    
+    return processedTokens;
+  } catch (error) {
+    console.error("[AI Bot] Failed to fetch low market cap tokens from PumpFun API:", error);
+    return [];
+  }
+}
+
+/**
  * Execute AI trading bot for a single project
  */
 async function executeAITradingBot(project: Project) {
