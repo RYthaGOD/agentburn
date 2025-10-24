@@ -55,7 +55,8 @@ This bot operates independently, with configurations stored in a dedicated `aiBo
 The bot executes unlimited trades via Jupiter Ultra API when conditions are met and within budget, dynamically sizing trades based on AI confidence and wallet balance. It includes intelligent position re-buy logic with a maximum of two re-buys per position, triggered by price drops and increased AI confidence.
 
 **Sell Decision Framework (AI-Driven + Safety Overrides):**
-- AI continuously monitors all positions (every 2.5 minutes via Cerebras).
+- **Quick Monitoring:** AI continuously monitors all positions (every 2.5 minutes via Cerebras for fast checks).
+- **Deep Scan Analysis:** Full 6-model AI consensus analyzes all holdings during deep scans (every 30 minutes) for comprehensive position management with SELL/HOLD/ADD recommendations.
 - **Automatic Stop-Loss Override:** Immediately sells at -30% loss regardless of AI recommendation (prevents catastrophic losses).
 - Sells when AI confidence drops below 50% threshold (raised from 40% for faster capital preservation).
 - Sells when AI explicitly recommends SELL based on market analysis.
