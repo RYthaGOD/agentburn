@@ -254,9 +254,13 @@ export async function analyzeTokenWithHiveMind(
   const avgConfidence = successfulVotes.reduce((sum, v) => sum + v.analysis.confidence, 0) / successfulVotes.length;
   const avgUpside = successfulVotes.reduce((sum, v) => sum + v.analysis.potentialUpsidePercent, 0) / successfulVotes.length;
   
-  // Collect all key factors
+  // Collect all key factors (safely handle missing keyFactors)
   const allFactors = new Set<string>();
-  successfulVotes.forEach(v => v.analysis.keyFactors.forEach(f => allFactors.add(f)));
+  successfulVotes.forEach(v => {
+    if (v.analysis.keyFactors && Array.isArray(v.analysis.keyFactors)) {
+      v.analysis.keyFactors.forEach(f => allFactors.add(f));
+    }
+  });
 
   // Determine risk level (use most conservative)
   const riskLevels = successfulVotes.map(v => v.analysis.riskLevel);
