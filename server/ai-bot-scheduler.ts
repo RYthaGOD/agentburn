@@ -102,21 +102,33 @@ async function getCachedOrFetchTokens(config?: {
 
   console.log("[AI Bot Cache] Cache miss or expired, fetching fresh data...");
   
-  // Fetch from both sources in parallel for efficiency
-  const [dexTokens, pumpfunLowCapTokens] = await Promise.all([
-    fetchTrendingPumpFunTokens(config),
-    fetchLowMarketCapPumpFunTokens(10), // Get top 10 very low market cap new tokens
+  // Fetch from ALL sources in parallel for maximum coverage
+  const [dexTokens, pumpfunTrendingTokens, pumpfunMigratedTokens, pumpfunLowCapTokens] = await Promise.all([
+    fetchTrendingPumpFunTokens(config), // DexScreener trending
+    fetchPumpFunTrendingTokens(15), // PumpFun top trending tokens
+    fetchMigratedTokens(10), // Newly migrated tokens (PumpFun → Raydium)
+    fetchLowMarketCapPumpFunTokens(10), // Very low market cap new tokens
   ]);
   
-  // Combine both sources, removing duplicates by mint address
+  // Combine all sources, removing duplicates by mint address
   const seenMints = new Set<string>();
-  const allTokens = [...dexTokens, ...pumpfunLowCapTokens].filter(token => {
+  const allTokens = [
+    ...dexTokens,
+    ...pumpfunTrendingTokens,
+    ...pumpfunMigratedTokens,
+    ...pumpfunLowCapTokens
+  ].filter(token => {
     if (seenMints.has(token.mint)) return false;
     seenMints.add(token.mint);
     return true;
   });
 
-  console.log(`[AI Bot] Combined ${dexTokens.length} DexScreener + ${pumpfunLowCapTokens.length} PumpFun low-cap = ${allTokens.length} total tokens`);
+  console.log(`[AI Bot] 🎯 Token Discovery Summary:`);
+  console.log(`  - DexScreener trending: ${dexTokens.length} tokens`);
+  console.log(`  - PumpFun trending: ${pumpfunTrendingTokens.length} tokens`);
+  console.log(`  - Newly migrated (PumpFun → Raydium): ${pumpfunMigratedTokens.length} tokens`);
+  console.log(`  - Low-cap new tokens: ${pumpfunLowCapTokens.length} tokens`);
+  console.log(`  - Total (deduplicated): ${allTokens.length} tokens`);
   
   tokenDataCache.set(cacheKey, {
     tokens: allTokens,
@@ -474,6 +486,211 @@ async function fetchTrendingPumpFunTokens(config?: {
     return tokens;
   } catch (error) {
     console.error("[AI Bot] Failed to fetch trending tokens from DexScreener:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch top trending tokens from PumpFun API
+ * Gets the most actively traded tokens on PumpFun platform
+ */
+async function fetchPumpFunTrendingTokens(maxTokens: number = 15): Promise<TokenMarketData[]> {
+  try {
+    console.log("[AI Bot] 🔥 Fetching top trending tokens from PumpFun API...");
+    
+    // Fetch trending tokens from PumpFun API
+    const response = await fetch('https://api.pumpfunapi.org/pumpfun/trending', {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[AI Bot] PumpFun trending API error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    
+    // Check if data is an array or has a tokens array
+    let trendingTokens: any[] = [];
+    if (Array.isArray(data)) {
+      trendingTokens = data;
+    } else if (data.tokens && Array.isArray(data.tokens)) {
+      trendingTokens = data.tokens;
+    } else {
+      console.error("[AI Bot] Unexpected PumpFun trending API response format");
+      return [];
+    }
+
+    console.log(`[AI Bot] 📡 Received ${trendingTokens.length} trending tokens from PumpFun API`);
+
+    // Process and enrich with market data
+    const processedTokens: TokenMarketData[] = [];
+    
+    for (const token of trendingTokens.slice(0, maxTokens)) {
+      try {
+        // Get current price and market data from DexScreener
+        const dexData = await fetch(
+          `https://api.dexscreener.com/latest/dex/tokens/${token.mint}`,
+          { headers: { 'Accept': 'application/json' } }
+        );
+
+        if (!dexData.ok) {
+          console.log(`[AI Bot] ⏭️  Skipping trending ${token.symbol || token.mint} - no market data`);
+          continue;
+        }
+
+        const dexJson = await dexData.json();
+        const pairs = dexJson.pairs || [];
+        
+        if (pairs.length === 0) {
+          console.log(`[AI Bot] ⏭️  Skipping trending ${token.symbol || token.mint} - no trading pairs`);
+          continue;
+        }
+
+        // Use the first pair (usually the main liquidity pool)
+        const pair = pairs[0];
+
+        const tokenData: TokenMarketData = {
+          mint: token.mint,
+          name: token.name || 'Unknown',
+          symbol: token.symbol || 'UNKNOWN',
+          priceUSD: parseFloat(pair.priceUsd || '0'),
+          priceSOL: parseFloat(pair.priceNative || '0'),
+          volumeUSD24h: pair.volume?.h24 || 0,
+          marketCapUSD: pair.fdv || pair.marketCap || 0,
+          liquidityUSD: pair.liquidity?.usd || 0,
+          priceChange24h: pair.priceChange?.h24 || 0,
+          priceChange1h: pair.priceChange?.h1 || 0,
+          holderCount: undefined,
+        };
+
+        processedTokens.push(tokenData);
+        console.log(`[AI Bot] ✅ Trending token: ${tokenData.symbol} - MC: $${tokenData.marketCapUSD.toLocaleString()}, Vol: $${tokenData.volumeUSD24h.toLocaleString()}`);
+
+        // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300));
+      } catch (error) {
+        console.error(`[AI Bot] Error processing trending token ${token.mint}:`, error);
+        continue;
+      }
+    }
+
+    console.log(`[AI Bot] 🔥 Fetched ${processedTokens.length} trending tokens from PumpFun`);
+    
+    return processedTokens;
+  } catch (error) {
+    console.error("[AI Bot] Failed to fetch trending tokens from PumpFun API:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch newly migrated tokens (graduated from PumpFun to Raydium)
+ * These tokens have shown strong community support and graduated to DEX listing
+ */
+async function fetchMigratedTokens(maxTokens: number = 10): Promise<TokenMarketData[]> {
+  try {
+    console.log("[AI Bot] 🚀 Scanning for newly migrated tokens (PumpFun → Raydium)...");
+    
+    // Fetch migrated tokens from PumpFun API
+    const response = await fetch('https://api.pumpfunapi.org/pumpfun/migrated', {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[AI Bot] PumpFun migrated API error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    
+    // Check if data is an array or has a tokens array
+    let migratedTokens: any[] = [];
+    if (Array.isArray(data)) {
+      migratedTokens = data;
+    } else if (data.tokens && Array.isArray(data.tokens)) {
+      migratedTokens = data.tokens;
+    } else {
+      console.error("[AI Bot] Unexpected PumpFun migrated API response format");
+      return [];
+    }
+
+    console.log(`[AI Bot] 📡 Received ${migratedTokens.length} migrated tokens from PumpFun API`);
+
+    // Process recently migrated tokens (last 24-48 hours for fresh opportunities)
+    const processedTokens: TokenMarketData[] = [];
+    const now = Date.now();
+    const MIGRATION_WINDOW_MS = 48 * 60 * 60 * 1000; // 48 hours
+    
+    for (const token of migratedTokens.slice(0, maxTokens)) {
+      try {
+        // Check if migration is recent
+        if (token.migratedAt || token.migrationTimestamp) {
+          const migrationTime = new Date(token.migratedAt || token.migrationTimestamp * 1000).getTime();
+          if (now - migrationTime > MIGRATION_WINDOW_MS) {
+            console.log(`[AI Bot] ⏭️  Skipping ${token.symbol || token.mint} - migrated too long ago`);
+            continue;
+          }
+        }
+
+        // Get current price and market data from DexScreener
+        const dexData = await fetch(
+          `https://api.dexscreener.com/latest/dex/tokens/${token.mint}`,
+          { headers: { 'Accept': 'application/json' } }
+        );
+
+        if (!dexData.ok) {
+          console.log(`[AI Bot] ⏭️  Skipping migrated ${token.symbol || token.mint} - no market data`);
+          continue;
+        }
+
+        const dexJson = await dexData.json();
+        const pairs = dexJson.pairs || [];
+        
+        if (pairs.length === 0) {
+          console.log(`[AI Bot] ⏭️  Skipping migrated ${token.symbol || token.mint} - no trading pairs`);
+          continue;
+        }
+
+        // Use the Raydium pair (look for Raydium DEX ID)
+        const raydiumPair = pairs.find((p: any) => 
+          p.dexId?.toLowerCase().includes('raydium')
+        ) || pairs[0];
+
+        const tokenData: TokenMarketData = {
+          mint: token.mint,
+          name: token.name || 'Unknown',
+          symbol: token.symbol || 'UNKNOWN',
+          priceUSD: parseFloat(raydiumPair.priceUsd || '0'),
+          priceSOL: parseFloat(raydiumPair.priceNative || '0'),
+          volumeUSD24h: raydiumPair.volume?.h24 || 0,
+          marketCapUSD: raydiumPair.fdv || raydiumPair.marketCap || 0,
+          liquidityUSD: raydiumPair.liquidity?.usd || 0,
+          priceChange24h: raydiumPair.priceChange?.h24 || 0,
+          priceChange1h: raydiumPair.priceChange?.h1 || 0,
+          holderCount: undefined,
+        };
+
+        processedTokens.push(tokenData);
+        console.log(`[AI Bot] ✅ Migrated token: ${tokenData.symbol} - MC: $${tokenData.marketCapUSD.toLocaleString()}, Vol: $${tokenData.volumeUSD24h.toLocaleString()}`);
+
+        // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300));
+      } catch (error) {
+        console.error(`[AI Bot] Error processing migrated token ${token.mint}:`, error);
+        continue;
+      }
+    }
+
+    console.log(`[AI Bot] 🚀 Fetched ${processedTokens.length} newly migrated tokens (PumpFun → Raydium)`);
+    
+    return processedTokens;
+  } catch (error) {
+    console.error("[AI Bot] Failed to fetch migrated tokens from PumpFun API:", error);
     return [];
   }
 }
