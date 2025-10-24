@@ -28,6 +28,7 @@ The platform also includes three types of trading bots:
 - **Updated frontend:** Removed budget controls, added autonomous management panel + holdings analysis card
 - **Capital calculation:** Available = wallet SOL balance - 0.01 SOL fee reserve - sum of active position values
 - **Maintained risk controls:** 25% concentration limit, stop-loss protection, AI-driven exits unchanged
+- **Portfolio Analysis API:** New `/api/ai-bot/analyze-rebalance` endpoint for on-demand full portfolio analysis with forced OpenAI inclusion for testing and comprehensive rebalancing recommendations
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
