@@ -505,32 +505,78 @@ export default function AIBot() {
         </Alert>
       </div>
 
-      {/* Budget Overview */}
+      {/* Live Status Dashboard */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Bot Status</CardTitle>
+            <Power className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant={isEnabled ? "default" : "secondary"}
+                className="text-xs"
+                data-testid="badge-bot-status"
+              >
+                {isEnabled ? "🟢 Active" : "⚫ Paused"}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {isEnabled ? "Auto-scanning every 30 minutes" : "Manual scans only"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Positions</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-positions-count">
+              {isLoadingPositions ? <Loader2 className="h-6 w-6 animate-spin" /> : activePositions.length}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {activePositions.length > 0 
+                ? "Monitored every 5 min (Cerebras)" 
+                : "No open positions"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Budget</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-budget-remaining">
+              {remainingBudget.toFixed(2)} SOL
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {totalBudget > 0 
+                ? `${((budgetUsed / totalBudget) * 100).toFixed(0)}% of ${totalBudget.toFixed(2)} SOL used` 
+                : "Configure budget below"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Budget Progress Bar */}
       {totalBudget > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Budget Status</span>
-              <span className={`text-sm font-normal ${isEnabled ? 'text-green-500' : 'text-muted-foreground'}`}>
-                {isEnabled ? '🟢 Auto Trading Active' : '⚫ Auto Trading Paused'}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="pt-6">
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Used: {budgetUsed.toFixed(4)} SOL</span>
-                <span className="text-muted-foreground">Total: {totalBudget.toFixed(4)} SOL</span>
+                <span className="text-muted-foreground">Budget Used</span>
+                <span className="font-medium">{budgetUsed.toFixed(4)} / {totalBudget.toFixed(4)} SOL</span>
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-primary transition-all"
                   style={{ width: `${Math.min(100, (budgetUsed / totalBudget) * 100)}%` }}
                 />
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="font-medium">Remaining: {remainingBudget.toFixed(4)} SOL</span>
-                <span className="text-muted-foreground">{((budgetUsed / totalBudget) * 100).toFixed(1)}% used</span>
               </div>
             </div>
           </CardContent>
