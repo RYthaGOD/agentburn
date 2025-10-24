@@ -13,19 +13,21 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-- **Implemented Hivemind Strategy System for adaptive trading**
-  - AI bot can now generate and apply dynamic trading strategies between deep scans
-  - Strategies adapt based on recent trading performance and market sentiment
-  - Each strategy includes:
-    - Market sentiment analysis (bullish, bearish, neutral, volatile)
-    - Dynamic confidence thresholds (adjust trading aggressiveness)
-    - Profit target multipliers (adapt to market conditions)
-    - Risk level recommendations (conservative, moderate, aggressive)
-  - Strategies refresh every 6 hours or when performance changes significantly
-  - In bullish markets: Lower confidence threshold, higher profit targets, more trades
-  - In bearish markets: Higher confidence threshold, faster profit-taking, fewer trades
-  - Stored in `hivemindStrategies` database table with validity periods
-  - Seamlessly integrates with existing 6-model AI consensus system
+- **Hivemind Now Controls 100% of Trading Parameters (Fully Autonomous)**
+  - Removed ALL manual parameter dependencies - hivemind runs the system autonomously
+  - Hivemind dynamically generates ALL trading parameters every 6 hours based on market sentiment:
+    - **Budget per trade** (0.03-0.08 SOL based on market conditions and confidence)
+    - **Token filters** (volume, liquidity, organic score, quality, transactions)
+    - **Confidence thresholds** (45-75% based on market sentiment)
+    - **Profit targets** (0.5x-1.8x multipliers based on bullish/bearish/neutral/volatile markets)
+    - **Max daily trades** (2-10 based on risk level and market conditions)
+    - **Risk levels** (conservative, moderate, aggressive)
+  - Manual config only maintains essential settings: enabled flag, total budget, treasury key
+  - Deep scan and quick scan both operate 100% on hivemind-generated parameters
+  - System self-regulates and adapts to market conditions without human intervention
+  - In bullish markets: Aggressive (0.08 SOL trades, 45% confidence, 1.8x profit targets, 10 trades/day)
+  - In bearish markets: Conservative (0.03 SOL trades, 75% confidence, 0.5x profit targets, 2 trades/day)
+  - In volatile markets: Balanced (0.04 SOL trades, 60% confidence, 0.7x profit targets, 6 trades/day)
 - **Added PumpFun API scanning for very low market cap tokens**
   - Scans PumpFun API directly for brand new token launches
   - Filters for ultra-low market cap tokens (<$100k) for aggressive meme trading

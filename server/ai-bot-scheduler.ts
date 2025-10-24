@@ -1670,17 +1670,10 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
       }
     }
 
-    // Check budget tracking
-    const totalBudget = parseFloat(config.totalBudget || "0");
-    const budgetUsed = parseFloat(config.budgetUsed || "0");
-    const baseAmountPerTrade = parseFloat(config.budgetPerTrade || "0");
-
     if (availableBalance <= 0) {
       addLog(`💰 Insufficient funds: ${actualBalance.toFixed(4)} SOL (need at least ${FEE_BUFFER} SOL for fees)`, "error");
       return logs;
     }
-
-    addLog(`💰 Budget status: ${budgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used`, "success");
 
     // Get active hivemind strategy FIRST (REQUIRED - hivemind controls 100%)
     const { getLatestStrategy } = await import("./hivemind-strategy");
@@ -1694,7 +1687,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     // Hivemind controls ALL parameters
     const minConfidenceThreshold = activeStrategy.minConfidenceThreshold;
     const minPotentialPercent = activeStrategy.minPotentialPercent;
-    const budgetPerTrade = activeStrategy.budgetPerTrade;
+    const budgetPerTrade = activeStrategy.budgetPerTrade; // Hivemind-controlled trade size
     const minVolumeUSD = activeStrategy.minVolumeUSD;
     const minLiquidityUSD = activeStrategy.minLiquidityUSD;
     const minOrganicScore = activeStrategy.minOrganicScore;
@@ -1702,6 +1695,11 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     const minTransactions24h = activeStrategy.minTransactions24h;
     const riskLevel = activeStrategy.riskLevel;
     const maxDailyTrades = activeStrategy.maxDailyTrades;
+    
+    // Check budget tracking (only for monitoring)
+    const totalBudget = parseFloat(config.totalBudget || "0");
+    const budgetUsed = parseFloat(config.budgetUsed || "0");
+    addLog(`💰 Budget status: ${budgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used`, "success");
     
     addLog(`🧠 Hivemind Strategy Active: ${activeStrategy.marketSentiment} market, ${riskLevel} risk`, "success");
     addLog(`   Confidence: ${minConfidenceThreshold}%, Upside: ${minPotentialPercent}%, Trade: ${budgetPerTrade.toFixed(3)} SOL`, "info");
@@ -1790,15 +1788,15 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
 
       // Execute trade based on AI recommendation
       if (analysis.action === "buy") {
-        // Calculate dynamic trade amount based on confidence
-        const tradeAmount = calculateDynamicTradeAmount(baseAmountPerTrade, analysis.confidence, availableBalance);
+        // Calculate dynamic trade amount based on hivemind budget and AI confidence
+        const tradeAmount = calculateDynamicTradeAmount(budgetPerTrade, analysis.confidence, availableBalance);
         
         if (tradeAmount <= 0) {
           addLog(`⏭️ SKIP ${token.symbol}: Insufficient funds (available: ${availableBalance.toFixed(4)} SOL)`, "warning");
           continue;
         }
 
-        addLog(`🚀 BUY SIGNAL: ${token.symbol} - ${tradeAmount.toFixed(4)} SOL (confidence: ${(analysis.confidence * 100).toFixed(1)}%, multiplier: ${(tradeAmount / baseAmountPerTrade).toFixed(2)}x)`, "success", {
+        addLog(`🚀 BUY SIGNAL: ${token.symbol} - ${tradeAmount.toFixed(4)} SOL (confidence: ${(analysis.confidence * 100).toFixed(1)}%, multiplier: ${(tradeAmount / budgetPerTrade).toFixed(2)}x)`, "success", {
           symbol: token.symbol,
           amount: tradeAmount,
           confidence: analysis.confidence,
