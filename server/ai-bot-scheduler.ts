@@ -777,12 +777,12 @@ async function runStandaloneAIBots() {
 }
 
 /**
- * Quick scan mode: Check tokens using technical filters only (no AI)
- * Runs every 10 minutes, much faster than full AI analysis
+ * Quick scan mode: Technical filters + fast Cerebras AI for 75%+ quality trades
+ * Runs every 10 minutes with cached data for speed
  */
 async function runQuickTechnicalScan() {
   try {
-    console.log("[Quick Scan] Starting technical-only scan...");
+    console.log("[Quick Scan] Starting enhanced scan (technical + fast AI)...");
     
     const configs = await storage.getAllAIBotConfigs();
     const enabledConfigs = configs.filter((c: any) => c.enabled);
@@ -792,8 +792,32 @@ async function runQuickTechnicalScan() {
       return;
     }
     
+    // Check if Cerebras is available for fast AI analysis
+    const hasCerebras = !!process.env.CEREBRAS_API_KEY;
+    
     for (const config of enabledConfigs) {
       try {
+        // Get or initialize bot state
+        let botState = aiBotStates.get(config.ownerWalletAddress);
+        const today = new Date().toISOString().split("T")[0];
+
+        if (!botState || botState.lastResetDate !== today) {
+          botState = {
+            projectId: config.ownerWalletAddress,
+            dailyTradesExecuted: 0,
+            lastResetDate: today,
+            activePositions: new Map(),
+          };
+          aiBotStates.set(config.ownerWalletAddress, botState);
+        }
+
+        // Check daily trade limit
+        const maxDailyTrades = config.maxDailyTrades || 10;
+        if (botState.dailyTradesExecuted >= maxDailyTrades) {
+          console.log(`[Quick Scan] Daily trade limit reached for ${config.ownerWalletAddress.slice(0, 8)}...`);
+          continue;
+        }
+
         // Get cached tokens (no API call if cache is fresh)
         const tokens = await getCachedOrFetchTokens({
           minOrganicScore: config.minOrganicScore || 40,
@@ -805,26 +829,44 @@ async function runQuickTechnicalScan() {
         const minVolumeUSD = parseFloat(config.minVolumeUSD || "500");
         const filteredTokens = tokens.filter((t) => t.volumeUSD24h >= minVolumeUSD);
         
-        // Quick technical filters (no AI needed)
+        // Quick technical filters
         const opportunities = filteredTokens.filter(token => {
-          // Must have positive momentum (both 1h and 24h)
-          const has1hMomentum = token.priceChange1h > 0;
-          const has24hMomentum = token.priceChange24h > 0;
-          
-          // Volume must be increasing (inferred from recent activity)
+          const has1hMomentum = (token.priceChange1h ?? 0) > 0;
+          const has24hMomentum = (token.priceChange24h ?? 0) > 0;
           const hasVolume = token.volumeUSD24h >= minVolumeUSD;
-          
-          // Liquidity must be sufficient
-          const hasLiquidity = token.liquidityUSD >= parseFloat(config.minLiquidityUSD || "5000");
-          
+          const hasLiquidity = (token.liquidityUSD ?? 0) >= parseFloat(config.minLiquidityUSD || "5000");
           return has1hMomentum && has24hMomentum && hasVolume && hasLiquidity;
         });
         
-        if (opportunities.length > 0) {
-          console.log(`[Quick Scan] Found ${opportunities.length} technical opportunities for ${config.ownerWalletAddress.slice(0, 8)}... (will analyze with AI in next deep scan)`);
-          // Don't execute trades - just identify opportunities for the next deep scan
-        } else {
+        if (opportunities.length === 0) {
           console.log(`[Quick Scan] No technical opportunities for ${config.ownerWalletAddress.slice(0, 8)}...`);
+          continue;
+        }
+
+        console.log(`[Quick Scan] Found ${opportunities.length} technical opportunities for ${config.ownerWalletAddress.slice(0, 8)}...`);
+
+        // If Cerebras available, analyze top 2 opportunities with fast AI
+        if (hasCerebras && opportunities.length > 0) {
+          const topOpportunities = opportunities.slice(0, 2); // Only check top 2 to stay fast
+          console.log(`[Quick Scan] 🧠 Analyzing top ${topOpportunities.length} with Cerebras (free, fast)...`);
+
+          for (const token of topOpportunities) {
+            // Quick Cerebras-only analysis for 75%+ confidence trades
+            const quickAnalysis = await analyzeTokenWithCerebrasOnly(
+              token,
+              (config.riskTolerance || "medium") as "low" | "medium" | "high",
+              parseFloat(config.budgetPerTrade || "0")
+            );
+
+            if (quickAnalysis.action === "buy" && quickAnalysis.confidence >= 0.75) {
+              console.log(`[Quick Scan] 🚀 HIGH QUALITY: ${token.symbol} - ${(quickAnalysis.confidence * 100).toFixed(1)}% confidence (>= 75% threshold)`);
+              
+              // Execute trade immediately - don't wait for deep scan!
+              await executeQuickTrade(config, token, quickAnalysis, botState);
+            } else {
+              console.log(`[Quick Scan] ⏭️ ${token.symbol}: ${quickAnalysis.action.toUpperCase()} ${(quickAnalysis.confidence * 100).toFixed(1)}% (below 75% threshold, will re-analyze in deep scan)`);
+            }
+          }
         }
       } catch (error) {
         console.error(`[Quick Scan] Error for ${config.ownerWalletAddress}:`, error);
@@ -834,6 +876,168 @@ async function runQuickTechnicalScan() {
     console.log("[Quick Scan] Complete");
   } catch (error) {
     console.error("[Quick Scan] Error:", error);
+  }
+}
+
+/**
+ * Fast single-model analysis using Cerebras (free)
+ * Used for quick 75%+ confidence trades
+ */
+async function analyzeTokenWithCerebrasOnly(
+  tokenData: TokenMarketData,
+  riskTolerance: "low" | "medium" | "high",
+  budgetPerTrade: number
+): Promise<{
+  action: "buy" | "sell" | "hold";
+  confidence: number;
+  reasoning: string;
+  potentialUpsidePercent: number;
+  riskLevel: "low" | "medium" | "high";
+}> {
+  try {
+    const cerebrasClient = new OpenAI({
+      baseURL: "https://api.cerebras.ai/v1",
+      apiKey: process.env.CEREBRAS_API_KEY,
+    });
+
+    const prompt = `Analyze this Solana token for trading (quick scan - single model decision):
+
+Token: ${tokenData.name} (${tokenData.symbol})
+Price: $${tokenData.priceUSD.toFixed(6)} (${tokenData.priceSOL.toFixed(9)} SOL)
+Market Cap: $${tokenData.marketCapUSD.toLocaleString()}
+24h Volume: $${tokenData.volumeUSD24h.toLocaleString()}
+Liquidity: $${(tokenData.liquidityUSD ?? 0).toLocaleString()}
+Price Change 1h: ${(tokenData.priceChange1h ?? 0).toFixed(2)}%
+Price Change 24h: ${(tokenData.priceChange24h ?? 0).toFixed(2)}%
+Has positive momentum: ${(tokenData.priceChange1h ?? 0) > 0 && (tokenData.priceChange24h ?? 0) > 0}
+
+Risk Tolerance: ${riskTolerance}
+Budget: ${budgetPerTrade} SOL
+
+Respond ONLY with valid JSON:
+{
+  "action": "buy" | "sell" | "hold",
+  "confidence": 0.0 to 1.0,
+  "reasoning": "brief explanation",
+  "potentialUpsidePercent": number,
+  "riskLevel": "low" | "medium" | "high"
+}`;
+
+    const response = await cerebrasClient.chat.completions.create({
+      model: "llama-3.3-70b",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      max_tokens: 500,
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : {
+      action: "hold",
+      confidence: 0,
+      reasoning: "Failed to parse Cerebras response",
+      potentialUpsidePercent: 0,
+      riskLevel: "high",
+    };
+
+    return analysis;
+  } catch (error) {
+    console.error("[Cerebras] Quick analysis failed:", error);
+    return {
+      action: "hold",
+      confidence: 0,
+      reasoning: "Cerebras analysis error",
+      potentialUpsidePercent: 0,
+      riskLevel: "high",
+    };
+  }
+}
+
+/**
+ * Execute a quick trade from the quick scan
+ */
+async function executeQuickTrade(
+  config: any,
+  token: TokenMarketData,
+  analysis: any,
+  botState: AIBotState
+) {
+  try {
+    // Get treasury key
+    if (!config.treasuryKeyCiphertext || !config.treasuryKeyIv || !config.treasuryKeyAuthTag) {
+      console.log(`[Quick Scan] No treasury key configured for ${config.ownerWalletAddress.slice(0, 8)}...`);
+      return;
+    }
+
+    const { decrypt } = await import("./crypto");
+    const treasuryKeyBase58 = decrypt(
+      config.treasuryKeyCiphertext,
+      config.treasuryKeyIv,
+      config.treasuryKeyAuthTag
+    );
+
+    // Check budget
+    const totalBudget = parseFloat(config.totalBudget || "0");
+    const budgetUsed = parseFloat(config.budgetUsed || "0");
+    const budgetPerTrade = parseFloat(config.budgetPerTrade || "0");
+    const remainingBudget = totalBudget - budgetUsed;
+
+    if (totalBudget > 0 && remainingBudget < budgetPerTrade) {
+      console.log(`[Quick Scan] Insufficient budget for ${config.ownerWalletAddress.slice(0, 8)}...`);
+      return;
+    }
+
+    // Execute buy
+    const result = await buyTokenWithJupiter(
+      treasuryKeyBase58,
+      token.mint,
+      budgetPerTrade,
+      1000 // 10% slippage
+    );
+
+    if (result.success && result.signature) {
+      // Update budget
+      const newBudgetUsed = budgetUsed + budgetPerTrade;
+      await storage.createOrUpdateAIBotConfig({
+        ownerWalletAddress: config.ownerWalletAddress,
+        budgetUsed: newBudgetUsed.toString(),
+      });
+
+      // Record transaction
+      await storage.createTransaction({
+        projectId: "",
+        type: "ai_buy",
+        amount: budgetPerTrade.toString(),
+        tokenAmount: "0",
+        txSignature: result.signature,
+        status: "completed",
+        expectedPriceSOL: token.priceSOL.toString(),
+        actualPriceSOL: token.priceSOL.toString(),
+      });
+
+      // Update bot state
+      botState.dailyTradesExecuted++;
+
+      // Broadcast update
+      realtimeService.broadcast({
+        type: "transaction_event",
+        data: {
+          projectId: config.ownerWalletAddress,
+          transactionType: "ai_buy",
+          signature: result.signature,
+          amount: budgetPerTrade,
+          token: token.symbol,
+          analysis: `Quick Scan: ${analysis.reasoning} (${(analysis.confidence * 100).toFixed(1)}%)`,
+        },
+        timestamp: Date.now(),
+      });
+
+      console.log(`[Quick Scan] ✅ Trade executed: ${token.symbol} - ${budgetPerTrade} SOL (tx: ${result.signature.slice(0, 8)}...)`);
+    } else {
+      console.error(`[Quick Scan] Trade failed for ${token.symbol}:`, result.error);
+    }
+  } catch (error) {
+    console.error(`[Quick Scan] Error executing trade:`, error);
   }
 }
 
@@ -889,8 +1093,8 @@ export function startAITradingBotScheduler() {
   });
 
   console.log("[AI Bot Scheduler] Active");
-  console.log("  - Quick scans: Every 10 minutes (technical filters, cached data)");
-  console.log("  - Deep scans: Every 30 minutes (6-model AI analysis)");
+  console.log("  - Quick scans: Every 10 minutes (technical + Cerebras AI for 75%+ trades)");
+  console.log("  - Deep scans: Every 30 minutes (6-model consensus for all opportunities)");
 }
 
 /**
