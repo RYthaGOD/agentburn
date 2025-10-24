@@ -94,111 +94,111 @@ function generateStrategyFromSentiment(
   confidence: number,
   analyses: any[]
 ): HivemindStrategy {
-  let minConfidenceThreshold = 68; // Conservative default
+  let minConfidenceThreshold = 75; // STRICT: Higher default for capital preservation
   let maxDailyTrades = 3; // Quality over quantity
   let profitTargetMultiplier = 0.8; // Take profits consistently
   let riskLevel: HivemindStrategy["riskLevel"] = "conservative";
   let preferredMarketCap = "low";
   
-  // Hivemind-controlled parameters - CONSERVATIVE FOR COMPOUNDING
-  let budgetPerTrade = 0.03; // Smaller trades for capital preservation
-  let minVolumeUSD = 15000; // Higher volume required
-  let minLiquidityUSD = 8000; // Higher liquidity required
-  let minOrganicScore = 50; // Strict quality
-  let minQualityScore = 40; // Strict quality
-  let minTransactions24h = 30; // Active tokens only
-  let minPotentialPercent = 25; // Reasonable upside
+  // Hivemind-controlled parameters - STRICT WEALTH-GROWING APPROACH
+  let budgetPerTrade = 0.02; // REDUCED: Very small trades for capital preservation & drawdown minimization
+  let minVolumeUSD = 20000; // INCREASED: Higher volume for better liquidity
+  let minLiquidityUSD = 15000; // INCREASED: Much higher liquidity required (nearly 2x)
+  let minOrganicScore = 60; // STRICTER: Higher organic volume requirement
+  let minQualityScore = 50; // STRICTER: Higher quality requirement
+  let minTransactions24h = 40; // INCREASED: More active tokens only
+  let minPotentialPercent = 30; // Higher upside required to justify risk
 
   switch (sentiment) {
     case "bullish":
-      // Conservative even in bull markets - let profits compound
-      minConfidenceThreshold = 65; // Still high threshold
-      maxDailyTrades = 5; // Limited trades
-      profitTargetMultiplier = 1.2; // Moderate profit targets
+      // STRICT even in bull markets - preserve capital and minimize drawdowns
+      minConfidenceThreshold = 72; // INCREASED: Still very high threshold in bull markets
+      maxDailyTrades = 4; // Limited trades
+      profitTargetMultiplier = 1.0; // Moderate profit targets
       riskLevel = "moderate"; // Not aggressive
       preferredMarketCap = "low"; // Quality tokens
       
-      budgetPerTrade = 0.04; // Moderate trades
-      minVolumeUSD = 10000; // Good volume
-      minLiquidityUSD = 6000; // Good liquidity
-      minOrganicScore = 45; // Quality focus
-      minQualityScore = 35; // Quality focus
-      minTransactions24h = 25; // Active required
+      budgetPerTrade = 0.025; // REDUCED: Small trades even in bull markets
+      minVolumeUSD = 18000; // INCREASED: Good volume
+      minLiquidityUSD = 12000; // INCREASED: Good liquidity
+      minOrganicScore = 55; // STRICTER: Quality focus
+      minQualityScore = 45; // STRICTER: Quality focus
+      minTransactions24h = 35; // INCREASED: Active required
       minPotentialPercent = 35; // Good upside
       break;
 
     case "bearish":
-      // Very conservative in bear markets - capital preservation
-      minConfidenceThreshold = 80; // Very high threshold
-      maxDailyTrades = 2; // Very few trades
-      profitTargetMultiplier = 0.4; // Take profits fast
+      // EXTREMELY conservative in bear markets - maximum capital preservation
+      minConfidenceThreshold = 85; // INCREASED: Extremely high threshold
+      maxDailyTrades = 1; // REDUCED: Minimal trades in bear market
+      profitTargetMultiplier = 0.3; // Take profits very fast
       riskLevel = "conservative";
       preferredMarketCap = "medium"; // Safer tokens
       
-      budgetPerTrade = 0.02; // Very small trades
-      minVolumeUSD = 50000; // High volume required
-      minLiquidityUSD = 25000; // High liquidity required
-      minOrganicScore = 65; // Very strict
-      minQualityScore = 55; // Very strict
-      minTransactions24h = 60; // High activity required
-      minPotentialPercent = 20; // Lower targets, quick exits
+      budgetPerTrade = 0.015; // REDUCED: Extremely small trades
+      minVolumeUSD = 60000; // INCREASED: Very high volume required
+      minLiquidityUSD = 30000; // INCREASED: Very high liquidity required
+      minOrganicScore = 70; // STRICTER: Extremely strict
+      minQualityScore = 60; // STRICTER: Extremely strict
+      minTransactions24h = 80; // INCREASED: Very high activity required
+      minPotentialPercent = 25; // INCREASED: Need good upside to justify any risk
       break;
 
     case "volatile":
-      // Conservative in volatile markets - protect capital
-      minConfidenceThreshold = 72; // High threshold
-      maxDailyTrades = 3; // Few trades
-      profitTargetMultiplier = 0.6; // Quick profits
+      // VERY conservative in volatile markets - avoid drawdowns
+      minConfidenceThreshold = 80; // INCREASED: Very high threshold for volatile markets
+      maxDailyTrades = 2; // REDUCED: Very few trades
+      profitTargetMultiplier = 0.5; // Quick profits to lock in gains
       riskLevel = "conservative";
       preferredMarketCap = "low";
       
-      budgetPerTrade = 0.03; // Small trades
-      minVolumeUSD = 20000; // High volume
-      minLiquidityUSD = 10000; // High liquidity
-      minOrganicScore = 55; // Strict
-      minQualityScore = 45; // Strict
-      minTransactions24h = 35; // Good activity
-      minPotentialPercent = 30; // Moderate targets
+      budgetPerTrade = 0.02; // REDUCED: Small trades to minimize exposure
+      minVolumeUSD = 25000; // INCREASED: Higher volume for safety
+      minLiquidityUSD = 15000; // INCREASED: Higher liquidity for safe exits
+      minOrganicScore = 65; // STRICTER: Very strict in volatile conditions
+      minQualityScore = 55; // STRICTER: Very strict quality
+      minTransactions24h = 50; // INCREASED: Higher activity required
+      minPotentialPercent = 35; // INCREASED: Need good upside to justify volatility risk
       break;
 
     case "neutral":
     default:
-      // Conservative by default - compounding strategy
-      minConfidenceThreshold = 68;
+      // STRICT by default - wealth-growing approach with minimal drawdowns
+      minConfidenceThreshold = 75; // INCREASED: Higher default threshold
       maxDailyTrades = 3;
       profitTargetMultiplier = 0.8;
       riskLevel = "conservative";
       preferredMarketCap = "low";
       
-      budgetPerTrade = 0.03;
-      minVolumeUSD = 15000;
-      minLiquidityUSD = 8000;
-      minOrganicScore = 50;
-      minQualityScore = 40;
-      minTransactions24h = 30;
-      minPotentialPercent = 25;
+      budgetPerTrade = 0.02; // REDUCED: Smaller default position size
+      minVolumeUSD = 20000; // INCREASED: Higher volume requirement
+      minLiquidityUSD = 15000; // INCREASED: Much higher liquidity requirement
+      minOrganicScore = 60; // INCREASED: Stricter organic score
+      minQualityScore = 50; // INCREASED: Stricter quality score
+      minTransactions24h = 40; // INCREASED: More active tokens
+      minPotentialPercent = 30; // INCREASED: Better upside required
       break;
   }
 
-  // ONLY become aggressive when confidence is VERY HIGH (85%+)
-  // This aligns with the compounding strategy
-  if (confidence >= 85) {
-    // VERY HIGH confidence: increase position size and frequency
-    console.log(`[Hivemind Strategy] Very high confidence (${confidence}%) - increasing aggression`);
-    maxDailyTrades = Math.min(8, maxDailyTrades + 3); // More trades allowed
-    minConfidenceThreshold = Math.max(55, minConfidenceThreshold - 10); // Lower threshold
-    budgetPerTrade *= 1.5; // 50% larger trades
-    profitTargetMultiplier *= 1.3; // Higher targets
-    riskLevel = sentiment === "bearish" ? "moderate" : "aggressive";
-  } else if (confidence < 55) {
-    // Low confidence: be even more conservative
-    maxDailyTrades = Math.max(1, maxDailyTrades - 1);
-    minConfidenceThreshold = Math.min(85, minConfidenceThreshold + 10);
-    budgetPerTrade *= 0.7; // 30% smaller trades
-    profitTargetMultiplier *= 0.8; // Lower targets
+  // STRICT WEALTH-GROWING: Only slightly increase with VERY HIGH confidence
+  // Capital preservation is ALWAYS priority - minimize drawdowns
+  if (confidence >= 90) {
+    // EXTREMELY HIGH confidence: SMALL increase to position size (cap growth to avoid drawdowns)
+    console.log(`[Hivemind Strategy] Extremely high confidence (${confidence}%) - modest increase`);
+    maxDailyTrades = Math.min(5, maxDailyTrades + 2); // Limited increase in trades
+    minConfidenceThreshold = Math.max(70, minConfidenceThreshold - 5); // SMALL decrease in threshold
+    budgetPerTrade = Math.min(0.03, budgetPerTrade * 1.25); // CAP at 0.03 SOL maximum
+    profitTargetMultiplier *= 1.2; // Modest increase in targets
+    riskLevel = sentiment === "bearish" ? "conservative" : "moderate"; // Never aggressive
+  } else if (confidence < 60) {
+    // Low confidence: be EXTREMELY conservative - capital preservation mode
+    maxDailyTrades = Math.max(1, maxDailyTrades - 2); // Drastically reduce trades
+    minConfidenceThreshold = Math.min(90, minConfidenceThreshold + 15); // Much higher threshold
+    budgetPerTrade *= 0.5; // Cut position size in half
+    profitTargetMultiplier *= 0.6; // Take profits faster
   }
 
-  const reasoning = `CONSERVATIVE COMPOUNDING: ${sentiment} market (${confidence.toFixed(1)}% confidence). ${riskLevel} risk, ${preferredMarketCap} cap focus, ${maxDailyTrades} max trades/day, ${minConfidenceThreshold}% min confidence, ${budgetPerTrade.toFixed(3)} SOL/trade. Focus: High-probability trades with strict quality filters for consistent gains that compound over time. Only aggressive when confidence ≥85%.`;
+  const reasoning = `STRICT WEALTH-GROWING: ${sentiment} market (${confidence.toFixed(1)}% confidence). ${riskLevel} risk, ${preferredMarketCap} cap focus, ${maxDailyTrades} max trades/day, ${minConfidenceThreshold}% min confidence, ${budgetPerTrade.toFixed(4)} SOL/trade (MAX 0.03). Focus: Capital preservation with minimal drawdowns. Strict quality filters (${minOrganicScore}% organic, ${minQualityScore}% quality, $${minLiquidityUSD.toLocaleString()} liquidity). Only increase size at 90%+ confidence.`;
 
   return {
     marketSentiment: sentiment,
@@ -227,18 +227,18 @@ function getDefaultStrategy(): HivemindStrategy {
   return {
     marketSentiment: "neutral",
     preferredMarketCap: "low",
-    minConfidenceThreshold: 68, // Conservative
+    minConfidenceThreshold: 75, // STRICT: Higher threshold
     maxDailyTrades: 3, // Quality over quantity
     profitTargetMultiplier: 0.8, // Take profits consistently
     riskLevel: "conservative",
-    budgetPerTrade: 0.03, // Small trades for compounding
-    minVolumeUSD: 15000, // Higher volume required
-    minLiquidityUSD: 8000, // Higher liquidity required
-    minOrganicScore: 50, // Strict quality
-    minQualityScore: 40, // Strict quality
-    minTransactions24h: 30, // Active tokens only
-    minPotentialPercent: 25, // Reasonable upside
-    reasoning: "Default conservative compounding strategy - High-probability trades with strict quality filters",
+    budgetPerTrade: 0.02, // REDUCED: Smaller trades for capital preservation
+    minVolumeUSD: 20000, // INCREASED: Higher volume required
+    minLiquidityUSD: 15000, // INCREASED: Much higher liquidity required
+    minOrganicScore: 60, // STRICTER: Higher organic requirement
+    minQualityScore: 50, // STRICTER: Higher quality requirement
+    minTransactions24h: 40, // INCREASED: More active tokens only
+    minPotentialPercent: 30, // INCREASED: Better upside required
+    reasoning: "Default strict wealth-growing strategy - Capital preservation with minimal drawdowns through strict quality filters",
     generatedAt: new Date(),
   };
 }
