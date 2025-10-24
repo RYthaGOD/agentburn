@@ -644,7 +644,7 @@ export default function AIBot() {
           <CardContent>
             <div className="text-2xl font-bold">{isEnabled ? 'Running' : 'Stopped'}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {isEnabled ? 'Scans every 10min (quick) & 30min (deep)' : 'Manual scans only'}
+              {isEnabled ? 'DeepSeek scans: 10min quick, 30min deep' : 'Manual scans only'}
             </p>
             <Button
               onClick={handleToggleBot}
@@ -673,7 +673,7 @@ export default function AIBot() {
           <CardContent>
             <div className="text-2xl font-bold">{activePositions.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Monitored every 2.5 minutes
+              DeepSeek monitoring every 2.5min
             </p>
             <div className="mt-3 text-sm">
               {activePositions.length > 0 ? (
@@ -715,10 +715,57 @@ export default function AIBot() {
                 <span className="text-muted-foreground">AI Confidence</span>
                 <Badge variant="outline">≥75%</Badge>
               </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Auto Rebalancing</span>
+                <Badge variant="outline" className="text-cyan-500">Every 30min</Badge>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Automatic Portfolio Rebalancing */}
+      <Card className="border-cyan-500/30 bg-gradient-to-r from-background to-cyan-500/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-cyan-500" />
+            Automatic Portfolio Rebalancing
+          </CardTitle>
+          <CardDescription>
+            AI-powered rebalancing runs every 30 minutes for optimal portfolio performance
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+              <div className="text-sm font-medium text-cyan-500">Schedule</div>
+              <div className="text-2xl font-bold mt-1">Every 30min</div>
+              <div className="text-xs text-muted-foreground mt-1">Fully automated</div>
+            </div>
+            
+            <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <div className="text-sm font-medium text-purple-500">Analysis</div>
+              <div className="text-2xl font-bold mt-1">7-Model AI</div>
+              <div className="text-xs text-muted-foreground mt-1">Including OpenAI</div>
+            </div>
+            
+            <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+              <div className="text-sm font-medium text-green-500">Execution</div>
+              <div className="text-2xl font-bold mt-1">Auto-Sell</div>
+              <div className="text-xs text-muted-foreground mt-1">When AI recommends</div>
+            </div>
+          </div>
+
+          <Alert className="bg-cyan-500/5 border-cyan-500/20">
+            <Sparkles className="h-4 w-4 text-cyan-500" />
+            <AlertTitle>Continuous Optimization</AlertTitle>
+            <AlertDescription className="text-xs">
+              The rebalancer analyzes ALL positions together using full hivemind consensus (including OpenAI for maximum accuracy). 
+              Positions are automatically sold when AI determines better opportunities exist or momentum weakens. No manual intervention required.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
 
       {/* AI Hivemind Strategy */}
       {hivemindStrategy && (
@@ -726,10 +773,10 @@ export default function AIBot() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Brain className="h-5 w-5 text-purple-500" />
-              AI Hivemind Strategy
+              DeepSeek-First AI Strategy
             </CardTitle>
             <CardDescription>
-              6-model AI consensus adapts to market conditions (updates every 6 hours)
+              7-model hivemind with DeepSeek V3 as primary (updates every 6 hours)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -834,15 +881,15 @@ export default function AIBot() {
                 <div className="flex items-start gap-2">
                   <Brain className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="font-medium">6-Model Consensus</div>
-                    <div className="text-xs text-muted-foreground">Cerebras, Gemini, DeepSeek, ChatAnywhere, Groq, OpenAI</div>
+                    <div className="font-medium">7-Model Hivemind</div>
+                    <div className="text-xs text-muted-foreground">DeepSeek V3 (primary), Cerebras, Gemini, ChatAnywhere, Groq, OpenAI x2</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Activity className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="font-medium">Continuous Monitoring</div>
-                    <div className="text-xs text-muted-foreground">Quick scans every 2.5min, deep analysis every 30min</div>
+                    <div className="font-medium">DeepSeek Monitoring</div>
+                    <div className="text-xs text-muted-foreground">Position checks: 2.5min | Quick scans: 10min | Deep scans: 30min</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -859,7 +906,7 @@ export default function AIBot() {
           {/* Risk Protection */}
           <div className="pt-4 border-t">
             <h3 className="text-sm font-semibold text-orange-500 mb-3">Multi-Layer Risk Protection</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
               <div className="p-2 rounded bg-muted/50 border">
                 <div className="font-medium">Stop-Loss</div>
                 <div className="text-muted-foreground">-30% auto-sell</div>
@@ -875,6 +922,10 @@ export default function AIBot() {
               <div className="p-2 rounded bg-muted/50 border">
                 <div className="font-medium">Quality Filter</div>
                 <div className="text-muted-foreground">60% organic vol</div>
+              </div>
+              <div className="p-2 rounded bg-cyan-500/10 border border-cyan-500/30">
+                <div className="font-medium text-cyan-500">Auto Rebalance</div>
+                <div className="text-muted-foreground">Every 30min</div>
               </div>
             </div>
           </div>
