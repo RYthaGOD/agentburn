@@ -431,7 +431,7 @@ export default function AIBot() {
             Autonomous AI Trading Bot
           </h1>
           <p className="text-muted-foreground mt-1">
-            Fully autonomous hivemind-powered trading system
+            Fully autonomous hivemind system powered by DeepSeek V3 (free tier) - 60%+ cost reduction
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -788,7 +788,7 @@ export default function AIBot() {
               DeepSeek-First AI Strategy
             </CardTitle>
             <CardDescription>
-              7-model hivemind with DeepSeek V3 as primary (updates every 6 hours)
+              7-model hivemind with DeepSeek V3 (FREE tier) as primary - cost-optimized AI (updates every 6 hours)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -848,28 +848,44 @@ export default function AIBot() {
       {/* DeepSeek Cost Optimization */}
       <Alert className="bg-gradient-to-r from-green-500/5 to-blue-500/5 border-green-500/30">
         <Sparkles className="h-4 w-4 text-green-500" />
-        <AlertTitle className="text-base font-semibold">DeepSeek V3 Cost Optimization</AlertTitle>
+        <AlertTitle className="text-base font-semibold flex items-center gap-2">
+          DeepSeek V3 Cost Optimization
+          <Badge variant="outline" className="bg-green-500/20 text-green-500 border-green-500/50">
+            FREE 5M Tokens
+          </Badge>
+        </AlertTitle>
         <AlertDescription className="text-sm mt-2">
           <div className="space-y-2">
-            <div>
-              System now uses <strong className="text-green-500">DeepSeek V3</strong> (5M free tokens, superior reasoning) as the primary AI model for 90%+ of analysis:
+            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+              <div className="font-semibold text-green-500 mb-1">Cost Savings: 60%+ Reduction in AI Expenses</div>
+              <div className="text-xs text-muted-foreground">
+                System intelligently uses <strong>DeepSeek V3 (FREE tier, 5M tokens/month)</strong> for 90%+ of analysis, 
+                reserving paid OpenAI API for high-value swing trade opportunities only.
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3 text-xs">
               <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
-                <div className="font-semibold text-green-500">Position Monitoring</div>
-                <div className="text-muted-foreground mt-1">DeepSeek-only every 2.5min - fast & intelligent</div>
+                <div className="font-semibold text-green-500 flex items-center gap-1">
+                  Position Monitoring
+                  <Badge variant="outline" className="text-xs">100% FREE</Badge>
+                </div>
+                <div className="text-muted-foreground mt-1">DeepSeek-only every 2.5min - zero cost, superior quality</div>
               </div>
               <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20">
-                <div className="font-semibold text-blue-500">Quick Scans</div>
-                <div className="text-muted-foreground mt-1">DeepSeek-only every 10min for 75%+ confidence trades</div>
+                <div className="font-semibold text-blue-500 flex items-center gap-1">
+                  Quick Scans
+                  <Badge variant="outline" className="text-xs">100% FREE</Badge>
+                </div>
+                <div className="text-muted-foreground mt-1">DeepSeek-only every 10min for 75%+ trades - no API fees</div>
               </div>
               <div className="p-2 rounded bg-purple-500/10 border border-purple-500/20">
                 <div className="font-semibold text-purple-500">High-Confidence Trades</div>
-                <div className="text-muted-foreground mt-1">Full 7-model consensus for 85%+ swing trades</div>
+                <div className="text-muted-foreground mt-1">Full 7-model consensus only when justified by profit potential</div>
               </div>
             </div>
-            <div className="mt-3 text-xs text-muted-foreground">
-              Result: <strong className="text-green-500">60%+ reduction in OpenAI costs</strong> while maintaining superior AI quality. OpenAI now reserved for high-value opportunities only.
+            <div className="mt-3 p-2 rounded bg-blue-500/10 border border-blue-500/20 text-xs">
+              <strong className="text-blue-500">Smart Cost Management:</strong> OpenAI usage limited to 85%+ confidence swing trades where premium analysis justifies the expense. 
+              All routine monitoring and most trading decisions use free DeepSeek API for maximum efficiency.
             </div>
           </div>
         </AlertDescription>
@@ -923,8 +939,11 @@ export default function AIBot() {
                 <div className="flex items-start gap-2">
                   <Brain className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="font-medium">7-Model Hivemind</div>
-                    <div className="text-xs text-muted-foreground">DeepSeek V3 (primary), Cerebras, Gemini, ChatAnywhere, Groq, OpenAI x2</div>
+                    <div className="font-medium flex items-center gap-2">
+                      7-Model Hivemind
+                      <Badge variant="outline" className="text-xs bg-green-500/20 text-green-500">90% FREE</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">DeepSeek V3 FREE (primary), Cerebras, Gemini, ChatAnywhere, Groq, OpenAI x2 (paid, high-value only)</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
