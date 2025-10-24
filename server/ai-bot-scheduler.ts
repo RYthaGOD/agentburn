@@ -620,16 +620,6 @@ async function executeAITradingBot(project: Project) {
       aiBotStates.set(project.id, botState);
     }
 
-    // Check daily trade limit
-    const maxDailyTrades = project.aiBotMaxDailyTrades || 10;
-    if (botState.dailyTradesExecuted >= maxDailyTrades) {
-      console.log(`[AI Bot] Daily trade limit reached (${maxDailyTrades})`);
-      await storage.updateProject(project.id, {
-        lastBotStatus: "skipped",
-        lastBotRunAt: new Date(),
-      });
-      return;
-    }
 
     // Get wallet keypair
     const treasuryKeyBase58 = await getTreasuryKey(project.id);
@@ -713,11 +703,6 @@ async function executeAITradingBot(project: Project) {
     for (let i = 0; i < filteredTokens.length; i++) {
       const token = filteredTokens[i];
       
-      // Check if we've hit daily limit
-      if (botState.dailyTradesExecuted >= maxDailyTrades) {
-        break;
-      }
-
       console.log(`\n[AI Bot] 📊 Analyzing token ${i + 1}/${filteredTokens.length}: ${token.symbol} (${token.name})`);
       console.log(`[AI Bot]    💰 Price: $${token.priceUSD.toFixed(6)} (${token.priceSOL.toFixed(8)} SOL)`);
       console.log(`[AI Bot]    📈 Volume 24h: $${token.volumeUSD24h.toLocaleString()}`);
@@ -901,8 +886,7 @@ async function executeAITradingBot(project: Project) {
             });
           }
 
-          botState.dailyTradesExecuted++;
-          console.log(`[AI Bot] Trade executed successfully (${botState.dailyTradesExecuted}/${maxDailyTrades})`);
+          console.log(`[AI Bot] Trade executed successfully`);
         } else {
           console.error(`[AI Bot] Trade failed: ${result.error}`);
         }
@@ -1059,13 +1043,7 @@ async function runQuickTechnicalScan() {
         const riskLevel = activeStrategy.riskLevel;
         const minConfidenceThreshold = activeStrategy.minConfidenceThreshold / 100; // Convert to 0-1
 
-        // Check daily NEW position limit (does NOT affect position management like re-buys or sells)
-        if (botState.dailyTradesExecuted >= maxDailyTrades) {
-          console.log(`[Quick Scan] Daily NEW position limit reached for ${config.ownerWalletAddress.slice(0, 8)}... (${maxDailyTrades} max) - position management continues`);
-          continue;
-        }
-
-        console.log(`[Quick Scan] 🧠 Hivemind: ${activeStrategy.marketSentiment} market, ${riskLevel} risk, ${maxDailyTrades} trades/day`);
+        console.log(`[Quick Scan] 🧠 Hivemind: ${activeStrategy.marketSentiment} market, ${riskLevel} risk`);
 
         // Get cached tokens with hivemind filters
         const tokens = await getCachedOrFetchTokens({
@@ -1463,7 +1441,7 @@ async function executeQuickTrade(
           aiPotentialAtBuy: analysis.potentialUpsidePercent.toString(),
           rebuyCount: (existingPosition.rebuyCount || 0) + 1,
         });
-        console.log(`[Quick Scan] Updated position with ${existingPosition.rebuyCount + 1} re-buys (avg entry: ${newAvgEntryPrice.toFixed(8)} SOL) - NOT counted toward daily limit`);
+        console.log(`[Quick Scan] Updated position with ${existingPosition.rebuyCount + 1} re-buys (avg entry: ${newAvgEntryPrice.toFixed(8)} SOL)`);
       } else {
         // New position: Create it
         await storage.createAIBotPosition({
@@ -1481,15 +1459,7 @@ async function executeQuickTrade(
           aiPotentialAtBuy: analysis.potentialUpsidePercent.toString(),
         });
         
-        // Only count NEW positions toward daily trade limit (not re-buys or sells)
-        botState.dailyTradesExecuted++;
-        
-        // Get hivemind strategy for limit display
-        const { getLatestStrategy } = await import("./hivemind-strategy");
-        const activeStrategy = await getLatestStrategy(config.ownerWalletAddress);
-        const maxDailyTrades = activeStrategy?.maxDailyTrades || 5;
-        
-        console.log(`[Quick Scan] ✅ New position opened: ${token.symbol} (${botState.dailyTradesExecuted}/${maxDailyTrades} new positions today)`);
+        console.log(`[Quick Scan] ✅ New position opened: ${token.symbol}`);
       }
 
       console.log(`[Quick Scan] Trade executed: ${token.symbol} - ${tradeAmount.toFixed(4)} SOL (tx: ${result.signature.slice(0, 8)}...)`);
@@ -1858,7 +1828,6 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     const minQualityScore = activeStrategy.minQualityScore;
     const minTransactions24h = activeStrategy.minTransactions24h;
     const riskLevel = activeStrategy.riskLevel;
-    const maxDailyTrades = activeStrategy.maxDailyTrades;
     
     // Check budget tracking (only for monitoring)
     const totalBudget = parseFloat(config.totalBudget || "0");
@@ -1915,12 +1884,6 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     
     for (let i = 0; i < filteredTokens.length; i++) {
       const token = filteredTokens[i];
-      
-      // Check if we've hit daily limit
-      if (botState.dailyTradesExecuted >= maxDailyTrades) {
-        addLog(`⏹️ Daily trade limit reached (${maxDailyTrades})`, "warning");
-        break;
-      }
 
       addLog(`📊 Analyzing token ${i + 1}/${filteredTokens.length}: ${token.symbol} (${token.name})`, "info", {
         symbol: token.symbol,
@@ -2144,7 +2107,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
               aiPotentialAtBuy: analysis.potentialUpsidePercent.toString(),
               rebuyCount: (existingPosition.rebuyCount || 0) + 1,
             });
-            addLog(`   Updated position with ${existingPosition.rebuyCount + 1} re-buys (avg entry: ${newAvgEntryPrice.toFixed(8)} SOL) - NOT counted toward daily limit`, "info");
+            addLog(`   Updated position with ${existingPosition.rebuyCount + 1} re-buys (avg entry: ${newAvgEntryPrice.toFixed(8)} SOL)`, "info");
             addLog(`✅ Position re-buy executed! ${token.symbol} added to position`, "success", {
               symbol: token.symbol,
               txSignature: result.signature,
@@ -2167,9 +2130,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
               aiPotentialAtBuy: analysis.potentialUpsidePercent.toString(),
             });
             
-            // Only count NEW positions toward daily trade limit (not re-buys or sells)
-            botState.dailyTradesExecuted++;
-            addLog(`✅ New position opened! ${token.symbol} (${botState.dailyTradesExecuted}/${strategy.maxDailyTrades} new positions today)`, "success", {
+            addLog(`✅ New position opened! ${token.symbol}`, "success", {
               symbol: token.symbol,
               txSignature: result.signature,
               amount: tradeAmount,
@@ -2560,7 +2521,7 @@ export async function getActivePositions(ownerWalletAddress: string): Promise<Ar
 
         positions.push({
           mint: position.tokenMint,
-          tokenSymbol: position.tokenSymbol,
+          tokenSymbol: position.tokenSymbol || 'UNKNOWN',
           entryPriceSOL: entryPrice,
           amountSOL: parseFloat(position.amountSOL),
           currentPriceSOL: currentPriceSOL || 0,
@@ -2572,7 +2533,7 @@ export async function getActivePositions(ownerWalletAddress: string): Promise<Ar
         // Still include position but with 0 current price
         positions.push({
           mint: position.tokenMint,
-          tokenSymbol: position.tokenSymbol,
+          tokenSymbol: position.tokenSymbol || 'UNKNOWN',
           entryPriceSOL: parseFloat(position.entryPriceSOL),
           amountSOL: parseFloat(position.amountSOL),
           currentPriceSOL: 0,
