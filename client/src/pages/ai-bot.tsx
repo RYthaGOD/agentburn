@@ -472,15 +472,27 @@ export default function AIBot() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Budget</CardTitle>
-            <TrendingUp className="h-4 w-4 text-orange-500" />
+            <CardTitle className="text-sm font-medium">
+              {remainingBudget >= 0 ? 'Budget Remaining' : 'Over Budget'}
+            </CardTitle>
+            <TrendingUp className={`h-4 w-4 ${remainingBudget >= 0 ? 'text-orange-500' : 'text-red-500'}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{remainingBudget.toFixed(4)} SOL</div>
+            <div className={`text-2xl font-bold ${remainingBudget >= 0 ? '' : 'text-red-500'}`}>
+              {Math.abs(remainingBudget).toFixed(4)} SOL
+            </div>
             <p className="text-xs text-muted-foreground mt-1">
               {budgetUsed.toFixed(4)} / {totalBudget.toFixed(4)} used
             </p>
-            <Progress value={(budgetUsed / totalBudget) * 100} className="mt-3" />
+            <Progress 
+              value={Math.min((budgetUsed / totalBudget) * 100, 100)} 
+              className={`mt-3 ${remainingBudget < 0 ? '[&>div]:bg-red-500' : ''}`}
+            />
+            {remainingBudget < 0 && (
+              <p className="text-xs text-red-500 mt-2">
+                ⚠️ Increase budget or close positions to continue trading
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
