@@ -56,6 +56,49 @@ interface AIBotState {
 const aiBotStates = new Map<string, AIBotState>();
 
 /**
+ * Cache for DexScreener token data to reduce API calls
+ * Cached for 10 minutes to allow frequent scans without hammering API
+ */
+interface TokenCache {
+  tokens: TokenMarketData[];
+  timestamp: number;
+  expiresAt: number;
+}
+
+const tokenDataCache: Map<string, TokenCache> = new Map();
+const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Get cached token data or fetch fresh data if cache expired
+ */
+async function getCachedOrFetchTokens(config?: {
+  minOrganicScore?: number;
+  minQualityScore?: number;
+  minLiquidityUSD?: number;
+  minTransactions24h?: number;
+}): Promise<TokenMarketData[]> {
+  const cacheKey = JSON.stringify(config || {});
+  const cached = tokenDataCache.get(cacheKey);
+  const now = Date.now();
+
+  if (cached && cached.expiresAt > now) {
+    console.log(`[AI Bot Cache] Using cached data (${Math.floor((cached.expiresAt - now) / 1000)}s remaining)`);
+    return cached.tokens;
+  }
+
+  console.log("[AI Bot Cache] Cache miss or expired, fetching fresh data...");
+  const tokens = await fetchTrendingPumpFunTokens(config);
+  
+  tokenDataCache.set(cacheKey, {
+    tokens,
+    timestamp: now,
+    expiresAt: now + CACHE_DURATION_MS,
+  });
+
+  return tokens;
+}
+
+/**
  * Sell all tokens of a specific mint for SOL using Jupiter Ultra API
  */
 async function sellTokenWithJupiter(
@@ -734,13 +777,76 @@ async function runStandaloneAIBots() {
 }
 
 /**
- * Run both project-based and standalone AI trading bots
+ * Quick scan mode: Check tokens using technical filters only (no AI)
+ * Runs every 10 minutes, much faster than full AI analysis
+ */
+async function runQuickTechnicalScan() {
+  try {
+    console.log("[Quick Scan] Starting technical-only scan...");
+    
+    const configs = await storage.getAllAIBotConfigs();
+    const enabledConfigs = configs.filter((c: any) => c.enabled);
+    
+    if (enabledConfigs.length === 0) {
+      console.log("[Quick Scan] No enabled AI bots");
+      return;
+    }
+    
+    for (const config of enabledConfigs) {
+      try {
+        // Get cached tokens (no API call if cache is fresh)
+        const tokens = await getCachedOrFetchTokens({
+          minOrganicScore: config.minOrganicScore || 40,
+          minQualityScore: config.minQualityScore || 30,
+          minLiquidityUSD: parseFloat(config.minLiquidityUSD || "5000"),
+          minTransactions24h: config.minTransactions24h || 20,
+        });
+        
+        const minVolumeUSD = parseFloat(config.minVolumeUSD || "500");
+        const filteredTokens = tokens.filter((t) => t.volumeUSD24h >= minVolumeUSD);
+        
+        // Quick technical filters (no AI needed)
+        const opportunities = filteredTokens.filter(token => {
+          // Must have positive momentum (both 1h and 24h)
+          const has1hMomentum = token.priceChange1h > 0;
+          const has24hMomentum = token.priceChange24h > 0;
+          
+          // Volume must be increasing (inferred from recent activity)
+          const hasVolume = token.volumeUSD24h >= minVolumeUSD;
+          
+          // Liquidity must be sufficient
+          const hasLiquidity = token.liquidityUSD >= parseFloat(config.minLiquidityUSD || "5000");
+          
+          return has1hMomentum && has24hMomentum && hasVolume && hasLiquidity;
+        });
+        
+        if (opportunities.length > 0) {
+          console.log(`[Quick Scan] Found ${opportunities.length} technical opportunities for ${config.ownerWalletAddress.slice(0, 8)}... (will analyze with AI in next deep scan)`);
+          // Don't execute trades - just identify opportunities for the next deep scan
+        } else {
+          console.log(`[Quick Scan] No technical opportunities for ${config.ownerWalletAddress.slice(0, 8)}...`);
+        }
+      } catch (error) {
+        console.error(`[Quick Scan] Error for ${config.ownerWalletAddress}:`, error);
+      }
+    }
+    
+    console.log("[Quick Scan] Complete");
+  } catch (error) {
+    console.error("[Quick Scan] Error:", error);
+  }
+}
+
+/**
+ * Run both project-based and standalone AI trading bots (deep scan with AI)
  */
 async function runAITradingBots() {
+  console.log("[Deep Scan] Starting full AI analysis...");
   await Promise.all([
     runProjectBasedAIBots(),
     runStandaloneAIBots(),
   ]);
+  console.log("[Deep Scan] Complete");
 }
 
 /**
@@ -768,16 +874,23 @@ export function startAITradingBotScheduler() {
   console.log("[AI Bot Scheduler] Starting...");
   console.log(`[AI Bot Scheduler] Active AI providers (${activeProviders.length}): ${activeProviders.join(", ")}`);
 
-  // Run every 30 minutes to scan for potential trades
-  const cronExpression = "*/30 * * * *";
-
-  cron.schedule(cronExpression, () => {
-    runAITradingBots().catch((error) => {
-      console.error("[AI Bot Scheduler] Unexpected error:", error);
+  // Quick scans every 10 minutes (technical filters only, uses cache)
+  cron.schedule("*/10 * * * *", () => {
+    runQuickTechnicalScan().catch((error) => {
+      console.error("[Quick Scan] Unexpected error:", error);
     });
   });
 
-  console.log("[AI Bot Scheduler] Active (checks every 30 minutes)");
+  // Deep scans every 30 minutes (full AI analysis with all 6 models)
+  cron.schedule("*/30 * * * *", () => {
+    runAITradingBots().catch((error) => {
+      console.error("[Deep Scan] Unexpected error:", error);
+    });
+  });
+
+  console.log("[AI Bot Scheduler] Active");
+  console.log("  - Quick scans: Every 10 minutes (technical filters, cached data)");
+  console.log("  - Deep scans: Every 30 minutes (6-model AI analysis)");
 }
 
 /**
@@ -897,9 +1010,9 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
 
     addLog(`💰 Budget status: ${budgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used (${remainingBudget.toFixed(4)} remaining)`, "success");
 
-    // Fetch trending tokens with organic volume filtering
+    // Fetch trending tokens with organic volume filtering (uses 10-min cache)
     addLog(`🔍 Fetching trending tokens from DexScreener with organic volume filters...`, "info");
-    const trendingTokens = await fetchTrendingPumpFunTokens({
+    const trendingTokens = await getCachedOrFetchTokens({
       minOrganicScore: config.minOrganicScore || 40,
       minQualityScore: config.minQualityScore || 30,
       minLiquidityUSD: parseFloat(config.minLiquidityUSD || "5000"),

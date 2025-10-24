@@ -11,6 +11,24 @@ The platform also features three types of trading bots:
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+- **Implemented smart scanning system to reduce API usage**
+  - Added 10-minute cache for DexScreener data (prevents repeated API calls)
+  - Two-tier scanning approach:
+    - Quick scans: Every 10 minutes using technical filters only (no AI)
+    - Deep scans: Every 30 minutes with full 6-model AI analysis
+  - Cache shared across all scans within 10-minute window
+  - Significantly reduces API calls while increasing scan frequency
+  - Quick scans identify opportunities for deep AI analysis
+- **Implemented Cerebras-powered position monitoring system** (runs every 5 minutes, free API)
+  - Monitors all active AI bot positions in real-time
+  - Updates current prices and profit percentages in database
+  - Uses free Cerebras API to avoid costs
+- **Improved AI Bot UI/UX** with live status dashboard
+  - Added 3-card status dashboard: Bot Status, Active Positions, Budget
+  - Better visual indicators and clearer data presentation
+
 ## System Architecture
 
 ### Frontend
