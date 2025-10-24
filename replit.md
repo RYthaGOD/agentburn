@@ -40,10 +40,12 @@ This bot operates independently, with configurations stored in a dedicated `aiBo
 - Becomes aggressive only when AI confidence is ≥85%.
 - Implements comprehensive portfolio analysis to ensure diversification, with a 25% maximum concentration limit per position.
 
-**Token Discovery:**
-- Scans trending tokens from DexScreener API.
-- Scans PumpFun API for new token launches (ultra-low market cap).
-- Combines and de-duplicates sources, caching data for efficiency.
+**Token Discovery (4 Sources):**
+- **DexScreener Trending:** Scans trending Solana tokens across all DEXes with advanced organic volume detection and wash trading filters.
+- **PumpFun Trending:** Top trending tokens currently active on PumpFun platform (api.pumpfunapi.org/pumpfun/trending).
+- **Newly Migrated Tokens:** Tokens that recently graduated from PumpFun to Raydium DEX (48-hour window) - strong community validation signal.
+- **Low-Cap New Launches:** Ultra-low market cap tokens (<$100k) from PumpFun API for aggressive meme trading opportunities.
+- All sources combined, deduplicated by mint address, and cached for 15 minutes to optimize API usage.
 
 The bot executes unlimited trades via Jupiter Ultra API when conditions are met and within budget, dynamically sizing trades based on AI confidence and wallet balance. It includes intelligent position re-buy logic with a maximum of two re-buys per position, triggered by price drops and increased AI confidence.
 
@@ -83,7 +85,10 @@ A 0.5% transaction fee applies after the first 60 free transactions per project,
 -   Jupiter Ultra API (Swap API)
 -   Jupiter Price API v3 (lite-api.jup.ag)
 -   PumpFun Lightning API (creator rewards & trading)
--   PumpFun API (new token discovery - api.pumpfunapi.org)
+-   PumpFun API (multi-source token discovery - api.pumpfunapi.org)
+    -   `/pumpfun/new/tokens` - New token launches
+    -   `/pumpfun/trending` - Top trending tokens
+    -   `/pumpfun/migrated` - Newly graduated tokens (PumpFun → Raydium)
 -   **AI Hive Mind Providers (6-Model Active Consensus):**
     -   Cerebras AI (Llama 3.3-70B)
     -   Google Gemini (Gemini 2.0 Flash)
