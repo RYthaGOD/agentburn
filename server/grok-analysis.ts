@@ -260,13 +260,66 @@ export async function analyzeTokenWithHiveMind(
   );
 
   // Filter successful votes
-  const successfulVotes = votes.filter(v => v.success);
+  let successfulVotes = votes.filter(v => v.success);
   
+  // FALLBACK: If all models failed and OpenAI wasn't included, retry with OpenAI
+  if (successfulVotes.length === 0 && !openAIIncluded) {
+    console.warn(`[Hive Mind] ⚠️ All free AI models failed - activating OpenAI fallback!`);
+    
+    // Retry with OpenAI forced to be included
+    const fallbackClients = getAllAIClients({ forceInclude: true });
+    const openAIClients = fallbackClients.filter(c => c.provider.includes("OpenAI"));
+    
+    if (openAIClients.length > 0) {
+      console.log(`[Hive Mind] 🔄 Retrying with ${openAIClients.length} OpenAI provider(s)...`);
+      
+      const fallbackVotes = await Promise.all(
+        openAIClients.map(async ({ client, model, provider }) => {
+          try {
+            const analysis = await analyzeSingleModel(
+              client,
+              model,
+              provider,
+              tokenData,
+              userRiskTolerance,
+              budgetPerTrade
+            );
+            return { provider, analysis, success: true };
+          } catch (error) {
+            console.error(`[Hive Mind] ${provider} fallback failed:`, error instanceof Error ? error.message : String(error));
+            return {
+              provider,
+              analysis: {
+                action: "hold" as const,
+                confidence: 0,
+                reasoning: `${provider} fallback analysis failed`,
+                potentialUpsidePercent: 0,
+                riskLevel: "high" as const,
+                keyFactors: ["Provider error"],
+              },
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
+        })
+      );
+      
+      // Add fallback votes to total votes
+      votes.push(...fallbackVotes);
+      successfulVotes = votes.filter(v => v.success);
+      
+      if (successfulVotes.length > 0) {
+        console.log(`[Hive Mind] ✅ OpenAI fallback succeeded - ${successfulVotes.length} provider(s) responded`);
+      }
+    }
+  }
+  
+  // If still no successful votes, all providers failed
   if (successfulVotes.length === 0) {
-    throw new Error("All AI providers failed to analyze token");
+    throw new Error("All AI providers failed to analyze token (including OpenAI fallback)");
   }
 
-  console.log(`[Hive Mind] ${successfulVotes.length}/${clients.length} models responded successfully`);
+  console.log(`[Hive Mind] ${successfulVotes.length}/${votes.length} models responded successfully`);
 
   // Calculate weighted consensus
   const buyVotes = successfulVotes.filter(v => v.analysis.action === "buy");
