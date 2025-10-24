@@ -1334,10 +1334,10 @@ async function runQuickTechnicalScan() {
         // Fetch existing positions once (optimization)
         const existingPositions = await storage.getAIBotPositions(config.ownerWalletAddress);
 
-        // If DeepSeek available, analyze top 2 opportunities with fast AI
+        // If DeepSeek available, analyze top 5 opportunities with fast AI (caching makes this efficient)
         if (hasDeepSeek && opportunities.length > 0) {
-          const topOpportunities = opportunities.slice(0, 2); // Only check top 2 to stay fast
-          console.log(`[Quick Scan] 🧠 Analyzing top ${topOpportunities.length} with DeepSeek (free, superior reasoning)...`);
+          const topOpportunities = opportunities.slice(0, 5); // Check top 5 - caching makes this efficient
+          console.log(`[Quick Scan] 🧠 Analyzing top ${topOpportunities.length} with DeepSeek (FREE tier, 30min cache)...`);
 
           for (const token of topOpportunities) {
             // Quick DeepSeek-only analysis for high confidence trades
@@ -2786,7 +2786,8 @@ export async function triggerStandaloneAIBot(ownerWalletAddress: string): Promis
  * More efficient than analyzing one-by-one - same API usage, better decisions
  */
 async function batchAnalyzePositionsWithHivemind(
-  positions: Array<{ mint: string; currentPriceSOL: number; profitPercent: number; symbol: string }>
+  positions: Array<{ mint: string; currentPriceSOL: number; profitPercent: number; symbol: string }>,
+  forceOpenAI: boolean = false
 ): Promise<Map<string, {
   confidence: number;
   recommendation: "HOLD" | "SELL" | "ADD";
@@ -2881,10 +2882,34 @@ Respond with JSON array:
 ]`;
 
   try {
-    // Use fast AI model for portfolio analysis
-    const { client, model } = getAIClient();
+    // Use AI model for portfolio analysis (with OpenAI if forced)
+    let client: OpenAI;
+    let model: string;
+    let providerName: string;
+
+    if (forceOpenAI && (process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_2)) {
+      // Force OpenAI usage for maximum accuracy
+      client = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_2,
+      });
+      model = "gpt-4o-mini";
+      providerName = "OpenAI";
+      console.log(`[Batch Analysis] Using OpenAI (forced) for maximum accuracy in portfolio rebalancing`);
+    } else if (process.env.DEEPSEEK_API_KEY) {
+      // Use DeepSeek for free, high-quality analysis
+      client = new OpenAI({
+        baseURL: "https://api.deepseek.com",
+        apiKey: process.env.DEEPSEEK_API_KEY,
+      });
+      model = "deepseek-chat";
+      providerName = "DeepSeek";
+      console.log(`[Batch Analysis] Using DeepSeek (free tier) for portfolio analysis`);
+    } else {
+      throw new Error("No AI providers available (need OPENAI_API_KEY, OPENAI_API_KEY_2, or DEEPSEEK_API_KEY)");
+    }
+
     const response = await client.chat.completions.create({
-      model: model,
+      model,
       messages: [
         {
           role: "system",
@@ -3205,12 +3230,25 @@ async function monitorPositionsWithDeepSeek() {
           continue;
         }
 
-        console.log(`[Position Monitor] Checking ${positions.length} positions for ${config.ownerWalletAddress.slice(0, 8)}...`);
+        console.log(`[Position Monitor] 🔍 Monitoring ${positions.length} positions with DeepSeek AI for ${config.ownerWalletAddress.slice(0, 8)}...`);
 
         // Fetch ALL position prices in a single batch API call (avoids rate limiting!)
         const mints = positions.map(p => p.tokenMint);
         const { getBatchTokenPrices } = await import("./jupiter");
         const priceMap = await getBatchTokenPrices(mints);
+
+        // Get treasury keypair for potential sells
+        if (!config.treasuryKeyCiphertext || !config.treasuryKeyIv || !config.treasuryKeyAuthTag) {
+          console.log(`[Position Monitor] No treasury key - skipping ${config.ownerWalletAddress.slice(0, 8)}...`);
+          continue;
+        }
+
+        const { decrypt } = await import("./crypto");
+        const treasuryKeyBase58 = decrypt(
+          config.treasuryKeyCiphertext,
+          config.treasuryKeyIv,
+          config.treasuryKeyAuthTag
+        );
 
         for (const position of positions) {
           try {
@@ -3232,6 +3270,19 @@ async function monitorPositionsWithDeepSeek() {
 
             console.log(`[Position Monitor] ${position.tokenSymbol}: Entry $${entryPrice.toFixed(9)} → Current $${currentPriceSOL.toFixed(9)} (${profitPercent > 0 ? '+' : ''}${profitPercent.toFixed(2)}%)`);
 
+            // Check stop-loss conditions (safety override)
+            const isSwingTrade = position.isSwingTrade === 1;
+            const stopLossThreshold = isSwingTrade ? -50 : -30;
+            
+            if (profitPercent <= stopLossThreshold) {
+              console.warn(`[Position Monitor] ⚠️ ${position.tokenSymbol} hit ${stopLossThreshold}% stop-loss → SELLING immediately`);
+              await executeSellForPosition(config, position, treasuryKeyBase58, `Stop-loss at ${profitPercent.toFixed(2)}%`);
+              continue;
+            }
+
+            // Use DeepSeek AI to analyze if we should sell (free, superior reasoning)
+            await analyzePositionWithDeepSeek(config, position, currentPriceSOL, profitPercent, treasuryKeyBase58);
+
           } catch (error) {
             console.error(`[Position Monitor] Error monitoring ${position.tokenSymbol}:`, error);
           }
@@ -3244,6 +3295,128 @@ async function monitorPositionsWithDeepSeek() {
 
   } catch (error) {
     console.error("[Position Monitor] Error:", error);
+  }
+}
+
+/**
+ * Analyze position with DeepSeek AI to determine if we should sell
+ */
+async function analyzePositionWithDeepSeek(
+  config: any,
+  position: any,
+  currentPriceSOL: number,
+  profitPercent: number,
+  treasuryKeyBase58: string
+): Promise<void> {
+  try {
+    const deepSeekClient = new OpenAI({
+      baseURL: "https://api.deepseek.com",
+      apiKey: process.env.DEEPSEEK_API_KEY,
+    });
+
+    const isSwingTrade = position.isSwingTrade === 1;
+    const aiConfidenceAtBuy = parseFloat(position.aiConfidenceAtBuy || "0");
+
+    const prompt = `Analyze this cryptocurrency position to decide: HOLD or SELL?
+
+Position: ${position.tokenSymbol}
+Entry Price: ${parseFloat(position.entryPriceSOL).toFixed(9)} SOL
+Current Price: ${currentPriceSOL.toFixed(9)} SOL
+Profit/Loss: ${profitPercent > 0 ? '+' : ''}${profitPercent.toFixed(2)}%
+AI Confidence at Buy: ${aiConfidenceAtBuy.toFixed(0)}%
+Position Type: ${isSwingTrade ? 'SWING TRADE (high confidence, wider stop-loss)' : 'Regular Position'}
+Stop-Loss: ${isSwingTrade ? '-50%' : '-30%'}
+
+DECISION RULES:
+- For ${isSwingTrade ? 'SWING TRADES' : 'REGULAR positions'}: SELL only if you have 60%+ confidence momentum is dead
+- Consider: Is buying pressure declining? Is volume dropping? Are there red flags?
+- If momentum is still strong or unclear, HOLD
+
+Respond ONLY with valid JSON:
+{
+  "action": "HOLD" | "SELL",
+  "confidence": 0-100,
+  "reasoning": "brief explanation"
+}`;
+
+    const response = await deepSeekClient.chat.completions.create({
+      model: "deepseek-chat",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.4,
+      max_tokens: 300,
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : { action: "HOLD", confidence: 0, reasoning: "Parse error" };
+
+    console.log(`[Position Monitor] 🧠 DeepSeek AI: ${position.tokenSymbol} → ${analysis.action} (${analysis.confidence}% confidence) - ${analysis.reasoning}`);
+
+    // Execute sell if DeepSeek recommends it with high confidence
+    if (analysis.action === "SELL" && analysis.confidence >= 60) {
+      console.log(`[Position Monitor] ✅ DeepSeek AI recommends SELL with ${analysis.confidence}% confidence → executing...`);
+      await executeSellForPosition(config, position, treasuryKeyBase58, `DeepSeek AI: ${analysis.reasoning} (${analysis.confidence}% confidence)`);
+    } else if (analysis.action === "SELL" && analysis.confidence < 60) {
+      console.log(`[Position Monitor] ⏸️ DeepSeek suggests SELL but confidence too low (${analysis.confidence}% < 60%) → HOLDING`);
+    }
+  } catch (error) {
+    console.error(`[Position Monitor] DeepSeek analysis error for ${position.tokenSymbol}:`, error);
+  }
+}
+
+/**
+ * Execute sell for a position
+ */
+async function executeSellForPosition(
+  config: any,
+  position: any,
+  treasuryKeyBase58: string,
+  reason: string
+): Promise<void> {
+  try {
+    console.log(`[Position Monitor] 🔥 Selling ${position.tokenSymbol} - Reason: ${reason}`);
+    
+    const treasuryKeypair = loadKeypairFromPrivateKey(treasuryKeyBase58);
+    const amountSOL = parseFloat(position.amountSOL);
+    const tokenAmount = parseFloat(position.tokenAmount);
+
+    // Execute sell via Jupiter
+    const { getSwapOrder, executeSwapOrder } = await import("./jupiter");
+    const { Connection, LAMPORTS_PER_SOL } = await import("@solana/web3.js");
+    
+    const SOL_MINT = "So11111111111111111111111111111111111111112";
+    
+    // Convert token amount to proper decimals (usually 6 or 9 for SPL tokens)
+    const tokenAmountLamports = Math.floor(tokenAmount * 1_000_000_000);
+    
+    // Get swap order (token -> SOL)
+    const swapOrder = await getSwapOrder(
+      position.tokenMint,  // Input: token
+      SOL_MINT,            // Output: SOL
+      tokenAmountLamports,
+      treasuryKeypair.publicKey.toString(),
+      50 // 0.5% slippage
+    );
+    
+    // Execute the swap
+    const sellResult = await executeSwapOrder(swapOrder, treasuryKeyBase58);
+    
+    if (sellResult && sellResult.transactionId) {
+      const outputAmountSOL = parseInt(sellResult.outputAmountResult || "0") / LAMPORTS_PER_SOL;
+      const currentPrice = parseFloat(position.lastCheckPriceSOL || position.entryPriceSOL);
+      const profitSOL = outputAmountSOL - amountSOL;
+      const profitPercent = parseFloat(position.lastCheckProfitPercent || "0");
+
+      console.log(`[Position Monitor] ✅ Sold ${position.tokenSymbol}: ${profitSOL > 0 ? '+' : ''}${profitSOL.toFixed(6)} SOL (${profitPercent > 0 ? '+' : ''}${profitPercent.toFixed(2)}%)`);
+      console.log(`[Position Monitor] TX: ${sellResult.transactionId}`);
+
+      // Delete position from database (closed positions are tracked in transactions table)
+      await storage.deleteAIBotPosition(position.id);
+    } else {
+      console.error(`[Position Monitor] ❌ Sell failed for ${position.tokenSymbol}: No transaction ID`);
+    }
+  } catch (error) {
+    console.error(`[Position Monitor] Error executing sell for ${position.tokenSymbol}:`, error);
   }
 }
 
@@ -3353,8 +3526,8 @@ async function rebalancePortfolioWithOpenAI() {
           };
         });
 
-        // Run batch hivemind analysis (uses regular free AI, but that's OK for rebalancing)
-        const analysisResults = await batchAnalyzePositionsWithHivemind(positionsForAnalysis);
+        // Run batch hivemind analysis with FORCED OpenAI inclusion for maximum accuracy
+        const analysisResults = await batchAnalyzePositionsWithHivemind(positionsForAnalysis, true);
 
         console.log(`[Portfolio Rebalancer] ✅ AI analysis complete for ${positions.length} positions`);
 
