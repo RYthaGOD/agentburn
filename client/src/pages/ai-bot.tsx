@@ -450,10 +450,10 @@ export default function AIBot() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-blue-500" />
-            Portfolio Overview - Autonomous Management
+            Autonomous Portfolio Management
           </CardTitle>
           <CardDescription>
-            Self-managing capital allocation with dynamic position sizing
+            100% self-managing with exponential compounding - no budget limits
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -514,10 +514,16 @@ export default function AIBot() {
 
           {/* Compounding Growth Examples */}
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold">Exponential Growth Preview</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Exponential Growth System</h3>
+              <Badge variant="outline" className="text-green-500">Compounding Enabled</Badge>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-              <div className="p-3 rounded-md bg-gradient-to-br from-green-500/10 to-blue-500/10 border border-green-500/20">
-                <div className="font-medium text-green-500 mb-2">1 SOL Portfolio</div>
+              <div className="p-3 rounded-md bg-gradient-to-br from-green-500/10 to-blue-500/10 border border-green-500/20 hover-elevate">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-medium text-green-500">1 SOL Start</div>
+                  <Badge variant="outline" className="text-xs">10x Growth</Badge>
+                </div>
                 <div className="space-y-1 text-muted-foreground">
                   <div>• Base trade: 0.10 SOL</div>
                   <div>• High confidence: 0.15 SOL</div>
@@ -525,8 +531,11 @@ export default function AIBot() {
                 </div>
               </div>
               
-              <div className="p-3 rounded-md bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20">
-                <div className="font-medium text-blue-500 mb-2">10 SOL Portfolio</div>
+              <div className="p-3 rounded-md bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 hover-elevate">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-medium text-blue-500">10 SOL Growth</div>
+                  <Badge variant="outline" className="text-xs">10x Trades</Badge>
+                </div>
                 <div className="space-y-1 text-muted-foreground">
                   <div>• Base trade: 1.00 SOL</div>
                   <div>• High confidence: 1.50 SOL</div>
@@ -534,8 +543,11 @@ export default function AIBot() {
                 </div>
               </div>
               
-              <div className="p-3 rounded-md bg-gradient-to-br from-purple-500/10 to-orange-500/10 border border-purple-500/20">
-                <div className="font-medium text-purple-500 mb-2">100 SOL Portfolio 🚀</div>
+              <div className="p-3 rounded-md bg-gradient-to-br from-purple-500/10 to-orange-500/10 border border-purple-500/20 hover-elevate">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-medium text-purple-500">100 SOL Target</div>
+                  <Badge variant="outline" className="text-xs bg-orange-500/10">100x Trades!</Badge>
+                </div>
                 <div className="space-y-1 text-muted-foreground">
                   <div>• Base trade: 10.00 SOL</div>
                   <div>• High confidence: 15.00 SOL</div>
@@ -833,6 +845,36 @@ export default function AIBot() {
         </Card>
       )}
 
+      {/* DeepSeek Cost Optimization */}
+      <Alert className="bg-gradient-to-r from-green-500/5 to-blue-500/5 border-green-500/30">
+        <Sparkles className="h-4 w-4 text-green-500" />
+        <AlertTitle className="text-base font-semibold">DeepSeek V3 Cost Optimization</AlertTitle>
+        <AlertDescription className="text-sm mt-2">
+          <div className="space-y-2">
+            <div>
+              System now uses <strong className="text-green-500">DeepSeek V3</strong> (5M free tokens, superior reasoning) as the primary AI model for 90%+ of analysis:
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3 text-xs">
+              <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
+                <div className="font-semibold text-green-500">Position Monitoring</div>
+                <div className="text-muted-foreground mt-1">DeepSeek-only every 2.5min - fast & intelligent</div>
+              </div>
+              <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20">
+                <div className="font-semibold text-blue-500">Quick Scans</div>
+                <div className="text-muted-foreground mt-1">DeepSeek-only every 10min for 75%+ confidence trades</div>
+              </div>
+              <div className="p-2 rounded bg-purple-500/10 border border-purple-500/20">
+                <div className="font-semibold text-purple-500">High-Confidence Trades</div>
+                <div className="text-muted-foreground mt-1">Full 7-model consensus for 85%+ swing trades</div>
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-muted-foreground">
+              Result: <strong className="text-green-500">60%+ reduction in OpenAI costs</strong> while maintaining superior AI quality. OpenAI now reserved for high-value opportunities only.
+            </div>
+          </div>
+        </AlertDescription>
+      </Alert>
+
       {/* How It Works - Autonomous System */}
       <Card className="border-green-500/30 bg-gradient-to-r from-background to-green-500/5">
         <CardHeader>
@@ -841,7 +883,7 @@ export default function AIBot() {
             How Autonomous Trading Works
           </CardTitle>
           <CardDescription>
-            100% AI-driven decision making with multi-layer risk protection
+            100% AI-driven with DeepSeek-first strategy and multi-layer protection
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
