@@ -13,6 +13,11 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+- **Added PumpFun API scanning for very low market cap tokens**
+  - Scans PumpFun API directly for brand new token launches
+  - Filters for ultra-low market cap tokens (<$100k) for aggressive meme trading
+  - Combines PumpFun new tokens with DexScreener trending tokens
+  - All tokens analyzed by AI consensus system for trade decisions
 - **Implemented smart wallet management and dynamic trade sizing**
   - Scans actual wallet balance before every trade for accuracy
   - Always keeps 0.01 SOL buffer for transaction fees
@@ -26,7 +31,7 @@ Preferred communication style: Simple, everyday language.
     - <55% confidence: 0.5x base amount (low)
   - Caps trade amounts at available wallet balance
 - **Implemented smart scanning system to reduce API usage**
-  - Added 10-minute cache for DexScreener data (prevents repeated API calls)
+  - Added 10-minute cache for token data (prevents repeated API calls)
   - Two-tier scanning approach:
     - Quick scans: Every 10 minutes using technical filters + fast Cerebras AI (free)
       - Analyzes top 2 opportunities with single-model AI
@@ -63,7 +68,14 @@ A dedicated scheduler service automates buyback execution using `node-cron`. It 
 -   **Buy Bot (Limit Orders):** Executes buy orders when target SOL prices are met, with configurable limit orders and slippage protection.
 
 #### AI Trading Bot (Standalone)
-This bot operates independently, with configurations stored in a dedicated `aiBotConfigs` table. It uses a "hive mind" system where 6 AI models (Cerebras, Google Gemini, DeepSeek V3, ChatAnywhere, Groq, OpenAI) vote on trades. The strategy focuses on aggressive meme coin trading, requiring a 50% consensus threshold, 55% minimum confidence, and 30% minimum upside potential for low market cap tokens. It scans trending tokens from DexScreener every 30 minutes, executing trades via Jupiter Ultra API when conditions are met and within budget.
+This bot operates independently, with configurations stored in a dedicated `aiBotConfigs` table. It uses a "hive mind" system where 6 AI models (Cerebras, Google Gemini, DeepSeek V3, ChatAnywhere, Groq, OpenAI) vote on trades. The strategy focuses on aggressive meme coin trading, requiring a 50% consensus threshold, 55% minimum confidence, and 30% minimum upside potential for low market cap tokens. 
+
+**Token Discovery:**
+- Scans trending tokens from DexScreener API (organic volume scoring, quality filters)
+- Scans PumpFun API for brand new token launches (<$100k market cap)
+- Combines both sources, removing duplicates, and caches for 10 minutes
+
+The bot executes trades via Jupiter Ultra API when conditions are met and within budget.
 
 ### Data Storage
 PostgreSQL, accessed via Neon's serverless driver and Drizzle ORM, handles data persistence. Key tables include `Projects`, `Transactions`, `Payments`, `ProjectSecrets` (encrypted keys), and `AIBotConfigs` for standalone AI bot settings. UUID primary keys, decimal types for balances, and automatic timestamps are standard.
@@ -93,7 +105,8 @@ A 0.5% transaction fee applies after the first 60 free transactions per project,
 -   Neon Database (PostgreSQL)
 -   Jupiter Ultra API (Swap API)
 -   Jupiter Price API v3 (lite-api.jup.ag)
--   PumpFun Lightning API (creator rewards)
+-   PumpFun Lightning API (creator rewards & trading)
+-   PumpFun API (new token discovery - api.pumpfunapi.org)
 -   **AI Hive Mind Providers (6-Model Active Consensus):**
     -   Cerebras AI (Llama 3.3-70B)
     -   Google Gemini (Gemini 2.0 Flash)
@@ -101,4 +114,4 @@ A 0.5% transaction fee applies after the first 60 free transactions per project,
     -   ChatAnywhere (GPT-4o-mini)
     -   Groq (Llama 3.3-70B)
     -   OpenAI (GPT-4o-mini)
--   DexScreener API (token market data)
+-   DexScreener API (token market data & trending tokens)
