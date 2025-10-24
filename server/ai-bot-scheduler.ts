@@ -1059,9 +1059,9 @@ async function runQuickTechnicalScan() {
         const riskLevel = activeStrategy.riskLevel;
         const minConfidenceThreshold = activeStrategy.minConfidenceThreshold / 100; // Convert to 0-1
 
-        // Check daily trade limit
+        // Check daily NEW position limit (does NOT affect position management like re-buys or sells)
         if (botState.dailyTradesExecuted >= maxDailyTrades) {
-          console.log(`[Quick Scan] Daily trade limit reached for ${config.ownerWalletAddress.slice(0, 8)}... (${maxDailyTrades} max)`);
+          console.log(`[Quick Scan] Daily NEW position limit reached for ${config.ownerWalletAddress.slice(0, 8)}... (${maxDailyTrades} max) - position management continues`);
           continue;
         }
 
@@ -1429,9 +1429,6 @@ async function executeQuickTrade(
         actualPriceSOL: token.priceSOL.toString(),
       });
 
-      // Update bot state
-      botState.dailyTradesExecuted++;
-
       // Broadcast update
       realtimeService.broadcast({
         type: "transaction_event",
@@ -1449,6 +1446,7 @@ async function executeQuickTrade(
       // Save or update position in database
       if (existingPosition) {
         // Re-buy: Update existing position with new totals and increment rebuyCount
+        // NOTE: Re-buys DO NOT count toward daily trade limit (only new positions do)
         const oldAmount = parseFloat(existingPosition.amountSOL);
         const oldEntryPrice = parseFloat(existingPosition.entryPriceSOL);
         const newTotalAmount = oldAmount + tradeAmount;
@@ -1465,7 +1463,7 @@ async function executeQuickTrade(
           aiPotentialAtBuy: analysis.potentialUpsidePercent.toString(),
           rebuyCount: (existingPosition.rebuyCount || 0) + 1,
         });
-        console.log(`[Quick Scan] Updated position with ${currentRebuyCount + 1} re-buys (avg entry: ${newAvgEntryPrice.toFixed(8)} SOL)`);
+        console.log(`[Quick Scan] Updated position with ${existingPosition.rebuyCount + 1} re-buys (avg entry: ${newAvgEntryPrice.toFixed(8)} SOL) - NOT counted toward daily limit`);
       } else {
         // New position: Create it
         await storage.createAIBotPosition({
@@ -1482,9 +1480,19 @@ async function executeQuickTrade(
           aiConfidenceAtBuy: Math.round(analysis.confidence * 100),
           aiPotentialAtBuy: analysis.potentialUpsidePercent.toString(),
         });
+        
+        // Only count NEW positions toward daily trade limit (not re-buys or sells)
+        botState.dailyTradesExecuted++;
+        
+        // Get hivemind strategy for limit display
+        const { getLatestStrategy } = await import("./hivemind-strategy");
+        const activeStrategy = await getLatestStrategy(config.ownerWalletAddress);
+        const maxDailyTrades = activeStrategy?.maxDailyTrades || 5;
+        
+        console.log(`[Quick Scan] ✅ New position opened: ${token.symbol} (${botState.dailyTradesExecuted}/${maxDailyTrades} new positions today)`);
       }
 
-      console.log(`[Quick Scan] ✅ Trade executed: ${token.symbol} - ${tradeAmount.toFixed(4)} SOL (tx: ${result.signature.slice(0, 8)}...)`);
+      console.log(`[Quick Scan] Trade executed: ${token.symbol} - ${tradeAmount.toFixed(4)} SOL (tx: ${result.signature.slice(0, 8)}...)`);
     } else {
       console.error(`[Quick Scan] Trade failed for ${token.symbol}:`, result.error);
     }
@@ -2119,6 +2127,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
           // Save or update position in database
           if (existingPosition) {
             // Re-buy: Update existing position with new totals and increment rebuyCount
+            // NOTE: Re-buys DO NOT count toward daily trade limit (only new positions do)
             const oldAmount = parseFloat(existingPosition.amountSOL);
             const oldEntryPrice = parseFloat(existingPosition.entryPriceSOL);
             const newTotalAmount = oldAmount + tradeAmount;
@@ -2135,7 +2144,12 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
               aiPotentialAtBuy: analysis.potentialUpsidePercent.toString(),
               rebuyCount: (existingPosition.rebuyCount || 0) + 1,
             });
-            addLog(`   Updated position with ${currentRebuyCount + 1} re-buys (avg entry: ${newAvgEntryPrice.toFixed(8)} SOL)`, "info");
+            addLog(`   Updated position with ${existingPosition.rebuyCount + 1} re-buys (avg entry: ${newAvgEntryPrice.toFixed(8)} SOL) - NOT counted toward daily limit`, "info");
+            addLog(`✅ Position re-buy executed! ${token.symbol} added to position`, "success", {
+              symbol: token.symbol,
+              txSignature: result.signature,
+              amount: tradeAmount,
+            });
           } else {
             // New position: Create it
             await storage.createAIBotPosition({
@@ -2152,14 +2166,15 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
               aiConfidenceAtBuy: Math.round(analysis.confidence * 100),
               aiPotentialAtBuy: analysis.potentialUpsidePercent.toString(),
             });
+            
+            // Only count NEW positions toward daily trade limit (not re-buys or sells)
+            botState.dailyTradesExecuted++;
+            addLog(`✅ New position opened! ${token.symbol} (${botState.dailyTradesExecuted}/${strategy.maxDailyTrades} new positions today)`, "success", {
+              symbol: token.symbol,
+              txSignature: result.signature,
+              amount: tradeAmount,
+            });
           }
-
-          botState.dailyTradesExecuted++;
-          addLog(`✅ Trade executed successfully! ${token.symbol} bought (${botState.dailyTradesExecuted}/${maxDailyTrades} trades today)`, "success", {
-            symbol: token.symbol,
-            txSignature: result.signature,
-            amount: tradeAmount,
-          });
         } else {
           addLog(`❌ Trade failed: ${result.error}`, "error");
         }
