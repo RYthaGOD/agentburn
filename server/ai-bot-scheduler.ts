@@ -1671,17 +1671,16 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     const allExistingPositions = await storage.getAIBotPositions(ownerWalletAddress);
     addLog(`📊 Currently holding ${allExistingPositions.length} active positions`, "info");
 
-    // Fetch trending tokens with organic volume filtering (uses 15-min cache)
-    addLog(`🔍 Fetching trending tokens from DexScreener with organic volume filters...`, "info");
+    // Fetch trending tokens with hivemind-controlled filters
+    addLog(`🔍 Fetching trending tokens (hivemind filters)...`, "info");
     const trendingTokens = await getCachedOrFetchTokens({
-      minOrganicScore: config.minOrganicScore || 40,
-      minQualityScore: config.minQualityScore || 30,
-      minLiquidityUSD: parseFloat(config.minLiquidityUSD || "5000"),
-      minTransactions24h: config.minTransactions24h || 20,
+      minOrganicScore,
+      minQualityScore,
+      minLiquidityUSD,
+      minTransactions24h,
     });
     
-    // Filter by volume threshold (lowered for aggressive meme coin trading)
-    const minVolumeUSD = parseFloat(config.minVolumeUSD || "500");
+    // Filter by hivemind volume threshold
     const filteredTokens = trendingTokens.filter((t) => t.volumeUSD24h >= minVolumeUSD);
 
     if (filteredTokens.length === 0) {
@@ -1691,23 +1690,32 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
 
     addLog(`🔍 Analyzing ${filteredTokens.length} tokens with AI (Groq Llama 3.3-70B)...`, "info");
 
-    // Get active hivemind strategy (if available)
+    // Get active hivemind strategy (REQUIRED - hivemind controls 100%)
     const { getLatestStrategy } = await import("./hivemind-strategy");
     const activeStrategy = await getLatestStrategy(ownerWalletAddress);
     
-    // Apply strategy parameters or use defaults
-    let minConfidenceThreshold = 55; // Default 55% for hivemind consensus
-    let minPotentialMultiplier = 1.0; // Default 1.0x (no change)
-    
-    if (activeStrategy) {
-      minConfidenceThreshold = activeStrategy.minConfidenceThreshold;
-      minPotentialMultiplier = activeStrategy.profitTargetMultiplier;
-      addLog(`🧠 Applying Hivemind Strategy: ${activeStrategy.marketSentiment} market, ${activeStrategy.riskLevel} risk`, "info");
-      addLog(`   Min confidence: ${minConfidenceThreshold}%, Profit multiplier: ${minPotentialMultiplier}x`, "info");
+    if (!activeStrategy) {
+      addLog(`❌ No hivemind strategy available yet. Strategy will be generated on next deep scan cycle.`, "error");
+      return logs;
     }
-
-    // Analyze tokens with Grok AI
-    const riskTolerance = (config.riskTolerance || "medium") as "low" | "medium" | "high";
+    
+    // Hivemind controls ALL parameters
+    const minConfidenceThreshold = activeStrategy.minConfidenceThreshold;
+    const minPotentialPercent = activeStrategy.minPotentialPercent;
+    const budgetPerTrade = activeStrategy.budgetPerTrade;
+    const minVolumeUSD = activeStrategy.minVolumeUSD;
+    const minLiquidityUSD = activeStrategy.minLiquidityUSD;
+    const minOrganicScore = activeStrategy.minOrganicScore;
+    const minQualityScore = activeStrategy.minQualityScore;
+    const minTransactions24h = activeStrategy.minTransactions24h;
+    const riskLevel = activeStrategy.riskLevel;
+    
+    addLog(`🧠 Hivemind Strategy Active: ${activeStrategy.marketSentiment} market, ${riskLevel} risk`, "success");
+    addLog(`   Confidence: ${minConfidenceThreshold}%, Upside: ${minPotentialPercent}%, Trade: ${budgetPerTrade.toFixed(3)} SOL`, "info");
+    addLog(`   Volume: $${minVolumeUSD.toLocaleString()}, Liquidity: $${minLiquidityUSD.toLocaleString()}`, "info");
+    
+    // Map risk level to tolerance
+    const riskTolerance = riskLevel === "aggressive" ? "high" : riskLevel === "conservative" ? "low" : "medium";
     
     for (let i = 0; i < filteredTokens.length; i++) {
       const token = filteredTokens[i];
@@ -1751,18 +1759,16 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
         reasoning: analysis.reasoning,
       });
 
-      // Check minimum potential threshold (adjusted by hivemind strategy)
-      const basePotential = parseFloat(config.minPotentialPercent || "30");
-      const minPotential = basePotential * minPotentialMultiplier; // Apply strategy multiplier
-      if (analysis.potentialUpsidePercent < minPotential) {
-        addLog(`⏭️ SKIP ${token.symbol}: Potential ${analysis.potentialUpsidePercent.toFixed(1)}% below threshold ${minPotential.toFixed(1)}%`, "warning");
+      // Check hivemind minimum potential threshold
+      if (analysis.potentialUpsidePercent < minPotentialPercent) {
+        addLog(`⏭️ SKIP ${token.symbol}: Potential ${analysis.potentialUpsidePercent.toFixed(1)}% below hivemind threshold ${minPotentialPercent}%`, "warning");
         continue;
       }
 
-      // Check confidence threshold (adjusted by hivemind strategy)
+      // Check hivemind confidence threshold
       const minConfidence = minConfidenceThreshold / 100; // Convert to 0-1 scale
       if (analysis.confidence < minConfidence) {
-        addLog(`⏭️ SKIP ${token.symbol}: Confidence ${(analysis.confidence * 100).toFixed(1)}% below ${minConfidenceThreshold}% threshold`, "warning");
+        addLog(`⏭️ SKIP ${token.symbol}: Confidence ${(analysis.confidence * 100).toFixed(1)}% below hivemind threshold ${minConfidenceThreshold}%`, "warning");
         continue;
       }
 

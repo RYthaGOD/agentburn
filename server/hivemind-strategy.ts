@@ -14,6 +14,16 @@ export interface HivemindStrategy {
   maxDailyTrades: number;
   profitTargetMultiplier: number; // Multiplier for profit targets
   riskLevel: "conservative" | "moderate" | "aggressive";
+  
+  // All trading parameters controlled by hivemind
+  budgetPerTrade: number; // Base SOL amount per trade
+  minVolumeUSD: number; // Minimum 24h volume
+  minLiquidityUSD: number; // Minimum liquidity
+  minOrganicScore: number; // 0-100 organic volume score
+  minQualityScore: number; // 0-100 quality score
+  minTransactions24h: number; // Minimum transaction count
+  minPotentialPercent: number; // Minimum upside %
+  
   focusedSectors?: string[]; // e.g., ["meme", "gaming", "AI"]
   reasoning: string;
   generatedAt: Date;
@@ -71,6 +81,7 @@ export async function generateHivemindStrategy(
 
 /**
  * Generate strategy parameters based on market sentiment
+ * Hivemind controls ALL trading parameters
  */
 function generateStrategyFromSentiment(
   sentiment: HivemindStrategy["marketSentiment"],
@@ -82,33 +93,66 @@ function generateStrategyFromSentiment(
   let profitTargetMultiplier = 1.0;
   let riskLevel: HivemindStrategy["riskLevel"] = "moderate";
   let preferredMarketCap = "low";
+  
+  // Hivemind-controlled parameters
+  let budgetPerTrade = 0.05; // Base SOL amount
+  let minVolumeUSD = 10000;
+  let minLiquidityUSD = 5000;
+  let minOrganicScore = 40;
+  let minQualityScore = 30;
+  let minTransactions24h = 20;
+  let minPotentialPercent = 30;
 
   switch (sentiment) {
     case "bullish":
-      // More aggressive in bull markets
-      minConfidenceThreshold = 50; // Lower threshold
-      maxDailyTrades = 8; // More trades
-      profitTargetMultiplier = 1.5; // Higher profit targets
+      // Aggressive in bull markets - chase momentum
+      minConfidenceThreshold = 45; // Very low threshold
+      maxDailyTrades = 10; // Many trades
+      profitTargetMultiplier = 1.8; // Very high profit targets
       riskLevel = "aggressive";
-      preferredMarketCap = "ultra-low"; // Target smaller caps for bigger gains
+      preferredMarketCap = "ultra-low"; // Target tiny caps
+      
+      budgetPerTrade = 0.08; // Larger trades
+      minVolumeUSD = 5000; // Lower volume OK (catch early movers)
+      minLiquidityUSD = 3000; // Lower liquidity OK
+      minOrganicScore = 30; // More lenient
+      minQualityScore = 20; // More lenient
+      minTransactions24h = 15; // Lower activity OK
+      minPotentialPercent = 50; // Only huge upside
       break;
 
     case "bearish":
-      // More conservative in bear markets
-      minConfidenceThreshold = 70; // Higher threshold
-      maxDailyTrades = 2; // Fewer trades
-      profitTargetMultiplier = 0.7; // Lower profit targets (take profits faster)
+      // Very conservative in bear markets - capital preservation
+      minConfidenceThreshold = 75; // Very high threshold
+      maxDailyTrades = 2; // Very few trades
+      profitTargetMultiplier = 0.5; // Take profits fast
       riskLevel = "conservative";
-      preferredMarketCap = "medium"; // Safer, more established tokens
+      preferredMarketCap = "medium"; // Safer tokens
+      
+      budgetPerTrade = 0.03; // Smaller trades
+      minVolumeUSD = 50000; // High volume required
+      minLiquidityUSD = 20000; // High liquidity required
+      minOrganicScore = 60; // Very strict
+      minQualityScore = 50; // Very strict
+      minTransactions24h = 50; // High activity required
+      minPotentialPercent = 20; // Lower targets, quick exits
       break;
 
     case "volatile":
-      // Opportunistic in volatile markets
-      minConfidenceThreshold = 65; // Medium-high threshold
-      maxDailyTrades = 4; // Moderate trades
-      profitTargetMultiplier = 0.8; // Take profits quickly
+      // Opportunistic in volatile markets - quick in/out
+      minConfidenceThreshold = 60; // Medium-high threshold
+      maxDailyTrades = 6; // Moderate trades
+      profitTargetMultiplier = 0.7; // Quick profits
       riskLevel = "moderate";
-      preferredMarketCap = "low"; // Balance risk/reward
+      preferredMarketCap = "low";
+      
+      budgetPerTrade = 0.04; // Medium trades
+      minVolumeUSD = 15000; // Medium volume
+      minLiquidityUSD = 8000; // Medium liquidity
+      minOrganicScore = 45; // Medium strictness
+      minQualityScore = 35; // Medium strictness
+      minTransactions24h = 25; // Medium activity
+      minPotentialPercent = 35; // Medium targets
       break;
 
     case "neutral":
@@ -119,6 +163,14 @@ function generateStrategyFromSentiment(
       profitTargetMultiplier = 1.0;
       riskLevel = "moderate";
       preferredMarketCap = "low";
+      
+      budgetPerTrade = 0.05;
+      minVolumeUSD = 10000;
+      minLiquidityUSD = 5000;
+      minOrganicScore = 40;
+      minQualityScore = 30;
+      minTransactions24h = 20;
+      minPotentialPercent = 30;
       break;
   }
 
@@ -127,13 +179,17 @@ function generateStrategyFromSentiment(
     // High confidence: be more aggressive
     maxDailyTrades += 2;
     minConfidenceThreshold -= 5;
+    budgetPerTrade *= 1.2; // 20% larger trades
+    minPotentialPercent += 10; // Higher targets
   } else if (confidence < 50) {
     // Low confidence: be more conservative
     maxDailyTrades = Math.max(2, maxDailyTrades - 2);
     minConfidenceThreshold += 10;
+    budgetPerTrade *= 0.8; // 20% smaller trades
+    minPotentialPercent -= 5; // Lower targets
   }
 
-  const reasoning = `Based on ${analyses.length} AI models consensus: ${sentiment} market detected with ${confidence.toFixed(1)}% confidence. Strategy: ${riskLevel} risk, targeting ${preferredMarketCap} market cap tokens, ${maxDailyTrades} max daily trades with ${minConfidenceThreshold}% minimum confidence threshold.`;
+  const reasoning = `Hivemind full control: ${sentiment} market (${confidence.toFixed(1)}% confidence). ${riskLevel} risk, ${preferredMarketCap} cap focus, ${maxDailyTrades} max trades/day, ${minConfidenceThreshold}% min confidence, ${budgetPerTrade.toFixed(3)} SOL/trade, ${minPotentialPercent}% min upside.`;
 
   return {
     marketSentiment: sentiment,
@@ -142,6 +198,13 @@ function generateStrategyFromSentiment(
     maxDailyTrades,
     profitTargetMultiplier,
     riskLevel,
+    budgetPerTrade,
+    minVolumeUSD,
+    minLiquidityUSD,
+    minOrganicScore,
+    minQualityScore,
+    minTransactions24h,
+    minPotentialPercent,
     reasoning,
     generatedAt: new Date(),
   };
@@ -158,6 +221,13 @@ function getDefaultStrategy(): HivemindStrategy {
     maxDailyTrades: 5,
     profitTargetMultiplier: 1.0,
     riskLevel: "moderate",
+    budgetPerTrade: 0.05,
+    minVolumeUSD: 10000,
+    minLiquidityUSD: 5000,
+    minOrganicScore: 40,
+    minQualityScore: 30,
+    minTransactions24h: 20,
+    minPotentialPercent: 30,
     reasoning: "Default strategy - AI market analysis unavailable",
     generatedAt: new Date(),
   };
@@ -224,6 +294,16 @@ export async function getLatestStrategy(
     maxDailyTrades: 5, // Not stored in DB, use default
     profitTargetMultiplier: parseFloat(latest.recommendedMinPotential || "1.0"),
     riskLevel: (latest.recommendedRiskTolerance || "moderate") as HivemindStrategy["riskLevel"],
+    
+    // Extract trading parameters (stored in DB or use defaults)
+    budgetPerTrade: parseFloat(latest.recommendedTradeMultiplier || "0.05"),
+    minVolumeUSD: parseFloat(latest.recommendedMinLiquidity || "10000"),
+    minLiquidityUSD: parseFloat(latest.recommendedMinLiquidity || "5000"),
+    minOrganicScore: 40, // Default
+    minQualityScore: 30, // Default
+    minTransactions24h: 20, // Default
+    minPotentialPercent: parseFloat(latest.recommendedMinPotential || "30"),
+    
     focusedSectors: latest.focusCategories ? JSON.parse(latest.focusCategories) : [],
     reasoning: latest.reasoning || "No reasoning provided",
     generatedAt: latest.createdAt,
