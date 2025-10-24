@@ -1,209 +1,70 @@
 # BurnBot - Solana Token Buyback & Burn SaaS Platform
 
 ## Overview
+BurnBot is a SaaS platform for Solana SPL token creators, automating token buyback and burn operations. It provides a no-code solution with a comprehensive dashboard, flexible scheduling (hourly, daily, weekly, custom cron), and transaction monitoring. The platform aims to enhance tokenomics through a streamlined, automated, and verifiable burn mechanism.
 
-BurnBot is a SaaS platform designed for Solana SPL token creators to automate token buyback and burn operations. It offers a no-code solution with a comprehensive dashboard for configuration, flexible scheduling (hourly, daily, weekly, custom cron), and transaction monitoring. The platform aims to provide a streamlined, automated, and verifiable burn mechanism to enhance tokenomics for Solana projects.
-
-Additionally, BurnBot includes three types of trading bots:
-1. **Volume Bot:** Generates trading volume through automated buy/sell cycles
-2. **Buy Bot:** Executes limit orders when target SOL prices are met
-3. **AI Trading Bot:** **Completely standalone** - scans trending tokens, analyzes with free AI (Groq), and executes trades based on AI confidence and minimum 150% upside potential. Works independently without requiring any buyback/burn projects.
+The platform also features three types of trading bots:
+1.  **Volume Bot:** Generates trading volume via automated buy/sell cycles.
+2.  **Buy Bot:** Executes limit orders based on target SOL prices.
+3.  **AI Trading Bot:** A standalone bot that scans trending tokens, analyzes them with a 6-model AI consensus system, and executes trades based on AI confidence and profit potential. This bot operates independently of buyback/burn projects.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
 ### Frontend
-
-The frontend is built with React 18+, TypeScript, and Vite. It uses Wouter for routing, shadcn/ui (New York variant) on Radix UI primitives, and Tailwind CSS for styling, primarily in dark mode. TanStack Query manages server state, and React Hook Form with Zod handles form validation. The design incorporates a "Fire/Molten" theme with volcanic black backgrounds, molten orange primaries, and ember accents. Key navigation includes Overview, New Project, Volume Bot, Trading Bot, AI Trading Bot, Transactions, and Settings. Manual controls for on-demand buybacks are available per project, requiring wallet signature authentication.
+Built with React 18+, TypeScript, and Vite, the frontend uses Wouter for routing, shadcn/ui (New York variant) on Radix UI primitives, and Tailwind CSS for dark mode styling. TanStack Query manages server state, and React Hook Form with Zod handles form validation. The design features a "Fire/Molten" theme. Navigation includes Overview, New Project, Volume Bot, Trading Bot, AI Trading Bot, Transactions, and Settings. Manual buyback controls require wallet signature authentication.
 
 ### Backend
-
-The backend utilizes an Express.js server with TypeScript, employing an ESM module system and a RESTful API. It features centralized error handling, Zod schema validation, a storage abstraction layer, and a repository pattern for database operations.
+The backend is an Express.js server in TypeScript, utilizing an ESM module system and a RESTful API. It includes centralized error handling, Zod schema validation, a storage abstraction layer, and a repository pattern for database operations.
 
 ### Scheduling System
-
-A dedicated scheduler service automates buyback execution using `node-cron`. It performs hourly checks, validates payments (unless whitelisted), verifies treasury balances, integrates with Jupiter Ultra API for optimal token swaps, and claims PumpFun creator rewards. Token burns use the SPL Token burn instruction to permanently destroy tokens and reduce total supply (visible on Solscan as actual "Token Burn" transactions, not transfers). The system supports minute-based to weekly scheduling and custom cron patterns, operating in both production and simulation modes.
-
-**Automation Requirements (Critical for Auto-Execution):**
-1. **Project must be ACTIVE**: Toggle the "Active" switch ON in project dashboard
-2. **Treasury private key REQUIRED**: Store via Settings → Private Key Management for automated swaps and burns
-3. **PumpFun creator key OPTIONAL**: Store for automatic reward claims (otherwise claims remain pending)
-4. **Sufficient SOL balance**: Treasury must have enough SOL to cover buyback amount + 0.01 SOL fee reserve
-5. **Valid payment OR trial OR whitelisted wallet**: Automation only runs for paid/trial/whitelisted projects
-
-**Scheduler Timing:**
-- Development: Checks every 5 minutes for faster testing
-- Production: Checks every hour for efficiency
-- AI Bot: Every 30 minutes - scans for potential trades with 6-model consensus
-
-**Manual vs Automated Execution:**
-- Manual: Uses connected wallet signatures (browser wallet interaction)
-- Automated: Requires stored private keys in database (secure encrypted storage)
+A dedicated scheduler service automates buyback execution using `node-cron`. It performs hourly checks (5 min in dev, 30 min for AI Bot), validates payments, verifies treasury balances, integrates with Jupiter Ultra API for swaps, and claims PumpFun creator rewards. Token burns use the SPL Token burn instruction. Automation requires an active project, a stored treasury private key, sufficient SOL balance, and a valid payment/trial/whitelisted status.
 
 ### Trading Bot System
 
-The platform includes three types of automated trading bots with comprehensive configuration interfaces:
-
 #### Volume Bot & Buy Bot (Project-Linked)
-- **Volume Bot:** Executes buy/sell cycles to generate trading volume based on configurable buy amounts, sell percentages, trading intervals, and price guards (min/max SOL thresholds). Configuration UI at `/dashboard/volume-bot` allows users to enable/disable bots and set all parameters via dialog forms.
-- **Buy Bot (Limit Orders):** Monitors token prices and executes buy orders when predefined SOL target prices are met, with configurable limit orders and max slippage protection. Configuration UI at `/dashboard/trading-bot` provides dynamic limit order management (add/remove orders) and max slippage settings.
+-   **Volume Bot:** Configurable buy/sell cycles to generate trading volume, with settings for buy amounts, sell percentages, intervals, and price guards.
+-   **Buy Bot (Limit Orders):** Executes buy orders when target SOL prices are met, with configurable limit orders and slippage protection.
 
-#### AI Trading Bot (Standalone - Works Without Projects)
-**Complete Independence:** The AI trading bot operates entirely independently without requiring any buyback/burn projects. Configuration stored in dedicated `aiBotConfigs` table keyed by wallet address.
-
-**Configuration Management:**
-- API Routes: `GET /api/ai-bot/config/:ownerWalletAddress`, `POST /api/ai-bot/config`, `DELETE /api/ai-bot/config/:ownerWalletAddress`
-- Wallet signature authentication required for all config operations
-- Stores encrypted treasury keys directly in AI bot config (separate from project secrets)
-
-**Hive Mind AI System (6-Model Aggressive Consensus):**
-The AI bot uses a revolutionary "hive mind" approach where **6 AI models vote together** on each trading decision with **AGGRESSIVE MEME COIN TRADING** strategy:
-
-**Active AI Providers (All Configured):**
-- **Cerebras AI** (Llama 3.3-70B) - Ultra-fast, free tier
-- **Google Gemini** (Gemini 2.0 Flash) - 1M tokens/min free, highest volume
-- **DeepSeek V3** (deepseek-chat) - 5M free tokens, ultra-cheap, OpenAI compatible
-- **ChatAnywhere** (GPT-4o-mini) - 200 req/day free, high quality
-- **Groq** (Llama 3.3-70B) - Completely free, fast inference
-- **OpenAI** (GPT-4o-mini) - Paid, premium quality
-
-**Aggressive Trading Configuration:**
-- **50% consensus threshold** - Only 3 out of 6 models need to agree (more trades)
-- **55% confidence minimum** - Lower barrier for entry on strong opportunities
-- **30% minimum upside** - No 150% requirement, focus on consistent gains
-- **$500 minimum volume** - Catches early-stage meme coins
-- **$3,000 minimum liquidity** - Lower threshold for micro-cap opportunities
-- **Temperature 0.8** - More decisive, action-oriented AI responses
-
-**Trading Strategy - Low Market Cap Meme Coin Focus:**
-AI models are prompted to identify:
-- LOW MARKET CAP tokens (<$500K) with explosive potential
-- Early momentum signals (positive 1h/24h price action)
-- Growing volume (indicates community interest)
-- Viral potential (trending narratives, hype)
-- 2-10x profit opportunities (not just 1.5x minimum)
-
-**Consensus Voting Rules:**
-- All 6 models analyze each token in parallel
-- Weighted by confidence scores (not simple majority)
-- Aggregates risk assessment (uses most conservative)
-- Averages potential upside predictions
-- Degrades gracefully if providers fail (works with 1-6 models)
-
-**Benefits:**
-- **Maximum profit potential** - No artificial 150% minimum blocks good trades
-- **6-model redundancy** - Continues operating if 1-3 providers fail
-- **Diverse perspectives** - 2 GPT-4 class + 3 Llama + 1 Gemini models
-- **30-minute scanning** - Regular market scans for profitable opportunities
-- **Cost efficient** - Distributes load across 6 free/cheap APIs
-
-**Trading Logic:** Scans trending tokens from DexScreener, analyzes with 6-model consensus, and executes buy orders when:
-  - Hive mind consensus reaches BUY (≥50% model agreement = 3/6)
-  - Combined AI confidence ≥ 55%
-  - Minimum 30% upside potential (aggressive threshold)
-  - Total budget not exhausted
-  - Daily trade limit not reached
-  
-**Budget Management:** Total SOL budget allocation with real-time usage tracking. Prevents overspending by checking remaining budget before each trade and updating budget used after execution. Visual progress bars show budget consumption.
-  
-**Configurable Parameters:** Total budget (SOL), budget per trade, analysis interval (10 min default), minimum volume threshold ($500 USD default), minimum potential upside (30% default - aggressive), daily trade limit, and risk tolerance. Uses Jupiter Ultra API for trading execution (better routing and pricing). API costs: Free tier usage across 6 providers (Cerebras, Gemini, DeepSeek, ChatAnywhere, Groq free; OpenAI paid for premium quality).
-
-Price fetching for all bots uses Jupiter Price v3 API for SOL-denominated prices.
+#### AI Trading Bot (Standalone)
+This bot operates independently, with configurations stored in a dedicated `aiBotConfigs` table. It uses a "hive mind" system where 6 AI models (Cerebras, Google Gemini, DeepSeek V3, ChatAnywhere, Groq, OpenAI) vote on trades. The strategy focuses on aggressive meme coin trading, requiring a 50% consensus threshold, 55% minimum confidence, and 30% minimum upside potential for low market cap tokens. It scans trending tokens from DexScreener every 30 minutes, executing trades via Jupiter Ultra API when conditions are met and within budget.
 
 ### Data Storage
-
-PostgreSQL, accessed via Neon's serverless driver and Drizzle ORM, is used for data persistence. The schema includes `Projects`, `Transactions`, `Payments`, `UsedSignatures` (for replay attack prevention), `ProjectSecrets` (encrypted keys), and `AIBotConfigs` (standalone AI bot configuration).
-
-**Key Schema Decisions:**
-- UUID primary keys for all tables
-- Decimal types for token amounts and SOL balances
-- Automatic timestamps (createdAt, updatedAt)
-- Boolean flags for status tracking
-- Volume/Buy bot settings stored in `projects` table
-- **AI bot settings stored in standalone `aiBotConfigs` table** (one config per wallet address)
-
-**AI Bot Standalone Configuration (`aiBotConfigs`):**
-- Keyed by `ownerWalletAddress` (unique constraint)
-- Stores: enabled status, budget tracking (`totalBudget`, `budgetUsed`), per-trade budget, analysis interval, risk parameters
-- Encrypted treasury keys stored directly in config (separate from project secrets)
-- Independent lifecycle - not deleted when projects are deleted
-- Budget validation occurs before every trade execution to prevent overspending
+PostgreSQL, accessed via Neon's serverless driver and Drizzle ORM, handles data persistence. Key tables include `Projects`, `Transactions`, `Payments`, `ProjectSecrets` (encrypted keys), and `AIBotConfigs` for standalone AI bot settings. UUID primary keys, decimal types for balances, and automatic timestamps are standard.
 
 ### Authentication & Authorization
-
-Wallet-based authentication uses cryptographic signature verification via tweetnacl. Each authenticated request requires a signed message (action, project ID, timestamp) and signature validation against the owner's Solana wallet. The owner wallet address serves as the primary identifier, ensuring users can only manage their own projects. Solana Wallet Adapter is integrated for browser wallet connections (Phantom, Solflare).
+Wallet-based authentication uses cryptographic signature verification via tweetnacl, with the owner's Solana wallet serving as the primary identifier. Solana Wallet Adapter is integrated for browser wallets.
 
 ### Security Infrastructure
-
-The platform prioritizes user data protection with defense-in-depth security:
-- **Rate Limiting & DDoS Protection:** Global, strict, and auth-specific rate limits with automatic IP-based blocking.
-- **Security Headers:** Implemented via Helmet.js (HSTS, CSP, X-Frame-Options, X-Content-Type-Options).
-- **Input Validation & Sanitization:** Automatic XSS vector removal, Solana address validation, request body size limits, Zod schema validation, and SQL injection prevention via Drizzle ORM.
-- **Audit Logging:** Logs sensitive operations with IP addresses and timestamps (no sensitive data).
-- **CORS & Request Security:** Production allows same-origin requests; development is relaxed.
-- **Environment Variable Security:** Validates `ENCRYPTION_MASTER_KEY` and `SESSION_SECRET` on startup, blocking production deployment if critical variables are missing. `FRONTEND_URL` required in production for CORS security (exact origin matching).
-
-**Required Production Environment Variables:**
-1. `ENCRYPTION_MASTER_KEY` - ≥64 characters (32 bytes hex) for AES-256-GCM encryption
-2. `SESSION_SECRET` - Session signing key
-3. `FRONTEND_URL` - Production URL for CORS origin validation (e.g., https://burnbot.replit.app)
-4. `DATABASE_URL` - PostgreSQL connection string (auto-provided by Neon)
-5. `NODE_ENV=production` - Enables production security mode
+The platform implements defense-in-depth security, including rate limiting, DDoS protection, security headers (Helmet.js), input validation (XSS, Solana address, Zod, SQL injection prevention), audit logging, and secure environment variable handling.
 
 ### Production Readiness & Automated Workflow
-
-The system supports secure encrypted key management, storing private keys encrypted in the database. A UI allows wallet signature-authenticated key storage/deletion. The automated workflow includes claiming PumpFun rewards, checking treasury and reward balances, executing optimal SOL to token swaps via Jupiter Ultra API, and burning tokens.
-
-**Payment & Trial System:**
-- On-chain SOL payment verification supports tier-based subscriptions
-- **10-day free trial automatically granted to first 100 projects**
-- Auto-grant mechanism: Scheduler detects projects without `trialEndsAt` and grants trial if within first 100 signups
-- Whitelisted wallets bypass all payment requirements
-- Trial status visible on project dashboard with days remaining
-- After trial expiration, valid payment required for automation to continue
+The system supports secure encrypted key management. The automated workflow includes claiming PumpFun rewards, balance checks, optimal SOL to token swaps via Jupiter Ultra API, and token burns. A payment/trial system offers a 10-day free trial for the first 100 projects, with whitelisted wallets bypassing payment requirements.
 
 ### Transaction Fee System
-
-A 0.5% transaction fee applies to all transaction types (buybacks, volume bot, buy bot) after the first 60 free transactions per project. The fee is deducted from the SOL amount and sent to a designated treasury wallet.
+A 0.5% transaction fee applies after the first 60 free transactions per project, deducted from the SOL amount and sent to a designated treasury wallet.
 
 ## External Dependencies
 
 **Blockchain Integration:**
-- Solana Web3.js
-- SPL Token program
-- @solana/wallet-adapter-react, @solana/wallet-adapter-react-ui, @solana/wallet-adapter-base
-- bs58
-- tweetnacl
+-   Solana Web3.js, SPL Token program
+-   @solana/wallet-adapter suite, bs58, tweetnacl
 
 **Payment Processing:**
-- 100% Solana-native payments (SOL only) to treasury wallet `jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38`.
+-   Solana-native payments (SOL only) to treasury wallet `jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38`.
 
 **Third-Party Services:**
-- Neon Database (PostgreSQL)
-- Jupiter Ultra API (Swap API) - Used for all AI bot trades (buybacks, volume bot, buy bot use Jupiter)
-- Jupiter Price API v3 (lite-api.jup.ag) - SOL-denominated prices via USD conversion
-- PumpFun Lightning API (creator rewards only)
-- **AI Hive Mind Providers (6-Model Active Consensus):**
-  - Cerebras AI (Llama 3.3-70B - ultra-fast, free tier) ✅ Active
-  - Google Gemini (Gemini 2.0 Flash - 1M tokens/min free) ✅ Active
-  - DeepSeek V3 (deepseek-chat - 5M free tokens, ultra-cheap) ✅ Active
-  - ChatAnywhere (GPT-4o-mini - 200 req/day free) ✅ Active
-  - Groq (Llama 3.3-70B - completely free) ✅ Active
-  - OpenAI (GPT-4o-mini - paid, premium quality) ✅ Active
-- DexScreener API (free real-time token market data)
-
-**UI Dependencies:**
-- Radix UI
-- Lucide React
-- date-fns
-- class-variance-authority, clsx, tailwind-merge
-
-**Development Tools:**
-- Vite
-- TypeScript
-- ESBuild
-- node-cron
-- cron-parser
+-   Neon Database (PostgreSQL)
+-   Jupiter Ultra API (Swap API)
+-   Jupiter Price API v3 (lite-api.jup.ag)
+-   PumpFun Lightning API (creator rewards)
+-   **AI Hive Mind Providers (6-Model Active Consensus):**
+    -   Cerebras AI (Llama 3.3-70B)
+    -   Google Gemini (Gemini 2.0 Flash)
+    -   DeepSeek V3 (deepseek-chat)
+    -   ChatAnywhere (GPT-4o-mini)
+    -   Groq (Llama 3.3-70B)
+    -   OpenAI (GPT-4o-mini)
+-   DexScreener API (token market data)
