@@ -1177,11 +1177,14 @@ export default function AIBot() {
 
       {/* Active Positions */}
       {activePositions.length > 0 && (
-        <Card>
+        <Card className="border-blue-500/30">
           <CardHeader>
-            <CardTitle>Active Positions ({activePositions.length})</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-blue-500" />
+              Active Positions ({activePositions.length})
+            </CardTitle>
             <CardDescription>
-              Real-time monitoring every 2.5 minutes
+              DeepSeek AI monitoring every 2.5 minutes + automatic rebalancing every 30 minutes
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -1189,34 +1192,49 @@ export default function AIBot() {
               {activePositions.map((position, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-3 border rounded-lg hover-elevate"
+                  className={`flex items-center justify-between p-3 border rounded-lg hover-elevate ${
+                    (position.profitPercent || 0) >= 0 
+                      ? 'bg-green-500/5 border-green-500/30' 
+                      : 'bg-red-500/5 border-red-500/30'
+                  }`}
                   data-testid={`position-${idx}`}
                 >
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="font-medium">{position.tokenSymbol}</div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="font-semibold text-base">{position.tokenSymbol}</div>
                       {position.isSwingTrade === 1 && (
-                        <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-500 border-purple-500/30">
+                        <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-500 border-purple-500/50">
                           <TrendingUp className="h-3 w-3 mr-1" />
-                          Swing Trade
+                          Swing
                         </Badge>
                       )}
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs ${
+                          (position.aiConfidenceAtBuy || 0) >= 85 
+                            ? 'bg-green-500/20 text-green-500 border-green-500/50' 
+                            : 'bg-blue-500/20 text-blue-500 border-blue-500/50'
+                        }`}
+                      >
+                        {position.aiConfidenceAtBuy?.toFixed(0) || '0'}% AI
+                      </Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      Entry: {position.entryPriceSOL?.toFixed(9) || '0.000000000'} SOL | 
-                      Current: {position.currentPriceSOL?.toFixed(9) || '0.000000000'} SOL
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      AI Confidence: {position.aiConfidenceAtBuy?.toFixed(0) || '0'}% | 
-                      Stop-Loss: {position.isSwingTrade === 1 ? '-50%' : '-30%'}
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      <div>Entry: {position.entryPriceSOL?.toFixed(9) || '0.000000000'} SOL</div>
+                      <div>Now: {position.currentPriceSOL?.toFixed(9) || '0.000000000'} SOL</div>
+                      <div className="flex items-center gap-2">
+                        <span>Stop-Loss: {position.isSwingTrade === 1 ? '-50%' : '-30%'}</span>
+                        <span>•</span>
+                        <span>Size: {position.amountSOL?.toFixed(4) || '0.0000'} SOL</span>
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className={`text-lg font-bold ${(position.profitPercent || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      {(position.profitPercent || 0) >= 0 ? '+' : ''}{position.profitPercent?.toFixed(2) || '0.00'}%
+                    <div className={`text-2xl font-bold ${(position.profitPercent || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {(position.profitPercent || 0) >= 0 ? '+' : ''}{position.profitPercent?.toFixed(1) || '0.0'}%
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {position.amountSOL?.toFixed(6) || '0.000000'} SOL
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {(position.profitPercent || 0) >= 0 ? 'Profit' : 'Loss'}
                     </div>
                   </div>
                 </div>
