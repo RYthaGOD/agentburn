@@ -65,6 +65,7 @@ The bot executes unlimited trades via Jupiter Ultra API when conditions are met 
 **Sell Decision Framework (AI-Driven + Safety Overrides):**
 - **Quick Monitoring:** AI continuously monitors all positions (every 2.5 minutes via Cerebras for fast checks).
 - **Deep Scan Analysis:** Full 6-model AI consensus analyzes all holdings during deep scans (every 30 minutes) for comprehensive position management with SELL/HOLD/ADD recommendations.
+- **Batch Portfolio Analysis:** When evaluating positions for sells, ALL positions are analyzed together in one hivemind call (instead of one-by-one), providing better portfolio-wide insights with same API usage.
 - **Automatic Stop-Loss Override:** 
   - Regular positions: Immediately sells at -30% loss regardless of AI recommendation
   - Swing trades: Immediately sells at -50% loss (wider tolerance for high-confidence plays)

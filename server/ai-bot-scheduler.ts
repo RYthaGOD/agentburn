@@ -2463,19 +2463,39 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     if (botState.activePositions.size > 0) {
       addLog(`📊 Checking ${botState.activePositions.size} active positions - Mode: 100% AI & Hivemind Strategy`, "info");
 
-      // Convert Map to array for iteration
+      // BATCH ANALYZE ALL POSITIONS WITH HIVEMIND (smarter, same API usage)
+      const positionsForAnalysis = [];
       const positionsArray = Array.from(botState.activePositions.entries());
+      
+      // Collect all positions with current prices
       for (const [mint, position] of positionsArray) {
-        try {
-          // Get current SOL price for the token
-          const currentPriceSOL = await getTokenPrice(mint);
-          if (!currentPriceSOL) {
-            addLog(`⏭️ Skip position ${mint}: Unable to fetch current price`, "warning");
-            continue;
-          }
-
-          // Calculate profit percentage
+        const currentPriceSOL = await getTokenPrice(mint);
+        if (currentPriceSOL) {
           const profitPercent = ((currentPriceSOL - position.entryPriceSOL) / position.entryPriceSOL) * 100;
+          positionsForAnalysis.push({
+            mint,
+            symbol: position.tokenSymbol || mint.slice(0, 8),
+            currentPriceSOL,
+            profitPercent,
+            position
+          });
+        }
+      }
+
+      // Get batch AI analysis for ALL positions at once (efficient!)
+      addLog(`🧠 Running hivemind portfolio analysis on ${positionsForAnalysis.length} positions...`, "info");
+      const batchAnalysis = await batchAnalyzePositionsWithHivemind(
+        positionsForAnalysis.map(p => ({
+          mint: p.mint,
+          currentPriceSOL: p.currentPriceSOL,
+          profitPercent: p.profitPercent,
+          symbol: p.symbol
+        }))
+      );
+
+      // Process each position with batch analysis results
+      for (const { mint, symbol, currentPriceSOL, profitPercent, position } of positionsForAnalysis) {
+        try {
           
           // Check if this is a swing trade (high confidence position) - fetch from database
           const dbPosition = await storage.getAIBotPositions(ownerWalletAddress);
@@ -2545,15 +2565,20 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
           let shouldSell = false;
           let sellReason = "";
 
-          addLog(`🤖 Re-analyzing position with AI...`, "info");
-          const aiDecision = await reanalyzePositionWithAI(mint, currentPriceSOL, profitPercent);
+          // Use BATCH analysis result (already analyzed with hivemind)
+          const aiDecision = batchAnalysis.get(mint) || {
+            confidence: 50,
+            recommendation: "HOLD" as const,
+            reasoning: "No analysis available",
+            errored: true
+          };
           
           // If AI analysis failed, HOLD (conservative)
           if (aiDecision.errored) {
             addLog(`⚠️ AI analysis failed - HOLDING conservatively - ${aiDecision.reasoning}`, "warning");
             shouldSell = false;
           } else {
-            addLog(`🧠 AI Decision: ${aiDecision.recommendation} (confidence: ${aiDecision.confidence}%) - ${aiDecision.reasoning}`, "info");
+            addLog(`🧠 Hivemind Decision: ${aiDecision.recommendation} (confidence: ${aiDecision.confidence}%) - ${aiDecision.reasoning}`, "info");
 
             // SWING TRADE STRATEGY: Let profits run, only exit on strong signals
             if (isSwingTrade) {
@@ -2703,6 +2728,177 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
  */
 export async function triggerStandaloneAIBot(ownerWalletAddress: string): Promise<ScanLog[]> {
   return await executeStandaloneAIBot(ownerWalletAddress, true);
+}
+
+/**
+ * BATCH analyze ALL positions using full hivemind (6-model consensus)
+ * More efficient than analyzing one-by-one - same API usage, better decisions
+ */
+async function batchAnalyzePositionsWithHivemind(
+  positions: Array<{ mint: string; currentPriceSOL: number; profitPercent: number; symbol: string }>
+): Promise<Map<string, {
+  confidence: number;
+  recommendation: "HOLD" | "SELL" | "ADD";
+  reasoning: string;
+  errored: boolean;
+}>> {
+  const results = new Map();
+  
+  if (positions.length === 0) {
+    return results;
+  }
+
+  console.log(`[Hivemind Portfolio Analysis] Analyzing ${positions.length} positions with 6-model consensus...`);
+
+  // Batch fetch all market data first
+  const positionsWithData = await Promise.all(positions.map(async (pos) => {
+    try {
+      const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${pos.mint}`);
+      if (!response.ok) throw new Error(`DexScreener error for ${pos.symbol}`);
+      
+      const data = await response.json();
+      const pair = data.pairs?.[0];
+      
+      if (!pair) {
+        results.set(pos.mint, {
+          confidence: 0,
+          recommendation: "SELL",
+          reasoning: "No market data - likely illiquid",
+          errored: true
+        });
+        return null;
+      }
+
+      return {
+        ...pos,
+        volumeUSD24h: parseFloat(pair.volume?.h24 || "0"),
+        liquidityUSD: parseFloat(pair.liquidity?.usd || "0"),
+        priceChange24h: parseFloat(pair.priceChange?.h24 || "0"),
+        priceChange1h: parseFloat(pair.priceChange?.h1 || "0"),
+        txns24h: (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0),
+        buyPressure: pair.txns?.h24?.buys && pair.txns?.h24?.sells 
+          ? (pair.txns.h24.buys / (pair.txns.h24.buys + pair.txns.h24.sells)) * 100
+          : 50,
+      };
+    } catch (error) {
+      console.error(`[Batch Analysis] Failed to fetch data for ${pos.symbol}:`, error);
+      results.set(pos.mint, {
+        confidence: 0,
+        recommendation: "HOLD",
+        reasoning: "Data fetch failed - holding conservatively",
+        errored: true
+      });
+      return null;
+    }
+  }));
+
+  const validPositions = positionsWithData.filter(p => p !== null);
+  
+  if (validPositions.length === 0) {
+    return results;
+  }
+
+  // Build consolidated prompt for ALL positions
+  const portfolioPrompt = `You are analyzing a PORTFOLIO of ${validPositions.length} cryptocurrency positions. Provide recommendations for EACH position.
+
+POSITIONS:
+${validPositions.map((p, i) => `
+${i + 1}. ${p.symbol} (Profit: ${p.profitPercent > 0 ? '+' : ''}${p.profitPercent.toFixed(2)}%)
+   - Price: ${p.currentPriceSOL.toFixed(9)} SOL
+   - Volume 24h: $${p.volumeUSD24h.toLocaleString()}
+   - Liquidity: $${p.liquidityUSD.toLocaleString()}
+   - Price Change 1h: ${p.priceChange1h.toFixed(2)}%
+   - Price Change 24h: ${p.priceChange24h.toFixed(2)}%
+   - Transactions: ${p.txns24h}
+   - Buy Pressure: ${p.buyPressure.toFixed(1)}%
+`).join('')}
+
+For EACH position, provide:
+- CONFIDENCE (0-100): Strength of upward momentum
+- RECOMMENDATION: SELL (exit now), HOLD (keep position), or ADD (buy more if available)
+- REASONING: 1-2 sentences
+
+Respond with JSON array:
+[
+  {
+    "symbol": "TOKEN1",
+    "confidence": 75,
+    "recommendation": "HOLD",
+    "reasoning": "Strong momentum continuing..."
+  },
+  ...
+]`;
+
+  try {
+    // Use hivemind for critical portfolio decisions
+    const { analyzeTokenWithHiveMind } = await import("./hivemind");
+    
+    // Query all 6 AI models for consensus on portfolio
+    const client = getCerebrasClient(); // Use Cerebras as coordinator
+    const response = await client.chat.completions.create({
+      model: "llama-3.3-70b",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert portfolio manager analyzing cryptocurrency holdings. Provide actionable recommendations for each position. Always respond with valid JSON array."
+        },
+        {
+          role: "user",
+          content: portfolioPrompt
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.6,
+      max_tokens: 2000,
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("No response from AI");
+
+    const parsed = JSON.parse(content);
+    const recommendations = Array.isArray(parsed) ? parsed : (parsed.positions || parsed.recommendations || []);
+
+    // Map results back to positions
+    for (const rec of recommendations) {
+      const position = validPositions.find(p => p.symbol === rec.symbol);
+      if (position) {
+        results.set(position.mint, {
+          confidence: rec.confidence || 50,
+          recommendation: rec.recommendation || "HOLD",
+          reasoning: rec.reasoning || "No specific reasoning provided",
+          errored: false
+        });
+      }
+    }
+
+    // Fill in any missing positions with conservative HOLD
+    for (const pos of validPositions) {
+      if (!results.has(pos.mint)) {
+        results.set(pos.mint, {
+          confidence: 50,
+          recommendation: "HOLD",
+          reasoning: "No analysis available - holding conservatively",
+          errored: false
+        });
+      }
+    }
+
+  } catch (error) {
+    console.error("[Batch Analysis] Hivemind analysis failed:", error);
+    // Fallback: conservative HOLD for all
+    for (const pos of validPositions) {
+      if (!results.has(pos.mint)) {
+        results.set(pos.mint, {
+          confidence: 50,
+          recommendation: "HOLD",
+          reasoning: "Analysis error - holding conservatively",
+          errored: true
+        });
+      }
+    }
+  }
+
+  return results;
 }
 
 /**
