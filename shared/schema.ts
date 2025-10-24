@@ -360,3 +360,12 @@ export const insertAIBotPositionSchema = createInsertSchema(aiBotPositions).omit
 
 export type AIBotPosition = typeof aiBotPositions.$inferSelect;
 export type InsertAIBotPosition = z.infer<typeof insertAIBotPositionSchema>;
+
+export const insertHivemindStrategySchema = createInsertSchema(hivemindStrategies).omit({
+  id: true,
+  createdAt: true,
+  validFrom: true,
+});
+
+export type HivemindStrategy = typeof hivemindStrategies.$inferSelect;
+export type InsertHivemindStrategy = z.infer<typeof insertHivemindStrategySchema>;

@@ -6,6 +6,7 @@ import {
   projectSecrets,
   aiBotConfigs,
   aiBotPositions,
+  hivemindStrategies,
   type Project,
   type InsertProject,
   type Transaction,
@@ -20,6 +21,8 @@ import {
   type InsertAIBotConfig,
   type AIBotPosition,
   type InsertAIBotPosition,
+  type HivemindStrategy,
+  type InsertHivemindStrategy,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -69,6 +72,10 @@ export interface IStorage {
   createAIBotPosition(position: InsertAIBotPosition): Promise<AIBotPosition>;
   updateAIBotPosition(id: string, updates: Partial<InsertAIBotPosition>): Promise<AIBotPosition | undefined>;
   deleteAIBotPosition(id: string): Promise<boolean>;
+
+  // Hivemind Strategy operations
+  getHivemindStrategies(ownerWalletAddress: string): Promise<HivemindStrategy[]>;
+  createHivemindStrategy(strategy: InsertHivemindStrategy): Promise<HivemindStrategy>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -382,6 +389,23 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Hivemind Strategy operations
+  async getHivemindStrategies(ownerWalletAddress: string): Promise<HivemindStrategy[]> {
+    return db
+      .select()
+      .from(hivemindStrategies)
+      .where(eq(hivemindStrategies.ownerWalletAddress, ownerWalletAddress))
+      .orderBy(desc(hivemindStrategies.createdAt));
+  }
+
+  async createHivemindStrategy(strategy: InsertHivemindStrategy): Promise<HivemindStrategy> {
+    const [created] = await db
+      .insert(hivemindStrategies)
+      .values(strategy)
+      .returning();
+    return created;
   }
 }
 
