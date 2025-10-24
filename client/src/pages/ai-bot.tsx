@@ -37,7 +37,6 @@ const aiBotConfigSchema = z.object({
     (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
     "Must be a positive number"
   ),
-  enableAiSellDecisions: z.boolean(),
 });
 
 type AIBotConfigFormData = z.infer<typeof aiBotConfigSchema>;
@@ -112,7 +111,6 @@ export default function AIBot() {
     resolver: zodResolver(aiBotConfigSchema),
     defaultValues: {
       totalBudget: aiConfig?.totalBudget || "1.0",
-      enableAiSellDecisions: aiConfig?.enableAiSellDecisions !== false,
     },
   });
 
@@ -245,7 +243,6 @@ export default function AIBot() {
         signature: signatureBase58,
         message,
         totalBudget: data.totalBudget,
-        enableAiSellDecisions: data.enableAiSellDecisions,
         enabled: aiConfig?.enabled || false,
       });
       
@@ -575,36 +572,20 @@ export default function AIBot() {
                       />
                     </FormControl>
                     <FormDescription>
-                      Maximum SOL to allocate for trading
+                      Maximum SOL to allocate for trading. The hivemind strategy controls all trading decisions.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="enableAiSellDecisions"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">
-                        AI Sell Decisions
-                      </FormLabel>
-                      <FormDescription>
-                        Let AI decide when to sell positions based on market conditions
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        data-testid="switch-ai-sell"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+              <Alert className="border-blue-500/50 bg-blue-500/10">
+                <Brain className="h-4 w-4" />
+                <AlertTitle>100% AI & Hivemind Control</AlertTitle>
+                <AlertDescription>
+                  All buy and sell decisions are made by the 6-model AI consensus system and hivemind strategy. No manual targets or limits.
+                </AlertDescription>
+              </Alert>
 
               <Button type="submit" disabled={isSaving} className="w-full" data-testid="button-save-config">
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

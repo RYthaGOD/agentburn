@@ -31,11 +31,12 @@ A dedicated scheduler service automates buyback execution using `node-cron`. It 
 #### AI Trading Bot (Standalone)
 This bot operates independently, with configurations stored in a dedicated `aiBotConfigs` table. It uses a "hive mind" system where 6 AI models vote on trades.
 
-**Conservative Compounding Strategy:**
+**100% AI & Hivemind Control Strategy:**
+- **Unlimited Trading:** No daily trade limits - trades based purely on AI confidence, available balance, and portfolio concentration.
+- **AI-Driven Exits:** All sell decisions made by AI analysis and hivemind strategy - no fixed profit targets.
 - Focuses on high-probability trades with strict quality filters (50%+ organic score, 40%+ quality, $15k+ volume, $8k+ liquidity).
 - Employs small position sizes (0.02-0.04 SOL) for capital preservation and compounding.
 - Utilizes higher confidence thresholds (65-80%) across all market conditions.
-- Prioritizes quality over quantity, limiting trades to 2-5 per day.
 - Becomes aggressive only when AI confidence is ≥85%.
 - Implements comprehensive portfolio analysis to ensure diversification, with a 25% maximum concentration limit per position.
 
@@ -44,7 +45,14 @@ This bot operates independently, with configurations stored in a dedicated `aiBo
 - Scans PumpFun API for new token launches (ultra-low market cap).
 - Combines and de-duplicates sources, caching data for efficiency.
 
-The bot executes trades via Jupiter Ultra API when conditions are met and within budget, dynamically sizing trades based on AI confidence and wallet balance. It includes intelligent position re-buy logic with a maximum of two re-buys per position, triggered by price drops and increased AI confidence.
+The bot executes unlimited trades via Jupiter Ultra API when conditions are met and within budget, dynamically sizing trades based on AI confidence and wallet balance. It includes intelligent position re-buy logic with a maximum of two re-buys per position, triggered by price drops and increased AI confidence.
+
+**Sell Decision Framework:**
+- AI continuously monitors all positions (every 2.5 minutes via Cerebras).
+- Sells when AI confidence drops below threshold (default 40%).
+- Sells when AI explicitly recommends SELL based on market analysis.
+- Holds when AI recommends HOLD, regardless of current profit level.
+- No fixed profit targets - AI analyzes momentum, liquidity, buy pressure, and trend data to optimize exits.
 
 ### Data Storage
 PostgreSQL, accessed via Neon's serverless driver and Drizzle ORM, handles data persistence. Key tables include `Projects`, `Transactions`, `Payments`, `ProjectSecrets` (encrypted keys), and `AIBotConfigs`. UUID primary keys, decimal types for balances, and automatic timestamps are standard.

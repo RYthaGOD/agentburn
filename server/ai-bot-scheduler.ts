@@ -2142,17 +2142,12 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
       }
     }
 
-    // Check active positions for profit-taking
-    const profitTargetPercent = parseFloat(config.profitTargetPercent || "50");
-    const enableAiSellDecisions = config.enableAiSellDecisions !== false; // Default true
+    // Check active positions for AI-driven profit-taking
     const minAiSellConfidence = config.minAiSellConfidence || 40;
     const holdIfHighConfidence = config.holdIfHighConfidence || 70;
     
     if (botState.activePositions.size > 0) {
-      const modeText = enableAiSellDecisions 
-        ? `AI-driven sell decisions (confidence thresholds: ${minAiSellConfidence}/${holdIfHighConfidence})`
-        : `Fixed profit target (${profitTargetPercent}%)`;
-      addLog(`📊 Checking ${botState.activePositions.size} active positions - Mode: ${modeText}`, "info");
+      addLog(`📊 Checking ${botState.activePositions.size} active positions - Mode: 100% AI & Hivemind Strategy`, "info");
 
       // Convert Map to array for iteration
       const positionsArray = Array.from(botState.activePositions.entries());
@@ -2170,58 +2165,39 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
           
           addLog(`💹 Position ${mint.slice(0, 8)}... | Entry: ${position.entryPriceSOL.toFixed(8)} SOL | Current: ${currentPriceSOL.toFixed(8)} SOL | Profit: ${profitPercent > 0 ? '+' : ''}${profitPercent.toFixed(2)}%`, "info");
 
-          // Determine whether to sell based on AI or fixed profit target
+          // AI & Hivemind Strategy makes ALL sell decisions
           let shouldSell = false;
           let sellReason = "";
 
-          if (enableAiSellDecisions) {
-            // Use AI to make sell decision
-            addLog(`🤖 Re-analyzing position with AI...`, "info");
-            const aiDecision = await reanalyzePositionWithAI(mint, currentPriceSOL, profitPercent);
-            
-            // If AI analysis failed, fall back to fixed profit target logic
-            if (aiDecision.errored) {
-              addLog(`⚠️ AI analysis failed, using fallback logic - ${aiDecision.reasoning}`, "warning");
-              // Conservative fallback: sell if in profit and profit target reached, otherwise hold
-              if (profitPercent >= profitTargetPercent && profitPercent > 0) {
-                shouldSell = true;
-                sellReason = `AI analysis failed - selling at profit target (${profitPercent.toFixed(2)}%)`;
-              } else {
-                addLog(`🛡️ HOLDING on AI error (profit: ${profitPercent.toFixed(2)}%) - conservative fallback`, "info");
-              }
-            } else {
-              addLog(`🧠 AI Decision: ${aiDecision.recommendation} (confidence: ${aiDecision.confidence}%) - ${aiDecision.reasoning}`, "info");
-
-              // Respect explicit HOLD recommendation when AI has valid analysis
-              if (aiDecision.recommendation === "HOLD") {
-                addLog(`🎯 HOLDING - AI recommends HOLD (confidence: ${aiDecision.confidence}%)`, "success");
-                shouldSell = false;
-              }
-              // Sell if AI confidence drops below minimum threshold (momentum weakening)
-              else if (aiDecision.confidence < minAiSellConfidence) {
-                shouldSell = true;
-                sellReason = `AI confidence dropped to ${aiDecision.confidence}% (below ${minAiSellConfidence}% threshold)`;
-              }
-              // Sell if profit target reached AND AI doesn't have high confidence to hold
-              else if (profitPercent >= profitTargetPercent && aiDecision.confidence < holdIfHighConfidence) {
-                shouldSell = true;
-                sellReason = `Profit target reached (${profitPercent.toFixed(2)}%) and AI confidence (${aiDecision.confidence}%) < hold threshold (${holdIfHighConfidence}%)`;
-              }
-              // Sell if AI explicitly recommends selling
-              else if (aiDecision.recommendation === "SELL") {
-                shouldSell = true;
-                sellReason = `AI recommends SELL: ${aiDecision.reasoning}`;
-              }
-              // Hold if AI confidence is high (already covered by HOLD recommendation check above)
-              else if (aiDecision.confidence >= holdIfHighConfidence) {
-                addLog(`🎯 HOLDING despite ${profitPercent.toFixed(2)}% profit - AI confidence is HIGH (${aiDecision.confidence}% >= ${holdIfHighConfidence}%)`, "success");
-              }
-            }
+          addLog(`🤖 Re-analyzing position with AI...`, "info");
+          const aiDecision = await reanalyzePositionWithAI(mint, currentPriceSOL, profitPercent);
+          
+          // If AI analysis failed, HOLD (conservative)
+          if (aiDecision.errored) {
+            addLog(`⚠️ AI analysis failed - HOLDING conservatively - ${aiDecision.reasoning}`, "warning");
+            shouldSell = false;
           } else {
-            // Use fixed profit target (legacy mode)
-            if (profitPercent >= profitTargetPercent) {
+            addLog(`🧠 AI Decision: ${aiDecision.recommendation} (confidence: ${aiDecision.confidence}%) - ${aiDecision.reasoning}`, "info");
+
+            // Respect explicit HOLD recommendation
+            if (aiDecision.recommendation === "HOLD") {
+              addLog(`🎯 HOLDING - AI recommends HOLD (confidence: ${aiDecision.confidence}%)`, "success");
+              shouldSell = false;
+            }
+            // Sell if AI confidence drops below minimum threshold (momentum weakening)
+            else if (aiDecision.confidence < minAiSellConfidence) {
               shouldSell = true;
-              sellReason = `Fixed profit target reached (${profitPercent.toFixed(2)}% >= ${profitTargetPercent}%)`;
+              sellReason = `AI confidence dropped to ${aiDecision.confidence}% (below ${minAiSellConfidence}% threshold)`;
+            }
+            // Sell if AI explicitly recommends selling
+            else if (aiDecision.recommendation === "SELL") {
+              shouldSell = true;
+              sellReason = `AI recommends SELL: ${aiDecision.reasoning}`;
+            }
+            // Hold if AI has confidence to hold
+            else {
+              addLog(`🎯 HOLDING - AI confidence: ${aiDecision.confidence}%`, "success");
+              shouldSell = false;
             }
           }
 
@@ -2397,22 +2373,23 @@ Current Market Data:
 - Buy Pressure: ${marketData.buysVsSells24h.toFixed(1)}%
 
 Analyze this position and provide:
-1. CONFIDENCE (0-100): Your confidence in the token's prospects
-   - 70-100: Strong upward momentum, hold for more gains
-   - 40-69: Mixed signals, consider profit target
-   - 0-39: Weakening momentum, consider selling
+1. CONFIDENCE (0-100): Your confidence in the token's continued upward potential
+   - 70-100: Strong upward momentum, recommend HOLD for more gains
+   - 40-69: Mixed signals, use careful judgment
+   - 0-39: Weakening momentum, recommend SELL
 
 2. RECOMMENDATION: HOLD or SELL
    - HOLD: If you believe the token has strong upward potential
-   - SELL: If momentum is weakening or reversal signs appear
+   - SELL: If momentum is weakening, reversal signs appear, or profit is at risk
 
 3. REASONING: Brief explanation (2-3 sentences)
 
 Consider:
 - Is price momentum strengthening or weakening?
-- Is liquidity sufficient for exit if needed?
+- Is liquidity sufficient for safe exit if needed?
 - Are there signs of reversal (falling volume, declining buy pressure)?
-- Is the current profit sustainable or at risk?
+- Is the current profit sustainable or at risk of reversal?
+- What does technical analysis suggest about the trend?
 
 Respond in JSON format:
 {

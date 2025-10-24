@@ -108,14 +108,14 @@ export const aiBotConfigs = pgTable("ai_bot_configs", {
   analysisInterval: integer("analysis_interval").notNull().default(60), // Minutes between scans
   minVolumeUSD: decimal("min_volume_usd", { precision: 18, scale: 2 }).notNull().default("5000"),
   minPotentialPercent: decimal("min_potential_percent", { precision: 18, scale: 2 }).notNull().default("150"),
-  maxDailyTrades: integer("max_daily_trades").notNull().default(5),
+  maxDailyTrades: integer("max_daily_trades").notNull().default(5), // DEPRECATED - no longer enforced, unlimited trades
   riskTolerance: text("risk_tolerance").notNull().default("medium"), // "low", "medium", "high"
-  profitTargetPercent: decimal("profit_target_percent", { precision: 18, scale: 2 }).notNull().default("50"), // Sell when profit >= this %
+  profitTargetPercent: decimal("profit_target_percent", { precision: 18, scale: 2 }).notNull().default("50"), // DEPRECATED - AI makes all sell decisions
   
-  // AI-driven sell decisions
-  enableAiSellDecisions: boolean("enable_ai_sell_decisions").notNull().default(true), // Let AI decide when to sell
+  // AI-driven sell decisions (ALWAYS ENABLED - these control AI behavior)
+  enableAiSellDecisions: boolean("enable_ai_sell_decisions").notNull().default(true), // DEPRECATED - always true, AI always makes decisions
   minAiSellConfidence: integer("min_ai_sell_confidence").notNull().default(40), // Sell if AI confidence drops below this (0-100)
-  holdIfHighConfidence: integer("hold_if_high_confidence").notNull().default(70), // Hold even if profit target reached when AI confidence >= this (0-100)
+  holdIfHighConfidence: integer("hold_if_high_confidence").notNull().default(70), // Hold when AI confidence >= this (0-100)
   
   // Organic volume filtering (wash trading detection)
   minOrganicScore: integer("min_organic_score").notNull().default(40), // 0-100, filters wash trading
