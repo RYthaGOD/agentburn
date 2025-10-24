@@ -6,7 +6,7 @@ BurnBot is a SaaS platform designed for Solana SPL token creators, automating to
 The platform also includes three types of trading bots:
 1.  **Volume Bot:** Generates trading volume through automated buy/sell cycles.
 2.  **Buy Bot:** Executes limit orders based on target SOL prices.
-3.  **AI Trading Bot:** A standalone bot that scans trending tokens, analyzes them using a 6-model AI consensus system, and executes trades based on AI confidence and profit potential. This bot operates independently of buyback/burn projects.
+3.  **AI Trading Bot:** A standalone bot that scans trending tokens, analyzes them using a 7-model AI consensus system with automatic failover, and executes trades based on AI confidence and profit potential. This bot operates independently of buyback/burn projects.
 
 ## Recent Updates
 
@@ -15,7 +15,8 @@ The platform also includes three types of trading bots:
 - **Implemented dynamic position sizing:** Trades scale with portfolio value (10% base, up to 15% max with high confidence)
 - **Enabled true exponential compounding:** Position caps grow with portfolio (1 SOL → 0.15 max, 100 SOL → 15 SOL max)
 - **Real-time Wallet Holdings:** New API endpoint fetches actual SPL token balances from Solana blockchain
-- **Parallel Price Fetching:** Uses Promise.all to batch-fetch token prices via Jupiter API for efficiency
+- **Batch Price Fetching:** Consolidated Jupiter API calls by 90%+ using batch endpoint (up to 100 tokens per call)
+- **Dual OpenAI Key Failover:** Added OPENAI_API_KEY_2 as separate hivemind provider for automatic redundancy
 - **Portfolio Analytics:** Dashboard displays token breakdown, diversification metrics, concentration analysis
 - **Accurate Calculations:** Portfolio value = SOL balance + sum(all token values), avoiding double-counting
 - **Updated frontend:** Removed budget controls, added autonomous management panel + holdings analysis card
@@ -43,7 +44,7 @@ A dedicated scheduler service automates buyback execution using `node-cron`. It 
 -   **Buy Bot (Limit Orders):** Executes buy orders when target SOL prices are met, with configurable limit orders and slippage protection.
 
 #### AI Trading Bot (Standalone)
-This bot operates independently, with configurations stored in a dedicated `aiBotConfigs` table. It uses a "hive mind" system where 6 AI models vote on trades.
+This bot operates independently, with configurations stored in a dedicated `aiBotConfigs` table. It uses a "hive mind" system where 7 AI models vote on trades with automatic failover redundancy.
 
 **RESTRICTED ACCESS:** AI Trading Bot access is limited to whitelisted wallets only. The whitelist is configured in `shared/config.ts` (`AI_BOT_WHITELISTED_WALLETS`). Non-whitelisted wallets receive a 403 error when attempting to use AI bot features.
 
@@ -80,7 +81,7 @@ The bot executes unlimited trades via Jupiter Ultra API when conditions are met 
 
 **Sell Decision Framework (AI-Driven + Safety Overrides):**
 - **Quick Monitoring:** AI continuously monitors all positions (every 2.5 minutes via Cerebras for fast checks).
-- **Deep Scan Analysis:** Full 6-model AI consensus analyzes all holdings during deep scans (every 30 minutes) for comprehensive position management with SELL/HOLD/ADD recommendations.
+- **Deep Scan Analysis:** Full 7-model AI consensus analyzes all holdings during deep scans (every 30 minutes) for comprehensive position management with SELL/HOLD/ADD recommendations.
 - **Batch Portfolio Analysis:** When evaluating positions for sells, ALL positions are analyzed together in one hivemind call (instead of one-by-one), providing better portfolio-wide insights with same API usage.
 - **Automatic Stop-Loss Override:** 
   - Regular positions: Immediately sells at -30% loss regardless of AI recommendation
@@ -129,11 +130,12 @@ A 0.5% transaction fee applies after the first 60 free transactions per project,
     -   `/pumpfun/new/tokens` - New token launches
     -   `/pumpfun/trending` - Top trending tokens
     -   `/pumpfun/migrated` - Newly graduated tokens (PumpFun → Raydium)
--   **AI Hive Mind Providers (6-Model Active Consensus):**
+-   **AI Hive Mind Providers (7-Model Active Consensus with Failover):**
     -   Cerebras AI (Llama 3.3-70B)
     -   Google Gemini (Gemini 2.0 Flash)
     -   DeepSeek V3 (deepseek-chat)
     -   ChatAnywhere (GPT-4o-mini)
     -   Groq (Llama 3.3-70B)
-    -   OpenAI (GPT-4o-mini)
+    -   OpenAI Primary (GPT-4o-mini) - OPENAI_API_KEY
+    -   OpenAI Backup (GPT-4o-mini) - OPENAI_API_KEY_2 (automatic failover)
 -   DexScreener API (token market data & trending tokens)
