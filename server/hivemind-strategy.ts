@@ -266,8 +266,20 @@ export async function saveHivemindStrategy(
     recommendedMinConfidence: strategy.minConfidenceThreshold,
     recommendedMinPotential: strategy.profitTargetMultiplier.toString(),
     recommendedMaxMarketCap: strategy.preferredMarketCap === "ultra-low" ? "100000" : strategy.preferredMarketCap === "low" ? "1000000" : "10000000",
-    recommendedMinLiquidity: "10000", // $10k minimum
+    recommendedMinLiquidity: strategy.minLiquidityUSD.toString(),
     recommendedTradeMultiplier: "1.0",
+    
+    // All complete trading parameters
+    budgetPerTrade: strategy.budgetPerTrade.toString(),
+    minVolumeUSD: strategy.minVolumeUSD.toString(),
+    minLiquidityUSD: strategy.minLiquidityUSD.toString(),
+    minOrganicScore: strategy.minOrganicScore,
+    minQualityScore: strategy.minQualityScore,
+    minTransactions24h: strategy.minTransactions24h,
+    minPotentialPercent: strategy.minPotentialPercent.toString(),
+    maxDailyTrades: strategy.maxDailyTrades,
+    profitTargetMultiplier: strategy.profitTargetMultiplier.toString(),
+    
     focusCategories: JSON.stringify(strategy.focusedSectors || []),
     validUntil,
     isActive: true,
@@ -301,18 +313,18 @@ export async function getLatestStrategy(
     marketSentiment: (latest.marketCondition || "neutral") as HivemindStrategy["marketSentiment"],
     preferredMarketCap,
     minConfidenceThreshold: latest.recommendedMinConfidence || 55,
-    maxDailyTrades: 5, // Not stored in DB, use default
-    profitTargetMultiplier: parseFloat(latest.recommendedMinPotential || "1.0"),
+    maxDailyTrades: latest.maxDailyTrades || 5,
+    profitTargetMultiplier: parseFloat(latest.profitTargetMultiplier || latest.recommendedMinPotential || "1.0"),
     riskLevel: (latest.recommendedRiskTolerance || "moderate") as HivemindStrategy["riskLevel"],
     
-    // Extract trading parameters (stored in DB or use defaults)
-    budgetPerTrade: parseFloat(latest.recommendedTradeMultiplier || "0.05"),
-    minVolumeUSD: parseFloat(latest.recommendedMinLiquidity || "10000"),
-    minLiquidityUSD: parseFloat(latest.recommendedMinLiquidity || "5000"),
-    minOrganicScore: 40, // Default
-    minQualityScore: 30, // Default
-    minTransactions24h: 20, // Default
-    minPotentialPercent: parseFloat(latest.recommendedMinPotential || "30"),
+    // Extract complete trading parameters from database
+    budgetPerTrade: parseFloat(latest.budgetPerTrade || "0.03"),
+    minVolumeUSD: parseFloat(latest.minVolumeUSD || "15000"),
+    minLiquidityUSD: parseFloat(latest.minLiquidityUSD || "8000"),
+    minOrganicScore: latest.minOrganicScore || 50,
+    minQualityScore: latest.minQualityScore || 40,
+    minTransactions24h: latest.minTransactions24h || 30,
+    minPotentialPercent: parseFloat(latest.minPotentialPercent || "25"),
     
     focusedSectors: latest.focusCategories ? JSON.parse(latest.focusCategories) : [],
     reasoning: latest.reasoning || "No reasoning provided",

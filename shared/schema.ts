@@ -176,6 +176,17 @@ export const hivemindStrategies = pgTable("hivemind_strategies", {
   recommendedMinLiquidity: decimal("recommended_min_liquidity", { precision: 18, scale: 2 }), // Min liquidity USD
   recommendedTradeMultiplier: decimal("recommended_trade_multiplier", { precision: 5, scale: 2 }), // 0.5-2.0x base trade size
   
+  // Complete trading parameters (all controlled by hivemind)
+  budgetPerTrade: decimal("budget_per_trade", { precision: 10, scale: 4 }), // SOL per trade
+  minVolumeUSD: decimal("min_volume_usd", { precision: 18, scale: 2 }), // Min 24h volume
+  minLiquidityUSD: decimal("min_liquidity_usd", { precision: 18, scale: 2 }), // Min pool liquidity
+  minOrganicScore: integer("min_organic_score"), // 0-100
+  minQualityScore: integer("min_quality_score"), // 0-100
+  minTransactions24h: integer("min_transactions_24h"), // Min txn count
+  minPotentialPercent: decimal("min_potential_percent", { precision: 10, scale: 2 }), // Min upside %
+  maxDailyTrades: integer("max_daily_trades"), // Max trades per day
+  profitTargetMultiplier: decimal("profit_target_multiplier", { precision: 5, scale: 2 }), // Take profit multiplier
+  
   // Token category focus
   focusCategories: text("focus_categories"), // JSON array: ["very_low_cap", "new_launches", "trending", "recovery_plays"]
   

@@ -154,7 +154,7 @@ export async function executeSwapOrder(
 export async function getWalletBalances(publicKey: string): Promise<any> {
   try {
     const response = await fetch(
-      `${JUPITER_ULTRA_API_URL}/balances?publicKey=${publicKey}`
+      `${JUPITER_ULTRA_API_URL}/balances?wallet=${publicKey}`
     );
     
     if (!response.ok) {
