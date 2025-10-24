@@ -33,10 +33,12 @@ This bot operates independently, with configurations stored in a dedicated `aiBo
 
 **RESTRICTED ACCESS:** AI Trading Bot access is limited to whitelisted wallets only. The whitelist is configured in `shared/config.ts` (`AI_BOT_WHITELISTED_WALLETS`). Non-whitelisted wallets receive a 403 error when attempting to use AI bot features.
 
-**STRICT WEALTH-GROWING APPROACH (Capital Preservation Priority):**
+**AUTONOMOUS CAPITAL MANAGEMENT (Exponential Growth System):**
+- **No Budget Limits:** System autonomously uses ALL available wallet balance (minus 0.01 SOL fee reserve) to maximize profits.
+- **Dynamic Position Sizing:** Trades grow with portfolio value (10% base, up to 15% with 90%+ AI confidence) - enabling TRUE compounding.
 - **Unlimited Trading:** No daily trade limits - trades based purely on AI confidence, available balance, and portfolio concentration.
 - **AI-Driven Exits:** All sell decisions made by AI analysis and hivemind strategy - no fixed profit targets.
-- **Conservative Position Sizing:** Base position 0.02 SOL (max 0.03 SOL even with 85%+ AI confidence) for capital preservation and compounding.
+- **Scaling Examples:** 1 SOL portfolio = 0.15 SOL max position | 10 SOL portfolio = 1.5 SOL max | 100 SOL = 15 SOL max (exponential!)
 - **High Confidence Requirements:** Minimum 75% AI confidence threshold across all market conditions (raised from 68% for stricter filtering).
 - **Enhanced Quality Filters:** 60%+ organic score (wash trading protection), 50%+ quality score, $15k+ volume, $15k+ liquidity (strengthened from 50%/40%/$8k).
 - **Aggressive Only When Exceptional:** Only increases aggression when AI confidence ≥85%.

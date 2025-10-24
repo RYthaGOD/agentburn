@@ -1534,8 +1534,9 @@ async function executeQuickTrade(
     console.log(`[Quick Scan] 💼 Portfolio: ${portfolio.totalValueSOL.toFixed(4)} SOL total, ${portfolio.holdingCount} positions, largest ${portfolio.largestPosition.toFixed(1)}%`);
 
     // Calculate dynamic trade amount based on AI confidence (using refreshed balance if rewards were claimed)
-    const baseAmount = parseFloat(config.budgetPerTrade || "0");
-    let tradeAmount = calculateDynamicTradeAmount(baseAmount, analysis.confidence, availableBalance);
+    const baseAmount = parseFloat(config.budgetPerTrade || "0.02");
+    const portfolioPercent = config.portfolioPercentPerTrade || 10;
+    let tradeAmount = calculateDynamicTradeAmount(baseAmount, analysis.confidence, availableBalance, portfolio.totalValueSOL, portfolioPercent);
 
     if (tradeAmount <= 0) {
       console.log(`[Quick Scan] Insufficient funds for trade after all attempts (available: ${availableBalance.toFixed(4)} SOL)`);
@@ -1732,40 +1733,51 @@ async function executeQuickTrade(
 }
 
 /**
- * Calculate dynamic trade amount based on AI confidence
- * Higher confidence = larger trade size (up to 2x base amount)
- * Lower confidence = smaller trade size (down to 0.5x base amount)
+ * AUTONOMOUS COMPOUNDING POSITION SIZING
+ * Uses percentage of portfolio + AI confidence for exponential growth
+ * 
+ * Base: 0.02 SOL minimum (conservative floor for small portfolios)
+ * Percentage-based: Grows as portfolio grows (enables TRUE compounding)
+ * AI Confidence: Increases size for high confidence (up to 1.5x for 90%+ confidence)
+ * Dynamic cap: 15% of total portfolio (scales with growth, not fixed)
  */
 function calculateDynamicTradeAmount(
   baseAmount: number,
   confidence: number,
-  availableBalance: number
+  availableBalance: number,
+  portfolioValue: number = 0,
+  portfolioPercentPerTrade: number = 10
 ): number {
-  // Confidence-based multiplier:
-  // 100% confidence = 2.0x
-  // 75% confidence = 1.5x
-  // 55% confidence = 1.0x
-  // Below 55% = 0.5x
+  // Calculate percentage-based trade size (enables compounding as portfolio grows)
+  const portfolioBasedAmount = (portfolioValue * portfolioPercentPerTrade) / 100;
   
-  let multiplier = 1.0;
+  // Use the LARGER of: base amount OR portfolio-based amount (allows growth)
+  let tradeSize = Math.max(baseAmount, portfolioBasedAmount);
+  
+  // AI Confidence multiplier (only increases for exceptional opportunities)
+  // Conservative: Only increases for 85%+ confidence (swing trade territory)
+  let confidenceMultiplier = 1.0;
   if (confidence >= 0.90) {
-    multiplier = 2.0; // Very high confidence: double the amount
-  } else if (confidence >= 0.80) {
-    multiplier = 1.75; // High confidence: 75% more
-  } else if (confidence >= 0.75) {
-    multiplier = 1.5; // Above threshold: 50% more
-  } else if (confidence >= 0.65) {
-    multiplier = 1.25; // Medium-high: 25% more
-  } else if (confidence >= 0.55) {
-    multiplier = 1.0; // Medium: base amount
-  } else {
-    multiplier = 0.5; // Low confidence: half amount
+    confidenceMultiplier = 1.5; // Exceptional: 50% more
+  } else if (confidence >= 0.85) {
+    confidenceMultiplier = 1.25; // Very high: 25% more
   }
-
-  const calculatedAmount = baseAmount * multiplier;
+  // Below 85%: use base amount (no multiplier)
   
-  // Cap at available balance
-  return Math.min(calculatedAmount, availableBalance);
+  tradeSize = tradeSize * confidenceMultiplier;
+  
+  // DYNAMIC CAP: Max 15% of portfolio per position (scales with growth!)
+  // Small portfolio: ~0.02-0.05 SOL max
+  // Medium portfolio (1 SOL): ~0.15 SOL max  
+  // Large portfolio (10 SOL): ~1.5 SOL max (exponential compounding!)
+  const dynamicMaxPosition = Math.max(0.03, portfolioValue * 0.15);
+  tradeSize = Math.min(tradeSize, dynamicMaxPosition);
+  
+  // Ensure minimum trade size (0.01 SOL minimum for Solana network)
+  tradeSize = Math.max(tradeSize, 0.01);
+  
+  // Cap at available balance (can't trade more than we have)
+  return Math.min(tradeSize, availableBalance);
 }
 
 /**
@@ -2098,10 +2110,18 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     const minTransactions24h = activeStrategy.minTransactions24h;
     const riskLevel = activeStrategy.riskLevel;
     
-    // Check budget tracking (only for monitoring)
+    // AUTONOMOUS CAPITAL MANAGEMENT (No budget restrictions - use all available capital)
+    const FEE_RESERVE = 0.01; // Always keep 0.01 SOL for transaction fees
     const totalBudget = parseFloat(config.totalBudget || "0");
-    const budgetUsed = parseFloat(config.budgetUsed || "0");
-    addLog(`💰 Budget status: ${budgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used`, "success");
+    const budgetUsed = parseFloat(config.budgetUsed || "0"); // SOL currently in positions
+    const walletBalance = await getWalletBalance(treasuryKeypair.publicKey.toString());
+    
+    // Calculate available capital: wallet - fee reserve - active positions
+    const availableCapital = Math.max(0, walletBalance - FEE_RESERVE - budgetUsed);
+    const totalPortfolioValue = walletBalance; // Total SOL in wallet (liquid + positions)
+    
+    addLog(`💰 Portfolio Value: ${totalPortfolioValue.toFixed(4)} SOL | In Positions: ${budgetUsed.toFixed(4)} SOL | Available: ${availableCapital.toFixed(4)} SOL`, "success");
+    addLog(`   Fee Reserve: ${FEE_RESERVE} SOL | No budget limits - system self-manages for max profit`, "info");
     
     addLog(`🧠 Hivemind Strategy Active: ${activeStrategy.marketSentiment} market, ${riskLevel} risk`, "success");
     addLog(`   Confidence: ${minConfidenceThreshold}%, Upside: ${minPotentialPercent}%, Trade: ${budgetPerTrade.toFixed(3)} SOL`, "info");
@@ -2239,7 +2259,8 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
       // Execute trade based on AI recommendation
       if (analysis.action === "buy") {
         // Calculate dynamic trade amount based on hivemind budget and AI confidence
-        let tradeAmount = calculateDynamicTradeAmount(budgetPerTrade, analysis.confidence, availableBalance);
+        const portfolioPercent = config.portfolioPercentPerTrade || 10;
+        let tradeAmount = calculateDynamicTradeAmount(budgetPerTrade, analysis.confidence, availableBalance, portfolio.totalValueSOL, portfolioPercent);
         
         if (tradeAmount <= 0) {
           addLog(`⏭️ SKIP ${token.symbol}: Insufficient funds (available: ${availableBalance.toFixed(4)} SOL)`, "warning");
@@ -2468,13 +2489,15 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
       const positionsArray = Array.from(botState.activePositions.entries());
       
       // Collect all positions with current prices
+      const dbPositions = await storage.getAIBotPositions(ownerWalletAddress);
       for (const [mint, position] of positionsArray) {
         const currentPriceSOL = await getTokenPrice(mint);
         if (currentPriceSOL) {
           const profitPercent = ((currentPriceSOL - position.entryPriceSOL) / position.entryPriceSOL) * 100;
+          const dbPos = dbPositions.find(p => p.tokenMint === mint);
           positionsForAnalysis.push({
             mint,
-            symbol: position.tokenSymbol || mint.slice(0, 8),
+            symbol: dbPos?.tokenSymbol || mint.slice(0, 8),
             currentPriceSOL,
             profitPercent,
             position
@@ -2830,13 +2853,10 @@ Respond with JSON array:
 ]`;
 
   try {
-    // Use hivemind for critical portfolio decisions
-    const { analyzeTokenWithHiveMind } = await import("./hivemind");
-    
-    // Query all 6 AI models for consensus on portfolio
-    const client = getCerebrasClient(); // Use Cerebras as coordinator
+    // Use fast AI model for portfolio analysis
+    const { client, model } = getAIClient();
     const response = await client.chat.completions.create({
-      model: "llama-3.3-70b",
+      model: model,
       messages: [
         {
           role: "system",

@@ -31,12 +31,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-// Simplified schema - hivemind controls all trading parameters
+// Simplified schema - autonomous system, no budget limits
 const aiBotConfigSchema = z.object({
-  totalBudget: z.string().min(1).refine(
-    (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
-    "Must be a positive number"
-  ),
+  // No totalBudget field - system is autonomous and self-managing
 });
 
 type AIBotConfigFormData = z.infer<typeof aiBotConfigSchema>;
@@ -110,9 +107,7 @@ export default function AIBot() {
 
   const form = useForm<AIBotConfigFormData>({
     resolver: zodResolver(aiBotConfigSchema),
-    defaultValues: {
-      totalBudget: aiConfig?.totalBudget || "1.0",
-    },
+    defaultValues: {},
   });
 
   const addScanLog = (message: string, type: "info" | "success" | "warning" | "error" = "info") => {
@@ -243,7 +238,7 @@ export default function AIBot() {
         ownerWalletAddress: publicKey.toString(),
         signature: signatureBase58,
         message,
-        totalBudget: data.totalBudget,
+        // No totalBudget - system is autonomous
         enabled: aiConfig?.enabled || false,
       });
       
@@ -473,26 +468,23 @@ export default function AIBot() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {remainingBudget >= 0 ? 'Budget Remaining' : 'Over Budget'}
+              Capital In Positions
             </CardTitle>
-            <TrendingUp className={`h-4 w-4 ${remainingBudget >= 0 ? 'text-orange-500' : 'text-red-500'}`} />
+            <TrendingUp className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${remainingBudget >= 0 ? '' : 'text-red-500'}`}>
-              {Math.abs(remainingBudget).toFixed(4)} SOL
+            <div className="text-2xl font-bold">
+              {budgetUsed.toFixed(4)} SOL
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {budgetUsed.toFixed(4)} / {totalBudget.toFixed(4)} used
+              Actively trading
             </p>
-            <Progress 
-              value={Math.min((budgetUsed / totalBudget) * 100, 100)} 
-              className={`mt-3 ${remainingBudget < 0 ? '[&>div]:bg-red-500' : ''}`}
-            />
-            {remainingBudget < 0 && (
-              <p className="text-xs text-red-500 mt-2">
-                ⚠️ Increase budget or close positions to continue trading
-              </p>
-            )}
+            <div className="mt-3 p-2 rounded-md bg-blue-500/10 border border-blue-500/20">
+              <div className="text-xs font-medium text-blue-500">Autonomous System</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Uses all available capital (no limits)
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -560,52 +552,50 @@ export default function AIBot() {
         </Card>
       )}
 
-      {/* Configuration */}
-      <Card>
+      {/* Autonomous Capital Management Info */}
+      <Card className="border-blue-500/50">
         <CardHeader>
-          <CardTitle>Configuration</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-blue-500" />
+            Autonomous Capital Management
+          </CardTitle>
           <CardDescription>
-            Essential settings - trading parameters are controlled by hivemind
+            Self-managing system - no budget restrictions, maximum profit focus
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="totalBudget"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Total Budget (SOL)</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="1.0"
-                        data-testid="input-total-budget"
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Maximum SOL to allocate for trading. The hivemind strategy controls all trading decisions.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <CardContent className="space-y-4">
+          <Alert className="border-blue-500/50 bg-blue-500/10">
+            <Brain className="h-4 w-4" />
+            <AlertTitle>Fully Autonomous Trading</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <p>The system autonomously manages all capital to maximize profits:</p>
+              <ul className="list-disc list-inside space-y-1 mt-2">
+                <li>Uses ALL available wallet balance (minus 0.01 SOL fee reserve)</li>
+                <li>Position sizing grows with portfolio (compounding gains)</li>
+                <li>AI-driven entry and exit decisions (6-model consensus)</li>
+                <li>Dynamic risk management with stop-loss protection</li>
+                <li>No manual budget limits - system self-optimizes</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
 
-              <Alert className="border-blue-500/50 bg-blue-500/10">
-                <Brain className="h-4 w-4" />
-                <AlertTitle>100% AI & Hivemind Control</AlertTitle>
-                <AlertDescription>
-                  All buy and sell decisions are made by the 6-model AI consensus system and hivemind strategy. No manual targets or limits.
-                </AlertDescription>
-              </Alert>
+          <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-muted/30">
+            <div>
+              <div className="text-sm font-medium text-muted-foreground">Fee Reserve</div>
+              <div className="text-lg font-bold">0.01 SOL</div>
+              <div className="text-xs text-muted-foreground">Always maintained</div>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-muted-foreground">Max Position</div>
+              <div className="text-lg font-bold">15% Portfolio</div>
+              <div className="text-xs text-muted-foreground">Scales with growth</div>
+            </div>
+          </div>
 
-              <Button type="submit" disabled={isSaving} className="w-full" data-testid="button-save-config">
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Configuration
-              </Button>
-            </form>
-          </Form>
+          <div className="text-sm text-muted-foreground">
+            <p className="font-medium">How compounding works:</p>
+            <p className="mt-1">Position sizes grow with your portfolio value. Starting at 10% of portfolio per trade, up to 15% max with high AI confidence. As your wallet grows to 1 SOL → 10 SOL → 100 SOL, position sizes grow proportionally, enabling exponential compounding. Diversification enforced: max 25% of portfolio in any single position.</p>
+          </div>
         </CardContent>
       </Card>
 

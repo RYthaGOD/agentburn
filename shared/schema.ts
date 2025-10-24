@@ -102,9 +102,10 @@ export const aiBotConfigs = pgTable("ai_bot_configs", {
   
   // Bot settings
   enabled: boolean("enabled").notNull().default(false),
-  totalBudget: decimal("total_budget", { precision: 18, scale: 9 }).notNull().default("0"),
-  budgetUsed: decimal("budget_used", { precision: 18, scale: 9 }).notNull().default("0"),
-  budgetPerTrade: decimal("budget_per_trade", { precision: 18, scale: 9 }).notNull().default("0.1"),
+  totalBudget: decimal("total_budget", { precision: 18, scale: 9 }).notNull().default("0"), // 0 = unlimited (use all available capital)
+  budgetUsed: decimal("budget_used", { precision: 18, scale: 9 }).notNull().default("0"), // Total SOL currently in active positions
+  budgetPerTrade: decimal("budget_per_trade", { precision: 18, scale: 9 }).notNull().default("0.02"), // Base trade size (scales with portfolio)
+  portfolioPercentPerTrade: integer("portfolio_percent_per_trade").notNull().default(10), // % of portfolio per trade (enables compounding)
   analysisInterval: integer("analysis_interval").notNull().default(60), // Minutes between scans
   minVolumeUSD: decimal("min_volume_usd", { precision: 18, scale: 2 }).notNull().default("5000"),
   minPotentialPercent: decimal("min_potential_percent", { precision: 18, scale: 2 }).notNull().default("150"),
