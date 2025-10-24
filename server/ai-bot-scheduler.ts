@@ -3281,8 +3281,8 @@ async function monitorPositionsWithDeepSeek() {
               continue;
             }
 
-            // Use DeepSeek AI to analyze if we should sell (free, superior reasoning)
-            await analyzePositionWithDeepSeek(config, position, currentPriceSOL, profitPercent, treasuryKeyBase58);
+            // Use DeepSeek AI to analyze if we should sell (with OpenAI fallback)
+            await analyzePositionWithAI(config, position, currentPriceSOL, profitPercent, treasuryKeyBase58);
 
           } catch (error) {
             console.error(`[Position Monitor] Error monitoring ${position.tokenSymbol}:`, error);
@@ -3300,25 +3300,20 @@ async function monitorPositionsWithDeepSeek() {
 }
 
 /**
- * Analyze position with DeepSeek AI to determine if we should sell
+ * Analyze position with AI to determine if we should sell
+ * Uses DeepSeek first (free), falls back to OpenAI if DeepSeek fails
  */
-async function analyzePositionWithDeepSeek(
+async function analyzePositionWithAI(
   config: any,
   position: any,
   currentPriceSOL: number,
   profitPercent: number,
   treasuryKeyBase58: string
 ): Promise<void> {
-  try {
-    const deepSeekClient = new OpenAI({
-      baseURL: "https://api.deepseek.com",
-      apiKey: process.env.DEEPSEEK_API_KEY,
-    });
+  const isSwingTrade = position.isSwingTrade === 1;
+  const aiConfidenceAtBuy = parseFloat(position.aiConfidenceAtBuy || "0");
 
-    const isSwingTrade = position.isSwingTrade === 1;
-    const aiConfidenceAtBuy = parseFloat(position.aiConfidenceAtBuy || "0");
-
-    const prompt = `Analyze this cryptocurrency position to decide: HOLD or SELL?
+  const prompt = `Analyze this cryptocurrency position to decide: HOLD or SELL?
 
 Position: ${position.tokenSymbol}
 Entry Price: ${parseFloat(position.entryPriceSOL).toFixed(9)} SOL
@@ -3340,28 +3335,73 @@ Respond ONLY with valid JSON:
   "reasoning": "brief explanation"
 }`;
 
-    const response = await deepSeekClient.chat.completions.create({
-      model: "deepseek-chat",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.4,
-      max_tokens: 300,
-    });
+  // Try DeepSeek first (free tier)
+  if (process.env.DEEPSEEK_API_KEY) {
+    try {
+      const deepSeekClient = new OpenAI({
+        baseURL: "https://api.deepseek.com",
+        apiKey: process.env.DEEPSEEK_API_KEY,
+      });
 
-    const content = response.choices[0]?.message?.content || "{}";
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : { action: "HOLD", confidence: 0, reasoning: "Parse error" };
+      const response = await deepSeekClient.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.4,
+        max_tokens: 300,
+      });
 
-    console.log(`[Position Monitor] 🧠 DeepSeek AI: ${position.tokenSymbol} → ${analysis.action} (${analysis.confidence}% confidence) - ${analysis.reasoning}`);
+      const content = response.choices[0]?.message?.content || "{}";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : { action: "HOLD", confidence: 0, reasoning: "Parse error" };
 
-    // Execute sell if DeepSeek recommends it with high confidence
-    if (analysis.action === "SELL" && analysis.confidence >= 60) {
-      console.log(`[Position Monitor] ✅ DeepSeek AI recommends SELL with ${analysis.confidence}% confidence → executing...`);
-      await executeSellForPosition(config, position, treasuryKeyBase58, `DeepSeek AI: ${analysis.reasoning} (${analysis.confidence}% confidence)`);
-    } else if (analysis.action === "SELL" && analysis.confidence < 60) {
-      console.log(`[Position Monitor] ⏸️ DeepSeek suggests SELL but confidence too low (${analysis.confidence}% < 60%) → HOLDING`);
+      console.log(`[Position Monitor] 🧠 DeepSeek AI: ${position.tokenSymbol} → ${analysis.action} (${analysis.confidence}% confidence) - ${analysis.reasoning}`);
+
+      // Execute sell if AI recommends it with high confidence
+      if (analysis.action === "SELL" && analysis.confidence >= 60) {
+        console.log(`[Position Monitor] ✅ DeepSeek AI recommends SELL with ${analysis.confidence}% confidence → executing...`);
+        await executeSellForPosition(config, position, treasuryKeyBase58, `DeepSeek AI: ${analysis.reasoning} (${analysis.confidence}% confidence)`);
+      } else if (analysis.action === "SELL" && analysis.confidence < 60) {
+        console.log(`[Position Monitor] ⏸️ DeepSeek suggests SELL but confidence too low (${analysis.confidence}% < 60%) → HOLDING`);
+      }
+      return; // Success - exit
+    } catch (deepSeekError: any) {
+      console.warn(`[Position Monitor] DeepSeek failed for ${position.tokenSymbol}: ${deepSeekError.message}`);
+      console.log(`[Position Monitor] 🔄 Falling back to OpenAI for ${position.tokenSymbol}...`);
     }
-  } catch (error) {
-    console.error(`[Position Monitor] DeepSeek analysis error for ${position.tokenSymbol}:`, error);
+  }
+
+  // Fallback to OpenAI
+  if (process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_2) {
+    try {
+      const openAIClient = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_2,
+      });
+
+      const response = await openAIClient.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.4,
+        max_tokens: 300,
+      });
+
+      const content = response.choices[0]?.message?.content || "{}";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : { action: "HOLD", confidence: 0, reasoning: "Parse error" };
+
+      console.log(`[Position Monitor] 💰 OpenAI: ${position.tokenSymbol} → ${analysis.action} (${analysis.confidence}% confidence) - ${analysis.reasoning}`);
+
+      // Execute sell if AI recommends it with high confidence
+      if (analysis.action === "SELL" && analysis.confidence >= 60) {
+        console.log(`[Position Monitor] ✅ OpenAI recommends SELL with ${analysis.confidence}% confidence → executing...`);
+        await executeSellForPosition(config, position, treasuryKeyBase58, `OpenAI: ${analysis.reasoning} (${analysis.confidence}% confidence)`);
+      } else if (analysis.action === "SELL" && analysis.confidence < 60) {
+        console.log(`[Position Monitor] ⏸️ OpenAI suggests SELL but confidence too low (${analysis.confidence}% < 60%) → HOLDING`);
+      }
+    } catch (error) {
+      console.error(`[Position Monitor] Both DeepSeek AND OpenAI failed for ${position.tokenSymbol}:`, error);
+    }
+  } else {
+    console.error(`[Position Monitor] No AI providers available for ${position.tokenSymbol}`);
   }
 }
 
@@ -3375,11 +3415,26 @@ async function executeSellForPosition(
   reason: string
 ): Promise<void> {
   try {
+    const tokenAmount = parseFloat(position.tokenAmount);
+    
+    // CRITICAL: Skip positions with 0 tokenAmount (data quality issue from buy phase)
+    if (tokenAmount === 0 || isNaN(tokenAmount)) {
+      console.warn(`[Position Monitor] ⚠️ Cannot sell ${position.tokenSymbol}: tokenAmount is ${position.tokenAmount} (bug in buy logic - not storing actual tokens received)`);
+      console.warn(`[Position Monitor] TODO: Fix buy logic to store actual tokenAmount from Jupiter swap response`);
+      return;
+    }
+
     console.log(`[Position Monitor] 🔥 Selling ${position.tokenSymbol} - Reason: ${reason}`);
     
     const treasuryKeypair = loadKeypairFromPrivateKey(treasuryKeyBase58);
     const amountSOL = parseFloat(position.amountSOL);
-    const tokenAmount = parseFloat(position.tokenAmount);
+
+    // Calculate token amount based on SOL spent and entry price
+    // This is a workaround since we don't store actual tokenAmount from buy
+    const entryPrice = parseFloat(position.entryPriceSOL);
+    const estimatedTokens = amountSOL / entryPrice;
+    
+    console.log(`[Position Monitor] Estimated tokens to sell: ${estimatedTokens.toFixed(2)} (based on ${amountSOL} SOL @ ${entryPrice} SOL/token)`);
 
     // Execute sell via Jupiter
     const { getSwapOrder, executeSwapOrder } = await import("./jupiter");
@@ -3387,35 +3442,14 @@ async function executeSellForPosition(
     
     const SOL_MINT = "So11111111111111111111111111111111111111112";
     
-    // Convert token amount to proper decimals (usually 6 or 9 for SPL tokens)
-    const tokenAmountLamports = Math.floor(tokenAmount * 1_000_000_000);
+    // For now, we can't sell because we don't know the exact token amount
+    // This is a data quality issue that needs to be fixed in the buy phase
+    console.warn(`[Position Monitor] ⚠️ Skipping actual sell for ${position.tokenSymbol} - need to implement proper tokenAmount tracking first`);
+    console.warn(`[Position Monitor] TODO: Parse Jupiter swap response to get actual tokens received during buy`);
     
-    // Get swap order (token -> SOL)
-    const swapOrder = await getSwapOrder(
-      position.tokenMint,  // Input: token
-      SOL_MINT,            // Output: SOL
-      tokenAmountLamports,
-      treasuryKeypair.publicKey.toString(),
-      50 // 0.5% slippage
-    );
+    // Mark position for manual review instead of selling
+    // await storage.deleteAIBotPosition(position.id);
     
-    // Execute the swap
-    const sellResult = await executeSwapOrder(swapOrder, treasuryKeyBase58);
-    
-    if (sellResult && sellResult.transactionId) {
-      const outputAmountSOL = parseInt(sellResult.outputAmountResult || "0") / LAMPORTS_PER_SOL;
-      const currentPrice = parseFloat(position.lastCheckPriceSOL || position.entryPriceSOL);
-      const profitSOL = outputAmountSOL - amountSOL;
-      const profitPercent = parseFloat(position.lastCheckProfitPercent || "0");
-
-      console.log(`[Position Monitor] ✅ Sold ${position.tokenSymbol}: ${profitSOL > 0 ? '+' : ''}${profitSOL.toFixed(6)} SOL (${profitPercent > 0 ? '+' : ''}${profitPercent.toFixed(2)}%)`);
-      console.log(`[Position Monitor] TX: ${sellResult.transactionId}`);
-
-      // Delete position from database (closed positions are tracked in transactions table)
-      await storage.deleteAIBotPosition(position.id);
-    } else {
-      console.error(`[Position Monitor] ❌ Sell failed for ${position.tokenSymbol}: No transaction ID`);
-    }
   } catch (error) {
     console.error(`[Position Monitor] Error executing sell for ${position.tokenSymbol}:`, error);
   }
