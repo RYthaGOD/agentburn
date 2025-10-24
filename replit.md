@@ -13,6 +13,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+- **Implemented smart wallet management and dynamic trade sizing**
+  - Scans actual wallet balance before every trade for accuracy
+  - Always keeps 0.01 SOL buffer for transaction fees
+  - Automatically claims PumpFun creator rewards when balance is low (<0.05 SOL)
+  - Dynamic trade amounts based on AI confidence:
+    - 90-100% confidence: 2.0x base amount (very high confidence)
+    - 80-89% confidence: 1.75x base amount (high confidence)
+    - 75-79% confidence: 1.5x base amount (above threshold)
+    - 65-74% confidence: 1.25x base amount (medium-high)
+    - 55-64% confidence: 1.0x base amount (medium)
+    - <55% confidence: 0.5x base amount (low)
+  - Caps trade amounts at available wallet balance
 - **Implemented smart scanning system to reduce API usage**
   - Added 10-minute cache for DexScreener data (prevents repeated API calls)
   - Two-tier scanning approach:

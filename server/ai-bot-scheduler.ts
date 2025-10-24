@@ -976,28 +976,54 @@ async function executeQuickTrade(
       config.treasuryKeyAuthTag
     );
 
-    // Check budget
-    const totalBudget = parseFloat(config.totalBudget || "0");
-    const budgetUsed = parseFloat(config.budgetUsed || "0");
-    const budgetPerTrade = parseFloat(config.budgetPerTrade || "0");
-    const remainingBudget = totalBudget - budgetUsed;
+    // Get treasury public key for balance check
+    const { loadKeypairFromPrivateKey } = await import("./solana-sdk");
+    const keypair = loadKeypairFromPrivateKey(treasuryKeyBase58);
+    const treasuryPublicKey = keypair.publicKey.toString();
 
-    if (totalBudget > 0 && remainingBudget < budgetPerTrade) {
-      console.log(`[Quick Scan] Insufficient budget for ${config.ownerWalletAddress.slice(0, 8)}...`);
+    // Scan actual wallet balance
+    const { getWalletBalance } = await import("./solana");
+    let actualBalance = await getWalletBalance(treasuryPublicKey);
+    const FEE_BUFFER = 0.01; // Always keep 0.01 SOL for fees
+    let availableBalance = Math.max(0, actualBalance - FEE_BUFFER);
+
+    console.log(`[Quick Scan] Wallet balance: ${actualBalance.toFixed(4)} SOL (available: ${availableBalance.toFixed(4)} SOL after fee buffer)`);
+
+    // If balance is low, try to claim creator rewards
+    if (availableBalance < 0.05) {
+      console.log(`[Quick Scan] Low balance detected, attempting to claim creator rewards...`);
+      const rewardsClaimed = await tryClaimCreatorRewards(treasuryPublicKey, treasuryKeyBase58);
+      if (rewardsClaimed) {
+        // Re-check balance after claiming and UPDATE availableBalance
+        actualBalance = await getWalletBalance(treasuryPublicKey);
+        availableBalance = Math.max(0, actualBalance - FEE_BUFFER);
+        console.log(`[Quick Scan] After rewards claim: ${actualBalance.toFixed(4)} SOL (available: ${availableBalance.toFixed(4)} SOL)`);
+      }
+    }
+
+    // Calculate dynamic trade amount based on AI confidence (using refreshed balance if rewards were claimed)
+    const baseAmount = parseFloat(config.budgetPerTrade || "0");
+    const tradeAmount = calculateDynamicTradeAmount(baseAmount, analysis.confidence, availableBalance);
+
+    if (tradeAmount <= 0) {
+      console.log(`[Quick Scan] Insufficient funds for trade after all attempts (available: ${availableBalance.toFixed(4)} SOL)`);
       return;
     }
+
+    console.log(`[Quick Scan] Dynamic trade amount: ${tradeAmount.toFixed(4)} SOL (confidence: ${(analysis.confidence * 100).toFixed(1)}%)`);
 
     // Execute buy
     const result = await buyTokenWithJupiter(
       treasuryKeyBase58,
       token.mint,
-      budgetPerTrade,
+      tradeAmount,
       1000 // 10% slippage
     );
 
     if (result.success && result.signature) {
-      // Update budget
-      const newBudgetUsed = budgetUsed + budgetPerTrade;
+      // Update budget tracking
+      const budgetUsed = parseFloat(config.budgetUsed || "0");
+      const newBudgetUsed = budgetUsed + tradeAmount;
       await storage.createOrUpdateAIBotConfig({
         ownerWalletAddress: config.ownerWalletAddress,
         budgetUsed: newBudgetUsed.toString(),
@@ -1007,7 +1033,7 @@ async function executeQuickTrade(
       await storage.createTransaction({
         projectId: "",
         type: "ai_buy",
-        amount: budgetPerTrade.toString(),
+        amount: tradeAmount.toString(),
         tokenAmount: "0",
         txSignature: result.signature,
         status: "completed",
@@ -1025,19 +1051,89 @@ async function executeQuickTrade(
           projectId: config.ownerWalletAddress,
           transactionType: "ai_buy",
           signature: result.signature,
-          amount: budgetPerTrade,
+          amount: tradeAmount,
           token: token.symbol,
           analysis: `Quick Scan: ${analysis.reasoning} (${(analysis.confidence * 100).toFixed(1)}%)`,
         },
         timestamp: Date.now(),
       });
 
-      console.log(`[Quick Scan] ✅ Trade executed: ${token.symbol} - ${budgetPerTrade} SOL (tx: ${result.signature.slice(0, 8)}...)`);
+      console.log(`[Quick Scan] ✅ Trade executed: ${token.symbol} - ${tradeAmount.toFixed(4)} SOL (tx: ${result.signature.slice(0, 8)}...)`);
     } else {
       console.error(`[Quick Scan] Trade failed for ${token.symbol}:`, result.error);
     }
   } catch (error) {
     console.error(`[Quick Scan] Error executing trade:`, error);
+  }
+}
+
+/**
+ * Calculate dynamic trade amount based on AI confidence
+ * Higher confidence = larger trade size (up to 2x base amount)
+ * Lower confidence = smaller trade size (down to 0.5x base amount)
+ */
+function calculateDynamicTradeAmount(
+  baseAmount: number,
+  confidence: number,
+  availableBalance: number
+): number {
+  // Confidence-based multiplier:
+  // 100% confidence = 2.0x
+  // 75% confidence = 1.5x
+  // 55% confidence = 1.0x
+  // Below 55% = 0.5x
+  
+  let multiplier = 1.0;
+  if (confidence >= 0.90) {
+    multiplier = 2.0; // Very high confidence: double the amount
+  } else if (confidence >= 0.80) {
+    multiplier = 1.75; // High confidence: 75% more
+  } else if (confidence >= 0.75) {
+    multiplier = 1.5; // Above threshold: 50% more
+  } else if (confidence >= 0.65) {
+    multiplier = 1.25; // Medium-high: 25% more
+  } else if (confidence >= 0.55) {
+    multiplier = 1.0; // Medium: base amount
+  } else {
+    multiplier = 0.5; // Low confidence: half amount
+  }
+
+  const calculatedAmount = baseAmount * multiplier;
+  
+  // Cap at available balance
+  return Math.min(calculatedAmount, availableBalance);
+}
+
+/**
+ * Try to claim PumpFun creator rewards to top up funds
+ */
+async function tryClaimCreatorRewards(
+  treasuryPublicKey: string,
+  treasuryPrivateKey: string
+): Promise<boolean> {
+  try {
+    const { claimCreatorRewardsFull } = await import("./pumpfun");
+    
+    const result = await claimCreatorRewardsFull(
+      treasuryPublicKey,
+      treasuryPrivateKey
+    );
+
+    if (result.success && result.signature) {
+      console.log(`[Creator Rewards] ✅ Claimed rewards: ${result.signature.slice(0, 8)}... (amount: ${result.amount || 'unknown'} SOL)`);
+      return true;
+    } else {
+      console.log(`[Creator Rewards] No rewards available to claim`);
+      return false;
+    }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message.toLowerCase() : "";
+    if (errorMsg.includes("no rewards") || errorMsg.includes("no fees") || errorMsg.includes("nothing to claim")) {
+      console.log(`[Creator Rewards] No rewards available`);
+    } else {
+      console.error(`[Creator Rewards] Error claiming rewards:`, error);
+    }
+    return false;
   }
 }
 
@@ -1185,34 +1281,38 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     );
     const treasuryKeypair = loadKeypairFromPrivateKey(treasuryKeyBase58);
 
-    // Check total budget and remaining balance
+    // Scan actual wallet balance
+    const FEE_BUFFER = 0.01; // Always keep 0.01 SOL for fees
+    let actualBalance = await getWalletBalance(treasuryKeypair.publicKey.toString());
+    let availableBalance = Math.max(0, actualBalance - FEE_BUFFER);
+
+    addLog(`💰 Wallet balance: ${actualBalance.toFixed(4)} SOL (available: ${availableBalance.toFixed(4)} SOL after fee buffer)`, "info");
+
+    // If balance is low, try to claim creator rewards
+    if (availableBalance < 0.05) {
+      addLog(`💰 Low balance detected (${availableBalance.toFixed(4)} SOL), attempting to claim creator rewards...`, "info");
+      const rewardsClaimed = await tryClaimCreatorRewards(treasuryKeypair.publicKey.toString(), treasuryKeyBase58);
+      if (rewardsClaimed) {
+        // Re-check balance after claiming and UPDATE availableBalance for trade sizing
+        actualBalance = await getWalletBalance(treasuryKeypair.publicKey.toString());
+        availableBalance = Math.max(0, actualBalance - FEE_BUFFER);
+        addLog(`💰 ✅ Rewards claimed! New balance: ${actualBalance.toFixed(4)} SOL (available: ${availableBalance.toFixed(4)} SOL)`, "success");
+      } else {
+        addLog(`💰 No rewards available to claim or claim failed`, "warning");
+      }
+    }
+
+    // Check budget tracking
     const totalBudget = parseFloat(config.totalBudget || "0");
     const budgetUsed = parseFloat(config.budgetUsed || "0");
-    const remainingBudget = totalBudget - budgetUsed;
-    const budgetPerTrade = parseFloat(config.budgetPerTrade || "0");
+    const baseAmountPerTrade = parseFloat(config.budgetPerTrade || "0");
 
-    if (totalBudget > 0 && remainingBudget <= 0) {
-      addLog(`💰 Budget exhausted: ${budgetUsed}/${totalBudget} SOL used`, "warning");
+    if (availableBalance <= 0) {
+      addLog(`💰 Insufficient funds: ${actualBalance.toFixed(4)} SOL (need at least ${FEE_BUFFER} SOL for fees)`, "error");
       return logs;
     }
 
-    // Reserve 0.01 SOL for transaction fees
-    const FEE_RESERVE = 0.01;
-    
-    if (totalBudget > 0 && remainingBudget < budgetPerTrade + FEE_RESERVE) {
-      addLog(`💰 Insufficient budget: ${remainingBudget.toFixed(4)} SOL remaining (need ${budgetPerTrade} SOL + ${FEE_RESERVE} SOL fee reserve)`, "warning");
-      return logs;
-    }
-
-    // Check SOL balance (with fee reserve)
-    const solBalance = await getWalletBalance(treasuryKeypair.publicKey.toString());
-    
-    if (solBalance < budgetPerTrade + FEE_RESERVE) {
-      addLog(`💰 Insufficient SOL balance: ${solBalance.toFixed(4)} SOL (need ${budgetPerTrade} SOL + ${FEE_RESERVE} SOL for fees)`, "error");
-      return logs;
-    }
-
-    addLog(`💰 Budget status: ${budgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used (${remainingBudget.toFixed(4)} remaining)`, "success");
+    addLog(`💰 Budget status: ${budgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used`, "success");
 
     // Fetch trending tokens with organic volume filtering (uses 10-min cache)
     addLog(`🔍 Fetching trending tokens from DexScreener with organic volume filters...`, "info");
@@ -1294,11 +1394,17 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
 
       // Execute trade based on AI recommendation
       if (analysis.action === "buy") {
-        const amountSOL = analysis.suggestedBuyAmountSOL || budgetPerTrade;
+        // Calculate dynamic trade amount based on confidence
+        const tradeAmount = calculateDynamicTradeAmount(baseAmountPerTrade, analysis.confidence, availableBalance);
         
-        addLog(`🚀 BUY SIGNAL: ${token.symbol} - ${amountSOL} SOL (confidence: ${(analysis.confidence * 100).toFixed(1)}%)`, "success", {
+        if (tradeAmount <= 0) {
+          addLog(`⏭️ SKIP ${token.symbol}: Insufficient funds (available: ${availableBalance.toFixed(4)} SOL)`, "warning");
+          continue;
+        }
+
+        addLog(`🚀 BUY SIGNAL: ${token.symbol} - ${tradeAmount.toFixed(4)} SOL (confidence: ${(analysis.confidence * 100).toFixed(1)}%, multiplier: ${(tradeAmount / baseAmountPerTrade).toFixed(2)}x)`, "success", {
           symbol: token.symbol,
-          amount: amountSOL,
+          amount: tradeAmount,
           confidence: analysis.confidence,
           reasoning: analysis.reasoning,
         });
@@ -1307,24 +1413,25 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
         const result = await buyTokenWithJupiter(
           treasuryKeyBase58,
           token.mint,
-          amountSOL,
+          tradeAmount,
           1000 // 10% slippage (1000 bps)
         );
 
         if (result.success && result.signature) {
-          // Update budget tracking
-          const newBudgetUsed = budgetUsed + amountSOL;
+          // Update budget tracking and available balance
+          const newBudgetUsed = budgetUsed + tradeAmount;
+          availableBalance -= tradeAmount;
           await storage.createOrUpdateAIBotConfig({
             ownerWalletAddress,
             budgetUsed: newBudgetUsed.toString(),
           });
-          addLog(`💰 Budget updated: ${newBudgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used`, "info");
+          addLog(`💰 Budget updated: ${newBudgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used (${availableBalance.toFixed(4)} SOL remaining)`, "info");
 
           // Record transaction (no project ID for standalone)
           await storage.createTransaction({
             projectId: "", // Empty for standalone AI bot transactions
             type: "ai_buy",
-            amount: amountSOL.toString(),
+            amount: tradeAmount.toString(),
             tokenAmount: "0", // Would need to calculate from tx
             txSignature: result.signature,
             status: "completed",
@@ -1339,7 +1446,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
               projectId: ownerWalletAddress, // Use wallet address
               transactionType: "ai_buy",
               signature: result.signature,
-              amount: amountSOL,
+              amount: tradeAmount,
               token: token.symbol,
               analysis: analysis.reasoning,
             },
@@ -1350,7 +1457,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
           botState.activePositions.set(token.mint, {
             mint: token.mint,
             entryPriceSOL: token.priceSOL,
-            amountSOL,
+            amountSOL: tradeAmount,
           });
 
           // Save position to database for persistence across restarts
@@ -1360,7 +1467,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
             tokenSymbol: token.symbol,
             tokenName: token.name,
             entryPriceSOL: token.priceSOL.toString(),
-            amountSOL: amountSOL.toString(),
+            amountSOL: tradeAmount.toString(),
             tokenAmount: "0", // Would need to calculate from tx
             buyTxSignature: result.signature,
             lastCheckPriceSOL: token.priceSOL.toString(),
@@ -1373,7 +1480,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
           addLog(`✅ Trade executed successfully! ${token.symbol} bought (${botState.dailyTradesExecuted}/${maxDailyTrades} trades today)`, "success", {
             symbol: token.symbol,
             txSignature: result.signature,
-            amount: amountSOL,
+            amount: tradeAmount,
           });
         } else {
           addLog(`❌ Trade failed: ${result.error}`, "error");
