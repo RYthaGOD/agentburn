@@ -946,7 +946,9 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
 
       addLog(`🧠 Hive Mind: ${hiveMindResult.consensus}`, "info", { symbol: token.symbol });
       hiveMindResult.votes.forEach(vote => {
-        addLog(`  ${vote.success ? '✅' : '❌'} ${vote.provider}: ${vote.analysis.action.toUpperCase()} (${(vote.analysis.confidence * 100).toFixed(0)}%)`, 
+        const action = vote.analysis?.action ? vote.analysis.action.toUpperCase() : 'HOLD';
+        const confidence = vote.analysis?.confidence ? (vote.analysis.confidence * 100).toFixed(0) : '0';
+        addLog(`  ${vote.success ? '✅' : '❌'} ${vote.provider}: ${action} (${confidence}%)`, 
           vote.success ? "info" : "warning", 
           { provider: vote.provider, success: vote.success }
         );
