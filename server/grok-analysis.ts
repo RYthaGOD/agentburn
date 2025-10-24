@@ -5,28 +5,32 @@ import OpenAI from "openai";
 
 /**
  * Intelligent OpenAI usage context for cost optimization
+ * DeepSeek (5M free tokens) is now the primary model, OpenAI used only when critical
  */
 export interface OpenAIUsageContext {
   isPeakHours?: boolean; // Use OpenAI during market hours (9am-5pm UTC)
   isHighConfidence?: boolean; // Potential swing trade (85%+ confidence expected)
-  needsTieBreaker?: boolean; // Free models showed disagreement
+  needsTieBreaker?: boolean; // Free models showed disagreement (now DeepSeek handles this)
   forceInclude?: boolean; // Always include OpenAI regardless of context
   forceExclude?: boolean; // Never include OpenAI (e.g., quick monitoring)
 }
 
 /**
  * Determine if we should include OpenAI based on smart usage strategy
+ * DeepSeek now handles most analysis, OpenAI only for critical high-value opportunities
  */
 function shouldIncludeOpenAI(context: OpenAIUsageContext = {}): boolean {
   // Force decisions override everything
   if (context.forceExclude) return false;
   if (context.forceInclude) return true;
 
-  // Use OpenAI in any of these strategic scenarios:
-  // 1. Peak trading hours (better liquidity/volume = better trades worth OpenAI analysis)
-  // 2. High-confidence opportunities (potential swing trades)
-  // 3. Tie-breaker needed (free models disagree)
-  return !!(context.isPeakHours || context.isHighConfidence || context.needsTieBreaker);
+  // OPTIMIZED: Use OpenAI only for high-confidence opportunities (85%+ expected)
+  // DeepSeek V3's superior reasoning now handles:
+  //   - Tie-breaking between free models
+  //   - General analysis during non-peak hours
+  //   - Position monitoring (DeepSeek-only for efficiency)
+  // OpenAI reserved for potential swing trades worth the extra cost
+  return !!context.isHighConfidence;
 }
 
 /**
@@ -70,7 +74,8 @@ function getAllAIClients(context: OpenAIUsageContext = {}): Array<{ client: Open
     });
   }
 
-  // DeepSeek V3 (5M free tokens, ultra-cheap after, OpenAI compatible)
+  // DeepSeek V3 (5M free tokens, PRIMARY MODEL - superior reasoning, handles tie-breaking)
+  // Now the main workhorse for analysis, position monitoring, and quick scans
   if (process.env.DEEPSEEK_API_KEY) {
     clients.push({
       client: new OpenAI({
