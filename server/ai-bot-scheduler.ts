@@ -4,7 +4,7 @@
 import cron from "node-cron";
 import { storage } from "./storage";
 import { analyzeTokenWithGrok, analyzeTokenWithHiveMind, isGrokConfigured, type TokenMarketData } from "./grok-analysis";
-import { buyTokenWithJupiter, getTokenPrice, getSwapOrder, executeSwapOrder } from "./jupiter";
+import { buyTokenWithJupiter, getTokenPrice, getSwapOrder, executeSwapOrder, getWalletBalances } from "./jupiter";
 import OpenAI from "openai";
 import { sellTokenOnPumpFun } from "./pumpfun";
 import { getTreasuryKey } from "./key-manager";
@@ -1587,6 +1587,111 @@ interface ScanLog {
 }
 
 /**
+ * Portfolio holding information
+ */
+interface PortfolioHolding {
+  mint: string;
+  symbol: string;
+  amount: number;
+  valueSOL: number;
+  percentOfPortfolio: number;
+}
+
+/**
+ * Complete portfolio analysis
+ */
+interface PortfolioAnalysis {
+  totalValueSOL: number;
+  solBalance: number;
+  holdings: PortfolioHolding[];
+  largestPosition: number; // Percent of portfolio
+  holdingCount: number;
+  diversificationScore: number; // 0-100, higher = more diversified
+}
+
+/**
+ * Analyze complete wallet portfolio for accurate allocation decisions
+ * Fetches all SPL token holdings and calculates concentration metrics
+ */
+async function analyzePortfolio(walletAddress: string, solBalance: number): Promise<PortfolioAnalysis> {
+  try {
+    // Fetch all token balances from Jupiter Ultra API
+    const balancesData = await getWalletBalances(walletAddress);
+    
+    // Parse holdings and calculate values
+    const holdings: PortfolioHolding[] = [];
+    let totalTokenValueSOL = 0;
+    
+    if (balancesData && balancesData.balances && Array.isArray(balancesData.balances)) {
+      for (const balance of balancesData.balances) {
+        if (!balance.mint || !balance.amount || balance.amount === 0) continue;
+        
+        // Skip SOL (native token)
+        if (balance.mint === "So11111111111111111111111111111111111111112") continue;
+        
+        try {
+          // Get current price in SOL
+          const priceSOL = await getTokenPrice(balance.mint);
+          const valueSOL = balance.amount * priceSOL;
+          
+          totalTokenValueSOL += valueSOL;
+          
+          holdings.push({
+            mint: balance.mint,
+            symbol: balance.symbol || "UNKNOWN",
+            amount: balance.amount,
+            valueSOL,
+            percentOfPortfolio: 0, // Will calculate after we know total
+          });
+        } catch (error) {
+          // Skip tokens we can't price
+          console.log(`[Portfolio] Could not price token ${balance.symbol || balance.mint}:`, error instanceof Error ? error.message : String(error));
+        }
+      }
+    }
+    
+    // Calculate total portfolio value (SOL + all tokens)
+    const totalValueSOL = solBalance + totalTokenValueSOL;
+    
+    // Calculate percentage allocation for each holding
+    holdings.forEach(holding => {
+      holding.percentOfPortfolio = (holding.valueSOL / totalValueSOL) * 100;
+    });
+    
+    // Sort by value (largest first)
+    holdings.sort((a, b) => b.valueSOL - a.valueSOL);
+    
+    // Calculate concentration metrics
+    const largestPosition = holdings.length > 0 ? holdings[0].percentOfPortfolio : 0;
+    
+    // Diversification score: 100 = perfect diversification, 0 = all in one token
+    // Using Herfindahl-Hirschman Index (HHI) inverted
+    const hhi = holdings.reduce((sum, h) => sum + Math.pow(h.percentOfPortfolio, 2), 0);
+    const diversificationScore = holdings.length > 1 ? Math.max(0, 100 - hhi / 10) : 0;
+    
+    return {
+      totalValueSOL,
+      solBalance,
+      holdings,
+      largestPosition,
+      holdingCount: holdings.length,
+      diversificationScore,
+    };
+  } catch (error) {
+    console.error("[Portfolio] Error analyzing portfolio:", error);
+    // Return basic portfolio with just SOL if analysis fails
+    return {
+      totalValueSOL: solBalance,
+      solBalance,
+      holdings: [],
+      largestPosition: 0,
+      holdingCount: 0,
+      diversificationScore: 0,
+    };
+  }
+}
+
+/**
  * Execute standalone AI trading bot (no project required)
  * Uses AIBotConfig table instead of project data
  */
@@ -1708,6 +1813,24 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     // Map risk level to tolerance
     const riskTolerance = riskLevel === "aggressive" ? "high" : riskLevel === "conservative" ? "low" : "medium";
 
+    // Analyze complete wallet portfolio for accurate allocation decisions
+    addLog(`📊 Analyzing wallet portfolio for allocation strategy...`, "info");
+    const portfolio = await analyzePortfolio(ownerWalletAddress, actualBalance);
+    
+    addLog(`💼 Portfolio Analysis:`, "success");
+    addLog(`   Total Value: ${portfolio.totalValueSOL.toFixed(4)} SOL`, "info");
+    addLog(`   SOL Balance: ${portfolio.solBalance.toFixed(4)} SOL (${((portfolio.solBalance / portfolio.totalValueSOL) * 100).toFixed(1)}%)`, "info");
+    addLog(`   Token Holdings: ${portfolio.holdingCount} positions`, "info");
+    addLog(`   Largest Position: ${portfolio.largestPosition.toFixed(1)}% of portfolio`, "info");
+    addLog(`   Diversification Score: ${portfolio.diversificationScore.toFixed(0)}/100`, "info");
+    
+    if (portfolio.holdings.length > 0) {
+      addLog(`   Top Holdings:`, "info");
+      portfolio.holdings.slice(0, 5).forEach((holding, idx) => {
+        addLog(`     ${idx + 1}. ${holding.symbol}: ${holding.valueSOL.toFixed(4)} SOL (${holding.percentOfPortfolio.toFixed(1)}%)`, "info");
+      });
+    }
+
     // Fetch all existing positions once (optimization: avoid repeated database queries)
     const allExistingPositions = await storage.getAIBotPositions(ownerWalletAddress);
     addLog(`📊 Currently holding ${allExistingPositions.length} active positions`, "info");
@@ -1789,11 +1912,37 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
       // Execute trade based on AI recommendation
       if (analysis.action === "buy") {
         // Calculate dynamic trade amount based on hivemind budget and AI confidence
-        const tradeAmount = calculateDynamicTradeAmount(budgetPerTrade, analysis.confidence, availableBalance);
+        let tradeAmount = calculateDynamicTradeAmount(budgetPerTrade, analysis.confidence, availableBalance);
         
         if (tradeAmount <= 0) {
           addLog(`⏭️ SKIP ${token.symbol}: Insufficient funds (available: ${availableBalance.toFixed(4)} SOL)`, "warning");
           continue;
+        }
+
+        // PORTFOLIO CONCENTRATION CHECK: Prevent over-allocation
+        // Max 25% of portfolio in any single position for diversification
+        const MAX_POSITION_PERCENT = 25;
+        const projectedValueSOL = tradeAmount; // Value of new position
+        const projectedPercent = (projectedValueSOL / portfolio.totalValueSOL) * 100;
+        
+        // Check if this token is already in portfolio
+        const existingHolding = portfolio.holdings.find(h => h.mint === token.mint);
+        const currentPercent = existingHolding ? existingHolding.percentOfPortfolio : 0;
+        const totalPercent = currentPercent + projectedPercent;
+        
+        if (totalPercent > MAX_POSITION_PERCENT) {
+          // Calculate max allowed trade to stay under 25%
+          const maxAllowedPercent = MAX_POSITION_PERCENT - currentPercent;
+          const maxAllowedSOL = (maxAllowedPercent / 100) * portfolio.totalValueSOL;
+          
+          if (maxAllowedSOL <= 0.001) {
+            addLog(`⏭️ SKIP ${token.symbol}: Position would exceed ${MAX_POSITION_PERCENT}% concentration limit (current: ${currentPercent.toFixed(1)}%)`, "warning");
+            continue;
+          }
+          
+          // Reduce trade size to stay under limit
+          tradeAmount = Math.min(tradeAmount, maxAllowedSOL);
+          addLog(`⚖️ Position size reduced to ${tradeAmount.toFixed(4)} SOL to maintain diversification (<${MAX_POSITION_PERCENT}% per position)`, "warning");
         }
 
         addLog(`🚀 BUY SIGNAL: ${token.symbol} - ${tradeAmount.toFixed(4)} SOL (confidence: ${(analysis.confidence * 100).toFixed(1)}%, multiplier: ${(tradeAmount / budgetPerTrade).toFixed(2)}x)`, "success", {
@@ -1801,6 +1950,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
           amount: tradeAmount,
           confidence: analysis.confidence,
           reasoning: analysis.reasoning,
+          portfolioAllocation: `${projectedPercent.toFixed(1)}% of portfolio`,
         });
 
         // Check if we already hold this token (using pre-fetched positions)
