@@ -836,19 +836,19 @@ export default function AIBot() {
                   <div className="flex-1">
                     <div className="font-medium">{position.tokenSymbol}</div>
                     <div className="text-xs text-muted-foreground">
-                      Entry: {position.entryPriceSOL.toFixed(6)} SOL | 
-                      Current: {position.currentPriceSOL.toFixed(6)} SOL
+                      Entry: {position.entryPriceSOL?.toFixed(6) || '0.000000'} SOL | 
+                      Current: {position.currentPriceSOL?.toFixed(6) || '0.000000'} SOL
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      AI Confidence: {position.aiConfidenceAtBuy.toFixed(0)}%
+                      AI Confidence: {position.aiConfidenceAtBuy?.toFixed(0) || '0'}%
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className={`text-lg font-bold ${position.profitPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      {position.profitPercent >= 0 ? '+' : ''}{position.profitPercent.toFixed(1)}%
+                    <div className={`text-lg font-bold ${(position.profitPercent || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {(position.profitPercent || 0) >= 0 ? '+' : ''}{position.profitPercent?.toFixed(1) || '0.0'}%
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {position.amountSOL.toFixed(4)} SOL
+                      {position.amountSOL?.toFixed(4) || '0.0000'} SOL
                     </div>
                   </div>
                 </div>
