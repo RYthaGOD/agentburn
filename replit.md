@@ -13,6 +13,24 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+- **Enhanced In-Depth Token Analysis for Improved Accuracy**
+  - AI models now perform comprehensive 4-dimensional analysis framework:
+    - **Fundamental Quality Assessment (40% weight)**: Token utility, project legitimacy, development activity, community engagement, distribution risks, liquidity sustainability
+    - **Technical Price Action Analysis (25% weight)**: Short-term momentum, volume patterns, support/resistance, volatility, price-volume correlation
+    - **Market Conditions & Timing (20% weight)**: Market cap positioning, volume/liquidity adequacy, market cycle stage, competitive analysis, catalysts
+    - **Risk Evaluation (15% weight)**: Rug pull indicators, holder concentration, smart contract security, pump-dump patterns, exit liquidity
+  - Enhanced prompts request detailed multi-paragraph reasoning covering all dimensions
+  - Added pre-calculated advanced metrics:
+    - Volume/Market Cap ratio with interpretation (HIGH/MODERATE/LOW activity)
+    - Liquidity/Market Cap ratio with strength assessment (STRONG/ADEQUATE/WEAK)
+    - Price volatility analysis with risk categorization
+    - Momentum status tracking (positive/neutral/negative)
+    - Holder distribution quality assessment
+  - Temperature reduced to 0.3 (from 0.8) for more consistent, analytical responses
+  - Max tokens increased to 2000 (from 1000) for detailed analysis
+  - Conservative analysis approach: Only BUY at 70%+ confidence for high-quality setups
+  - System prompts emphasize thoroughness, selectivity, and quality over speed
+
 - **Conservative Compounding Strategy (Maximize Gains Through Consistent Wins)**
   - Hivemind now implements a conservative compounding approach by default
   - **Focus on high-probability trades** with strict quality filters (50%+ organic score, 40%+ quality)
