@@ -13,6 +13,19 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+- **Implemented Hivemind Strategy System for adaptive trading**
+  - AI bot can now generate and apply dynamic trading strategies between deep scans
+  - Strategies adapt based on recent trading performance and market sentiment
+  - Each strategy includes:
+    - Market sentiment analysis (bullish, bearish, neutral, volatile)
+    - Dynamic confidence thresholds (adjust trading aggressiveness)
+    - Profit target multipliers (adapt to market conditions)
+    - Risk level recommendations (conservative, moderate, aggressive)
+  - Strategies refresh every 6 hours or when performance changes significantly
+  - In bullish markets: Lower confidence threshold, higher profit targets, more trades
+  - In bearish markets: Higher confidence threshold, faster profit-taking, fewer trades
+  - Stored in `hivemindStrategies` database table with validity periods
+  - Seamlessly integrates with existing 6-model AI consensus system
 - **Added PumpFun API scanning for very low market cap tokens**
   - Scans PumpFun API directly for brand new token launches
   - Filters for ultra-low market cap tokens (<$100k) for aggressive meme trading

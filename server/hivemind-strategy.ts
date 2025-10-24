@@ -21,69 +21,50 @@ export interface HivemindStrategy {
 
 /**
  * Generate a new hivemind trading strategy
- * This uses the AI consensus system to analyze market conditions and recommend a strategy
+ * Analyzes recent trading performance to adapt strategy parameters
  */
 export async function generateHivemindStrategy(
   ownerWalletAddress: string,
-  aiProviders: Array<{ name: string; analyzeMarket: () => Promise<any> }>
+  recentPerformance?: {
+    winRate: number; // 0-100
+    avgProfit: number; // Average profit %
+    totalTrades: number;
+  }
 ): Promise<HivemindStrategy> {
   console.log(`[Hivemind Strategy] Generating new strategy for ${ownerWalletAddress}...`);
 
-  // Collect market sentiment from all AI providers
-  const sentimentAnalyses = await Promise.all(
-    aiProviders.map(async (provider) => {
-      try {
-        const analysis = await provider.analyzeMarket();
-        return {
-          provider: provider.name,
-          sentiment: analysis.sentiment,
-          confidence: analysis.confidence,
-          reasoning: analysis.reasoning,
-        };
-      } catch (error) {
-        console.error(`[Hivemind Strategy] Error from ${provider.name}:`, error);
-        return null;
-      }
-    })
-  );
+  // Determine market sentiment based on recent performance
+  let marketSentiment: HivemindStrategy["marketSentiment"] = "neutral";
+  let confidence = 60;
 
-  // Filter out failed analyses
-  const validAnalyses = sentimentAnalyses.filter((a) => a !== null);
+  if (recentPerformance && recentPerformance.totalTrades >= 5) {
+    const winRate = recentPerformance.winRate;
+    const avgProfit = recentPerformance.avgProfit;
 
-  if (validAnalyses.length === 0) {
-    console.log(`[Hivemind Strategy] No valid analyses, using default strategy`);
-    return getDefaultStrategy();
+    if (winRate > 60 && avgProfit > 20) {
+      marketSentiment = "bullish";
+      confidence = 75;
+    } else if (winRate < 40 || avgProfit < 0) {
+      marketSentiment = "bearish";
+      confidence = 70;
+    } else if (Math.abs(avgProfit) > 30) {
+      marketSentiment = "volatile";
+      confidence = 65;
+    } else {
+      marketSentiment = "neutral";
+      confidence = 60;
+    }
+
+    console.log(`[Hivemind Strategy] Recent performance: ${winRate.toFixed(1)}% win rate, ${avgProfit.toFixed(1)}% avg profit`);
+  } else {
+    console.log(`[Hivemind Strategy] Insufficient trading history, using default strategy`);
   }
 
-  // Calculate consensus sentiment
-  const sentimentCounts = {
-    bullish: 0,
-    bearish: 0,
-    neutral: 0,
-    volatile: 0,
-  };
-
-  validAnalyses.forEach((analysis) => {
-    const sentiment = analysis!.sentiment.toLowerCase();
-    if (sentiment in sentimentCounts) {
-      sentimentCounts[sentiment as keyof typeof sentimentCounts]++;
-    }
-  });
-
-  // Determine majority sentiment
-  const marketSentiment = Object.entries(sentimentCounts).reduce((a, b) =>
-    a[1] > b[1] ? a : b
-  )[0] as HivemindStrategy["marketSentiment"];
-
-  // Calculate average confidence
-  const avgConfidence =
-    validAnalyses.reduce((sum, a) => sum + a!.confidence, 0) / validAnalyses.length;
-
-  // Generate strategy based on consensus
-  const strategy = generateStrategyFromSentiment(marketSentiment, avgConfidence, validAnalyses);
+  // Generate strategy based on market sentiment
+  const strategy = generateStrategyFromSentiment(marketSentiment, confidence, []);
 
   console.log(`[Hivemind Strategy] Generated: ${marketSentiment} market, ${strategy.riskLevel} risk`);
-  console.log(`[Hivemind Strategy] Min confidence: ${strategy.minConfidenceThreshold}%, Max trades: ${strategy.maxDailyTrades}`);
+  console.log(`[Hivemind Strategy] Min confidence: ${strategy.minConfidenceThreshold}%, Profit multiplier: ${strategy.profitTargetMultiplier}x`);
 
   return strategy;
 }

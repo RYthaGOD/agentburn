@@ -968,6 +968,33 @@ async function runStandaloneAIBots() {
 
     console.log(`[Standalone AI Bot Scheduler] Running for ${enabledConfigs.length} standalone AI bots`);
 
+    // Check and generate hivemind strategies for each bot before running deep scan
+    const { shouldGenerateNewStrategy, generateHivemindStrategy, saveHivemindStrategy, getLatestStrategy } = await import("./hivemind-strategy");
+    
+    for (const config of enabledConfigs) {
+      const ownerWalletAddress = config.ownerWalletAddress;
+      
+      // Check if we need a new strategy
+      const needsNewStrategy = await shouldGenerateNewStrategy(ownerWalletAddress);
+      
+      if (needsNewStrategy) {
+        try {
+          // TODO: Calculate recent performance from positions/transactions
+          // For now, use default (no performance data)
+          const strategy = await generateHivemindStrategy(ownerWalletAddress);
+          await saveHivemindStrategy(ownerWalletAddress, strategy);
+          console.log(`[Hivemind] Generated new strategy for ${ownerWalletAddress}: ${strategy.marketSentiment} market, ${strategy.riskLevel} risk`);
+        } catch (error) {
+          console.error(`[Hivemind] Error generating strategy for ${ownerWalletAddress}:`, error);
+        }
+      } else {
+        const currentStrategy = await getLatestStrategy(ownerWalletAddress);
+        if (currentStrategy) {
+          console.log(`[Hivemind] Using existing strategy for ${ownerWalletAddress}: ${currentStrategy.marketSentiment} market (${currentStrategy.reasoning})`);
+        }
+      }
+    }
+
     // Run bots in parallel (with reasonable concurrency)
     await Promise.all(enabledConfigs.map((c: any) => executeStandaloneAIBot(c.ownerWalletAddress)));
 
@@ -1664,6 +1691,21 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
 
     addLog(`🔍 Analyzing ${filteredTokens.length} tokens with AI (Groq Llama 3.3-70B)...`, "info");
 
+    // Get active hivemind strategy (if available)
+    const { getLatestStrategy } = await import("./hivemind-strategy");
+    const activeStrategy = await getLatestStrategy(ownerWalletAddress);
+    
+    // Apply strategy parameters or use defaults
+    let minConfidenceThreshold = 55; // Default 55% for hivemind consensus
+    let minPotentialMultiplier = 1.0; // Default 1.0x (no change)
+    
+    if (activeStrategy) {
+      minConfidenceThreshold = activeStrategy.minConfidenceThreshold;
+      minPotentialMultiplier = activeStrategy.profitTargetMultiplier;
+      addLog(`🧠 Applying Hivemind Strategy: ${activeStrategy.marketSentiment} market, ${activeStrategy.riskLevel} risk`, "info");
+      addLog(`   Min confidence: ${minConfidenceThreshold}%, Profit multiplier: ${minPotentialMultiplier}x`, "info");
+    }
+
     // Analyze tokens with Grok AI
     const riskTolerance = (config.riskTolerance || "medium") as "low" | "medium" | "high";
     
@@ -1709,16 +1751,18 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
         reasoning: analysis.reasoning,
       });
 
-      // Check minimum potential threshold (aggressive: 30% minimum for fast-moving meme coins)
-      const minPotential = parseFloat(config.minPotentialPercent || "30");
+      // Check minimum potential threshold (adjusted by hivemind strategy)
+      const basePotential = parseFloat(config.minPotentialPercent || "30");
+      const minPotential = basePotential * minPotentialMultiplier; // Apply strategy multiplier
       if (analysis.potentialUpsidePercent < minPotential) {
-        addLog(`⏭️ SKIP ${token.symbol}: Potential ${analysis.potentialUpsidePercent.toFixed(1)}% below threshold ${minPotential}%`, "warning");
+        addLog(`⏭️ SKIP ${token.symbol}: Potential ${analysis.potentialUpsidePercent.toFixed(1)}% below threshold ${minPotential.toFixed(1)}%`, "warning");
         continue;
       }
 
-      // Check confidence threshold (keep at 55% for 6-model hivemind consensus)
-      if (analysis.confidence < 0.55) {
-        addLog(`⏭️ SKIP ${token.symbol}: Confidence ${(analysis.confidence * 100).toFixed(1)}% below 55% threshold`, "warning");
+      // Check confidence threshold (adjusted by hivemind strategy)
+      const minConfidence = minConfidenceThreshold / 100; // Convert to 0-1 scale
+      if (analysis.confidence < minConfidence) {
+        addLog(`⏭️ SKIP ${token.symbol}: Confidence ${(analysis.confidence * 100).toFixed(1)}% below ${minConfidenceThreshold}% threshold`, "warning");
         continue;
       }
 
