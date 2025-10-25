@@ -1556,14 +1556,12 @@ async function tryClaimCreatorRewards(
 }
 
 /**
- * Run both project-based and standalone AI trading bots (deep scan with AI)
+ * Run standalone AI trading bots (deep scan with AI)
+ * Legacy project-based system removed - now uses standalone AI bot architecture
  */
 async function runAITradingBots() {
   console.log("[Deep Scan] Starting full AI analysis...");
-  await Promise.all([
-    runProjectBasedAIBots(),
-    runStandaloneAIBots(),
-  ]);
+  await runStandaloneAIBots();
   console.log("[Deep Scan] Complete");
 }
 

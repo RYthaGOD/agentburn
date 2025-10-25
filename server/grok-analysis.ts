@@ -287,20 +287,35 @@ export async function analyzeTokenWithHiveMind(
 
   // Filter successful votes
   let successfulVotes = votes.filter(v => v.success);
+  const failedVotes = votes.filter(v => !v.success);
   
-  // FALLBACK: If all models failed and OpenAI wasn't included, retry with OpenAI
-  if (successfulVotes.length === 0 && !openAIIncluded) {
-    console.warn(`[Hive Mind] ⚠️ All free AI models failed - activating OpenAI fallback!`);
+  // SMART FAILOVER STRATEGY:
+  // If any free providers (Groq, ChatAnywhere, Google Gemini, DeepSeek) failed,
+  // ensure premium providers (DeepSeek #2 + OpenAI) are always included
+  const freeProvidersFailed = failedVotes.some(v => 
+    ["Groq", "ChatAnywhere", "Google Gemini", "DeepSeek", "Cerebras", "Together AI", "OpenRouter"].includes(v.provider)
+  );
+  
+  if (freeProvidersFailed && failedVotes.length > 0) {
+    console.warn(`[Hive Mind] ⚠️ ${failedVotes.length} free provider(s) failed - ensuring premium coverage with DeepSeek #2 + OpenAI`);
     
-    // Retry with OpenAI forced to be included
+    // Always include premium providers when free ones fail
     const fallbackClients = getAllAIClients({ forceInclude: true });
-    const openAIClients = fallbackClients.filter(c => c.provider.includes("OpenAI"));
+    const premiumProviders = fallbackClients.filter(c => 
+      c.provider === "DeepSeek #2" || c.provider.includes("OpenAI")
+    );
     
-    if (openAIClients.length > 0) {
-      console.log(`[Hive Mind] 🔄 Retrying with ${openAIClients.length} OpenAI provider(s)...`);
+    // Only retry providers that haven't succeeded yet
+    const alreadySucceededProviders = successfulVotes.map(v => v.provider);
+    const newFallbacks = premiumProviders.filter(c => 
+      !alreadySucceededProviders.includes(c.provider)
+    );
+    
+    if (newFallbacks.length > 0) {
+      console.log(`[Hive Mind] 🔄 Activating ${newFallbacks.length} premium provider(s): ${newFallbacks.map(c => c.provider).join(", ")}`);
       
       const fallbackVotes = await Promise.all(
-        openAIClients.map(async ({ client, model, provider }) => {
+        newFallbacks.map(async ({ client, model, provider }) => {
           try {
             const analysis = await analyzeSingleModel(
               client,
@@ -312,7 +327,7 @@ export async function analyzeTokenWithHiveMind(
             );
             return { provider, analysis, success: true };
           } catch (error) {
-            console.error(`[Hive Mind] ${provider} fallback failed:`, error instanceof Error ? error.message : String(error));
+            console.error(`[Hive Mind] ${provider} premium fallback failed:`, error instanceof Error ? error.message : String(error));
             return {
               provider,
               analysis: {
@@ -334,15 +349,18 @@ export async function analyzeTokenWithHiveMind(
       votes.push(...fallbackVotes);
       successfulVotes = votes.filter(v => v.success);
       
-      if (successfulVotes.length > 0) {
-        console.log(`[Hive Mind] ✅ OpenAI fallback succeeded - ${successfulVotes.length} provider(s) responded`);
+      const newSuccesses = fallbackVotes.filter(v => v.success).length;
+      if (newSuccesses > 0) {
+        console.log(`[Hive Mind] ✅ Premium fallback added ${newSuccesses}/${fallbackVotes.length} successful vote(s)`);
       }
+    } else {
+      console.log(`[Hive Mind] ✅ Premium providers (DeepSeek #2 + OpenAI) already active and successful`);
     }
   }
   
   // If still no successful votes, all providers failed
   if (successfulVotes.length === 0) {
-    throw new Error("All AI providers failed to analyze token (including OpenAI fallback)");
+    throw new Error("All AI providers failed to analyze token (including premium fallback: DeepSeek #2 + OpenAI)");
   }
 
   console.log(`[Hive Mind] ${successfulVotes.length}/${votes.length} models responded successfully`);
