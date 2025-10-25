@@ -66,8 +66,47 @@ app.use((req, res, next) => {
 // Global rate limiting for all API routes
 app.use("/api", globalRateLimit);
 
+// Module-level variables to be accessible by shutdown function
+let server: any;
+let isShuttingDown = false;
+
+// Export shutdown function for external triggers (e.g., AI bot disabled)
+export async function triggerGracefulShutdown() {
+  if (isShuttingDown) {
+    return; // Prevent multiple shutdown attempts
+  }
+  isShuttingDown = true;
+  
+  log("Graceful shutdown triggered programmatically");
+  
+  // Force exit after 10 seconds if shutdown hangs
+  const forceExitTimer = setTimeout(() => {
+    console.error("⚠️ Shutdown timeout - forcing exit");
+    process.exit(1);
+  }, 10000);
+  
+  try {
+    scheduler.stop();
+    realtimeService.shutdown();
+    if (server) {
+      await new Promise((resolve, reject) => {
+        server.close((err: any) => {
+          if (err) reject(err);
+          else resolve(undefined);
+        });
+      });
+    }
+  } catch (shutdownError) {
+    console.error("Error during shutdown:", shutdownError);
+  }
+  
+  clearTimeout(forceExitTimer);
+  log("Shutdown complete, exiting...");
+  process.exit(0);
+}
+
 (async () => {
-  const server = await registerRoutes(app);
+  server = await registerRoutes(app);
 
   // Initialize WebSocket real-time service
   realtimeService.initialize(server);
@@ -143,7 +182,7 @@ app.use("/api", globalRateLimit);
       scheduler.stop();
       realtimeService.shutdown();
       await new Promise((resolve, reject) => {
-        server.close((err) => {
+        server.close((err: any) => {
           if (err) reject(err);
           else resolve(undefined);
         });
@@ -172,7 +211,7 @@ app.use("/api", globalRateLimit);
       scheduler.stop();
       realtimeService.shutdown();
       await new Promise((resolve, reject) => {
-        server.close((err) => {
+        server.close((err: any) => {
           if (err) reject(err);
           else resolve(undefined);
         });

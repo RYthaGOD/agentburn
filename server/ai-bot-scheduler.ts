@@ -34,6 +34,71 @@ interface AIBotState {
 const aiBotStates = new Map<string, AIBotState>();
 
 /**
+ * Cron job references for graceful shutdown
+ */
+let quickScanJob: cron.ScheduledTask | null = null;
+let deepScanJob: cron.ScheduledTask | null = null;
+let memoryCleanupJob: cron.ScheduledTask | null = null;
+let positionMonitorJob: cron.ScheduledTask | null = null;
+let portfolioRebalancerJob: cron.ScheduledTask | null = null;
+
+/**
+ * Stop all AI bot schedulers
+ */
+export function stopAllAIBotSchedulers() {
+  console.log("[AI Bot Scheduler] Stopping all schedulers...");
+  
+  if (quickScanJob) {
+    quickScanJob.stop();
+    quickScanJob = null;
+    console.log("[AI Bot Scheduler] Quick scan scheduler stopped");
+  }
+  
+  if (deepScanJob) {
+    deepScanJob.stop();
+    deepScanJob = null;
+    console.log("[AI Bot Scheduler] Deep scan scheduler stopped");
+  }
+  
+  if (memoryCleanupJob) {
+    memoryCleanupJob.stop();
+    memoryCleanupJob = null;
+    console.log("[AI Bot Scheduler] Memory cleanup scheduler stopped");
+  }
+  
+  if (positionMonitorJob) {
+    positionMonitorJob.stop();
+    positionMonitorJob = null;
+    console.log("[Position Monitor] Position monitoring scheduler stopped");
+  }
+  
+  if (portfolioRebalancerJob) {
+    portfolioRebalancerJob.stop();
+    portfolioRebalancerJob = null;
+    console.log("[Portfolio Rebalancer] Portfolio rebalancing scheduler stopped");
+  }
+  
+  console.log("[AI Bot Scheduler] All schedulers stopped successfully");
+}
+
+/**
+ * Trigger system shutdown when AI bot is disabled
+ */
+async function triggerSystemShutdown(reason: string) {
+  console.log(`\n${"=".repeat(70)}`);
+  console.log(`🛑 SYSTEM SHUTDOWN TRIGGERED`);
+  console.log(`Reason: ${reason}`);
+  console.log(`${"=".repeat(70)}\n`);
+  
+  // Stop all AI bot schedulers first
+  stopAllAIBotSchedulers();
+  
+  // Import and call the shutdown function from index.ts
+  const { triggerGracefulShutdown } = await import("./index");
+  await triggerGracefulShutdown();
+}
+
+/**
  * Cleanup stale bot states and expired cache entries to prevent memory leaks
  * Runs every hour to remove inactive bots (24h+ inactivity) and expired cache
  */
@@ -1955,21 +2020,21 @@ export function startAITradingBotScheduler() {
   console.log(`[AI Bot Scheduler] Active AI providers (${activeProviders.length}): ${activeProviders.join(", ")}`);
 
   // Quick scans every 2 minutes (dual-mode: scalp + swing opportunities) - OPTIMIZED FOR SPEED
-  cron.schedule("*/2 * * * *", () => {
+  quickScanJob = cron.schedule("*/2 * * * *", () => {
     runQuickTechnicalScan().catch((error) => {
       console.error("[Quick Scan] Unexpected error:", error);
     });
   });
 
   // Deep scans every 15 minutes (full AI analysis with all 7 models)
-  cron.schedule("*/15 * * * *", () => {
+  deepScanJob = cron.schedule("*/15 * * * *", () => {
     runAITradingBots().catch((error) => {
       console.error("[Deep Scan] Unexpected error:", error);
     });
   });
 
   // Memory cleanup every hour (remove stale bot states and expired cache)
-  cron.schedule("0 * * * *", () => {
+  memoryCleanupJob = cron.schedule("0 * * * *", () => {
     cleanupMemory();
   });
 
@@ -2166,9 +2231,19 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
       throw new Error("AI bot config not found");
     }
 
-    // Check if AI bot is enabled
+    // Check if AI bot is enabled - TRIGGER SYSTEM SHUTDOWN IF DISABLED
     if (!config.enabled) {
-      addLog(`[Standalone AI Bot] Disabled for wallet ${ownerWalletAddress}`, "warning");
+      addLog(`[Standalone AI Bot] 🛑 AI Bot disabled for wallet ${ownerWalletAddress}`, "warning");
+      addLog(`[Standalone AI Bot] Triggering system shutdown...`, "error");
+      
+      // Trigger shutdown after returning logs
+      setTimeout(() => {
+        triggerSystemShutdown("AI Trading Bot disabled by user").catch((error) => {
+          console.error("[Shutdown] Error during shutdown:", error);
+          process.exit(1);
+        });
+      }, 1000); // Give 1 second for logs to be delivered
+      
       return logs;
     }
 
@@ -3906,7 +3981,7 @@ export function startPositionMonitoringScheduler() {
   // Run every 1.5 minutes for active position management
   // Using 3-minute intervals with 90-second offset to achieve 1.5-minute frequency
   let isOffset = false;
-  cron.schedule("*/3 * * * *", () => {
+  positionMonitorJob = cron.schedule("*/3 * * * *", () => {
     if (isOffset) {
       // Run at 1.5-minute mark (90 seconds delay)
       setTimeout(() => {
@@ -4192,7 +4267,7 @@ export function startPortfolioRebalancingScheduler() {
   console.log("[Portfolio Rebalancer] Schedule: Every 30 minutes with FULL HIVEMIND + OpenAI consensus");
 
   // Run every 30 minutes
-  cron.schedule("*/30 * * * *", () => {
+  portfolioRebalancerJob = cron.schedule("*/30 * * * *", () => {
     rebalancePortfolioWithOpenAI().catch((error) => {
       console.error("[Portfolio Rebalancer] Unexpected error:", error);
     });

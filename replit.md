@@ -128,6 +128,7 @@ This bot operates independently with configurations stored in a dedicated `aiBot
 - **Route Error Isolation:** Express error middleware logs and responds to client errors without triggering process exit
 - **Automatic Restart:** Replit automatically restarts process after exit(1), ensuring continuous operation
 - **Resource Cleanup:** Proper cleanup of all resources (cron jobs, WebSocket connections, HTTP server) before restart
+- **Auto-Shutdown on Disable:** System automatically shuts down completely when AI bot is disabled (stops all schedulers, closes connections, exits process)
 
 **Performance Optimizations (Oct 25, 2025):**
 - **Eliminated Jupiter Balances API dependency** - Removed broken `/balances` endpoint (404 errors), now reads positions directly from database for faster and more reliable portfolio analysis
