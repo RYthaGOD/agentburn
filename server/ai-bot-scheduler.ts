@@ -3998,7 +3998,7 @@ export function startPositionMonitoringScheduler() {
  * Automatically rebalance portfolio using OpenAI-powered analysis
  * Analyzes all positions and executes sells when AI recommends it
  */
-async function rebalancePortfolioWithOpenAI() {
+export async function rebalancePortfolioWithOpenAI() {
   try {
     console.log("[Portfolio Rebalancer] 🤖 Starting automatic OpenAI-powered rebalancing...");
     

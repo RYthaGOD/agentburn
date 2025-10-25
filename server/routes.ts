@@ -1115,6 +1115,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Trigger manual portfolio rebalancing (force immediate rebalance)
+  app.post("/api/ai-bot/trigger-rebalance", async (req, res) => {
+    try {
+      console.log("[Manual Rebalance] 🔄 Triggering immediate portfolio rebalancing...");
+
+      // Import and execute the rebalancing function
+      const { rebalancePortfolioWithOpenAI } = await import("./ai-bot-scheduler");
+      
+      // Execute rebalancing asynchronously (don't wait for completion)
+      rebalancePortfolioWithOpenAI().catch((error) => {
+        console.error("[Manual Rebalance] Error during rebalancing:", error);
+      });
+
+      // Return immediately to user
+      res.json({
+        success: true,
+        message: "Portfolio rebalancing triggered successfully. Check activity logs for results.",
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error: any) {
+      console.error("[Manual Rebalance] Error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Manual execution of standalone AI bot (no project required)
   app.post("/api/ai-bot/execute", authRateLimit, async (req, res) => {
     try {
