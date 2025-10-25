@@ -236,6 +236,10 @@ async function sellTokenWithJupiter(
       slippageBps
     );
     
+    if (!swapOrder) {
+      throw new Error('Unable to sell token - no liquidity available');
+    }
+    
     // Execute swap
     const result = await executeSwapOrder(swapOrder, walletPrivateKey);
     
@@ -3337,7 +3341,14 @@ async function executeSellForPosition(
     );
 
     if (!swapOrder) {
-      console.error(`[Position Monitor] ❌ Failed to get Jupiter quote for ${position.tokenSymbol}`);
+      console.error(`[Position Monitor] ❌ Failed to get Jupiter quote for ${position.tokenSymbol} - likely no liquidity or delisted`);
+      console.log(`[Position Monitor] 🗑️ Closing position for ${position.tokenSymbol} (illiquid token)`);
+      
+      // Delete the position since we can't sell it
+      await storage.deleteAIBotPosition(position.id);
+      
+      // Log the loss
+      logActivity('position_monitor', 'warning', `⚠️ ${position.tokenSymbol}: Unable to sell (no liquidity) - position closed`);
       return;
     }
 

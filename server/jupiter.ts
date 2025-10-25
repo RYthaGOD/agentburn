@@ -48,7 +48,7 @@ export async function getSwapOrder(
   amountLamports: number,
   takerWallet: string,
   slippageBps: number = 50
-): Promise<SwapOrder> {
+): Promise<SwapOrder | null> {
   try {
     const params = new URLSearchParams({
       inputMint,
@@ -58,14 +58,40 @@ export async function getSwapOrder(
       slippageBps: slippageBps.toString(),
     });
 
+    console.log(`[Jupiter] Requesting swap quote:`);
+    console.log(`  Input: ${inputMint}`);
+    console.log(`  Output: ${outputMint}`);
+    console.log(`  Amount: ${amountLamports}`);
+    console.log(`  Slippage: ${slippageBps} bps (${slippageBps / 100}%)`);
+
     const response = await fetch(`${JUPITER_ULTRA_API_URL}/order?${params}`);
     
     if (!response.ok) {
       const error = await response.text();
+      console.error(`[Jupiter] API error (${response.status}): ${error}`);
+      
+      // Check for specific errors
+      if (error.includes('No route found') || error.includes('no liquidity')) {
+        console.warn(`[Jupiter] ⚠️ No liquidity available for this swap - token may be illiquid or delisted`);
+        return null;
+      }
+      
       throw new Error(`Jupiter Ultra API error: ${response.statusText} - ${error}`);
     }
 
     const orderData: JupiterUltraOrderResponse = await response.json();
+
+    // Validate that we got a transaction
+    if (!orderData.transaction || orderData.transaction.trim() === '') {
+      console.error(`[Jupiter] ⚠️ Empty transaction returned from Jupiter API`);
+      console.error(`  Response data:`, JSON.stringify(orderData));
+      return null;
+    }
+
+    console.log(`[Jupiter] ✅ Swap quote received`);
+    console.log(`  Input amount: ${orderData.inAmount}`);
+    console.log(`  Expected output: ${orderData.outAmount}`);
+    console.log(`  Request ID: ${orderData.requestId}`);
 
     return {
       transaction: orderData.transaction,
@@ -77,7 +103,7 @@ export async function getSwapOrder(
       feeBps: orderData.feeBps,
     };
   } catch (error) {
-    console.error("Error getting Jupiter Ultra order:", error);
+    console.error("[Jupiter] Error getting swap order:", error);
     throw error;
   }
 }
@@ -350,6 +376,10 @@ export async function getSwapQuote(
     slippageBps
   );
   
+  if (!order) {
+    throw new Error('Unable to get swap quote - no liquidity available');
+  }
+  
   return {
     inputAmount: order.inputAmount,
     outputAmount: order.outputAmount,
@@ -398,6 +428,13 @@ export async function buyTokenWithJupiter(
       walletAddress,
       slippageBps
     );
+    
+    if (!swapOrder) {
+      return {
+        success: false,
+        error: 'No liquidity available for this token swap',
+      };
+    }
     
     console.log(`[Jupiter] Expected output: ${swapOrder.outputAmount} tokens`);
     
