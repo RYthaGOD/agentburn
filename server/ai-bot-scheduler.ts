@@ -1271,6 +1271,40 @@ async function runQuickTechnicalScan() {
           console.log(`[Quick Scan] 🧠 Analyzing top ${topOpportunities.length} with DeepSeek (FREE tier, 30min cache)...`);
 
           for (const token of topOpportunities) {
+            // Bundle activity detection - check before spending AI credits
+            const { detectBundleActivity, addToBlacklist } = await import('./bundle-detection');
+            const bundleResult = await detectBundleActivity(token.mint);
+            
+            // Auto-blacklist tokens with critical bundle activity (score >= 85)
+            if (bundleResult.isSuspicious && bundleResult.severity === 'critical' && bundleResult.score >= 85) {
+              console.log(`[Quick Scan] ⚠️ CRITICAL BUNDLE ACTIVITY detected: ${token.symbol} (score: ${bundleResult.score}/100)`);
+              console.log(`[Quick Scan] Reasons: ${bundleResult.reasons.join(', ')}`);
+              
+              await addToBlacklist(
+                token.mint,
+                token.symbol,
+                token.name,
+                'bundle_activity',
+                'critical',
+                'system',
+                bundleResult.reasons.join('; '),
+                {
+                  score: bundleResult.score,
+                  suspiciousWalletCount: bundleResult.suspiciousWalletCount,
+                  avgTimeBetweenTxs: bundleResult.avgTimeBetweenTxs,
+                }
+              );
+              
+              console.log(`[Quick Scan] ⏭️ Skipping ${token.symbol} - auto-blacklisted due to bundle activity`);
+              continue; // Skip this token
+            }
+            
+            // Warn about moderate bundle activity but still analyze
+            if (bundleResult.isSuspicious && bundleResult.severity === 'warning') {
+              console.log(`[Quick Scan] ⚠️ Warning: ${token.symbol} shows possible bundle activity (score: ${bundleResult.score}/100)`);
+              console.log(`[Quick Scan] Reasons: ${bundleResult.reasons.join(', ')}`);
+            }
+            
             // Quick DeepSeek-only analysis for high confidence trades
             const riskTolerance = riskLevel === "aggressive" ? "high" : riskLevel === "conservative" ? "low" : "medium";
             const quickAnalysis = await analyzeTokenWithDeepSeekOnly(
