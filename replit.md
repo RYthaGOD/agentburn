@@ -77,6 +77,14 @@ This bot operates independently with configurations stored in a dedicated `aiBot
 - Tracks total SOL spent on buybacks and total tokens permanently burned.
 - Configurable via dashboard: enable/disable, set token mint address, adjust buyback percentage (1-20%).
 
+**Memory Management System:**
+- Automated hourly cleanup prevents memory leaks during extended operation.
+- Removes inactive bot states (24h+ inactivity) from `aiBotStates` Map.
+- Purges expired cache entries from `tokenDataCache` (15min TTL) and `analysisCache` (30min TTL).
+- Optimized activity log handling using `pop()` instead of `slice()` to eliminate array recreation.
+- Runs on startup and every hour via cron scheduler.
+- Production-tested for long-running stability.
+
 ### Data Storage
 PostgreSQL via Neon's serverless driver and Drizzle ORM. Key tables: `Projects`, `Transactions`, `Payments`, `ProjectSecrets`, `AIBotConfigs`. Uses UUID primary keys, decimal types for balances, and automatic timestamps.
 
