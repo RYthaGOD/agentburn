@@ -85,6 +85,14 @@ This bot operates independently with configurations stored in a dedicated `aiBot
 - Reconciles wallet holdings with database, removing stale positions, updating token amounts, and preserving precision.
 - Automatic reconciliation on bot initialization ensures a clean starting state.
 
+**Automatic Database Cleanup:**
+- Runs daily at 3:00 AM plus on startup to prevent long-term database bloat.
+- Removes expired replay-attack prevention signatures (5-minute TTL).
+- Removes expired hivemind AI strategies (3-hour validity period).
+- Removes old failed transactions (>7 days retention).
+- Removes old completed transactions (>90 days audit trail retention).
+- Error handling ensures cleanup failures don't disrupt other services.
+
 ### Data Storage
 PostgreSQL via Neon's serverless driver and Drizzle ORM. Uses UUID primary keys, decimal types for balances, and automatic timestamps.
 
