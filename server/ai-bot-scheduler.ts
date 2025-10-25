@@ -3,7 +3,7 @@
 
 import cron from "node-cron";
 import { storage } from "./storage";
-import { analyzeTokenWithGrok, analyzeTokenWithHiveMind, isGrokConfigured, type TokenMarketData } from "./grok-analysis";
+import { analyzeTokenWithGrok, analyzeTokenWithHiveMind, isGrokConfigured, getAIClient, type TokenMarketData } from "./grok-analysis";
 import { buyTokenWithJupiter, getTokenPrice, getSwapOrder, executeSwapOrder, getWalletBalances } from "./jupiter";
 import OpenAI from "openai";
 import { sellTokenOnPumpFun } from "./pumpfun";
@@ -15,8 +15,22 @@ import { Keypair, Connection, PublicKey } from "@solana/web3.js";
 import { loadKeypairFromPrivateKey, getConnection } from "./solana-sdk";
 import type { Project } from "@shared/schema";
 
-// Deprecated project-based AI bot state management has been removed
-// New standalone AI bot uses aiBotConfigs database table instead
+/**
+ * AI Bot State Interface (used by standalone AI bot system)
+ * Tracks in-memory state for active trading sessions
+ */
+interface AIBotState {
+  projectId: string;
+  dailyTradesExecuted: number;
+  lastResetDate: string; // YYYY-MM-DD
+  activePositions: Map<string, { mint: string; entryPriceSOL: number; amountSOL: number }>;
+}
+
+/**
+ * In-memory state tracking for standalone AI bot
+ * Key: ownerWalletAddress
+ */
+const aiBotStates = new Map<string, AIBotState>();
 
 /**
  * Global scheduler status for dashboard display

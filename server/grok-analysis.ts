@@ -185,9 +185,9 @@ function getAllAIClients(context: OpenAIUsageContext = {}): Array<{ client: Open
 }
 
 /**
- * Initialize AI client - Single provider fallback (legacy)
+ * Initialize AI client - Single provider fallback (used for position monitoring)
  */
-function getAIClient(): { client: OpenAI; model: string; provider: string } {
+export function getAIClient(): { client: OpenAI; model: string; provider: string } {
   const clients = getAllAIClients();
   
   if (clients.length === 0) {
