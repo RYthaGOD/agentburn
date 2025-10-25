@@ -33,7 +33,12 @@ This bot operates independently with configurations stored in a dedicated `aiBot
 
 **Autonomous Capital Management:**
 - Uses available wallet balance (minus 0.03 SOL fee reserve) for trades.
-- Dynamic position sizing (10% base, up to 15% with high AI confidence) for compounding.
+- **STRICT Position Sizing (Oct 25, 2025):** Percentage-based sizing with threshold system:
+  - SCALP trades (58-74% confidence): 3-6% of portfolio value
+  - SWING trades (75%+ confidence): 5-9% of portfolio value
+  - Small portfolio exception: 0.01 SOL minimum when portfolio < 0.17 SOL (for network viability)
+  - Large portfolio enforcement: Strict percentage caps when portfolio ≥ threshold
+  - Never exceeds configured limits regardless of available balance
 - AI-driven exits with no fixed profit targets.
 - High confidence requirements (minimum 75% AI confidence threshold).
 - Enhanced quality filters (CONSERVATIVE): 70%+ organic score, 60%+ quality score, $25k+ volume, $20k+ liquidity.
