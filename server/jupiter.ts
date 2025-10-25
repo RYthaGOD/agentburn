@@ -408,3 +408,28 @@ export async function buyTokenWithJupiter(
     };
   }
 }
+
+/**
+ * Get token decimals for a given mint address
+ * @param mintAddress - Token mint address
+ * @returns Number of decimals for the token
+ */
+export async function getTokenDecimals(mintAddress: string): Promise<number> {
+  try {
+    const { Connection, PublicKey } = await import("@solana/web3.js");
+    const { getMint } = await import("@solana/spl-token");
+    
+    const connection = new Connection(
+      process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com"
+    );
+    
+    const mintPubkey = new PublicKey(mintAddress);
+    const mintInfo = await getMint(connection, mintPubkey);
+    
+    return mintInfo.decimals;
+  } catch (error) {
+    console.warn(`Could not fetch decimals for ${mintAddress}, defaulting to 6`);
+    // Most PumpFun tokens use 6 decimals, fallback to this if API fails
+    return 6;
+  }
+}

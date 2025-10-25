@@ -3576,7 +3576,8 @@ async function executeSellForPosition(
       position.tokenMint,
       SOL_MINT,
       tokenAmountRaw,
-      30 // 30% slippage for illiquid meme coins
+      treasuryKeypair.publicKey.toString(),
+      3000 // 30% slippage for illiquid meme coins
     );
 
     if (!swapOrder) {
@@ -3585,7 +3586,7 @@ async function executeSellForPosition(
     }
 
     // Execute the swap
-    const signature = await executeSwapOrder(swapOrder, treasuryKeypair);
+    const signature = await executeSwapOrder(swapOrder, treasuryKeyBase58);
     
     if (!signature) {
       console.error(`[Position Monitor] ❌ Failed to execute sell for ${position.tokenSymbol}`);
@@ -3604,7 +3605,8 @@ async function executeSellForPosition(
 
     // Update budget tracking (free up capital for new trades)
     const newBudgetUsed = Math.max(0, parseFloat(config.budgetUsed || "0") - amountSOL);
-    await storage.updateAIBotConfig(config.ownerWalletAddress, {
+    await storage.createOrUpdateAIBotConfig({
+      ownerWalletAddress: config.ownerWalletAddress,
       budgetUsed: newBudgetUsed.toString(),
     });
 
