@@ -204,11 +204,13 @@ async function getCachedOrFetchTokens(config?: {
   console.log("[AI Bot Cache] Cache miss or expired, fetching fresh data...");
   
   // Fetch from ALL sources in parallel for maximum coverage
+  const { fetchTrendingPumpStyleTokens, fetchNewlyMigratedPumpTokens, fetchLowCapPumpTokensViaDexScreener } = await import('./pumpfun-alternative');
+  
   const [dexTokens, pumpfunTrendingTokens, pumpfunMigratedTokens, pumpfunLowCapTokens] = await Promise.all([
-    fetchTrendingPumpFunTokens(config), // DexScreener trending
-    fetchPumpFunTrendingTokens(15), // PumpFun top trending tokens
-    fetchMigratedTokens(10), // Newly migrated tokens (PumpFun → Raydium)
-    fetchLowMarketCapPumpFunTokens(10), // Very low market cap new tokens
+    fetchTrendingPumpFunTokens(config), // DexScreener trending (general Solana)
+    fetchTrendingPumpStyleTokens(15), // DexScreener pump-style tokens (NEW!)
+    fetchNewlyMigratedPumpTokens(20), // Newly migrated tokens via DexScreener (NEW!)
+    fetchLowCapPumpTokensViaDexScreener(15), // Low-cap opportunities via DexScreener (NEW!)
   ]);
   
   // Combine all sources, removing duplicates by mint address
