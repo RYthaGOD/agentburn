@@ -2043,32 +2043,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const publicKey = keypair.publicKey.toString();
 
       let fixed = 0;
+      let removed = 0;
       let failed = 0;
 
-      // Query actual balances and update positions
+      // Query actual balances and update/remove positions
       for (const position of zeroPositions) {
         try {
           const actualBalance = await getTokenBalance(position.tokenMint, publicKey);
           
           if (actualBalance > 0) {
+            // Token exists on-chain - update position with actual balance
             await storage.updateAIBotPosition(position.id, {
               tokenAmount: actualBalance.toString(),
             });
             console.log(`[Fix Zero Positions] ✅ Fixed ${position.tokenSymbol}: ${actualBalance} tokens`);
             fixed++;
           } else {
-            console.log(`[Fix Zero Positions] ⚠️ ${position.tokenSymbol}: Balance is still 0 (likely sold or never received)`);
+            // Token doesn't exist on-chain (fully sold or never received) - remove position
+            await storage.deleteAIBotPosition(position.id);
+            console.log(`[Fix Zero Positions] 🗑️ Removed ${position.tokenSymbol}: No tokens on-chain (position closed)`);
+            removed++;
+          }
+        } catch (error: any) {
+          // If token account doesn't exist on-chain, treat as zero balance and remove
+          const errorMsg = error?.message?.toLowerCase() || "";
+          if (errorMsg.includes("could not find account") || errorMsg.includes("invalid param")) {
+            await storage.deleteAIBotPosition(position.id);
+            console.log(`[Fix Zero Positions] 🗑️ Removed ${position.tokenSymbol}: Token account doesn't exist on-chain`);
+            removed++;
+          } else {
+            console.error(`[Fix Zero Positions] ❌ Error fixing ${position.tokenSymbol}:`, error);
             failed++;
           }
-        } catch (error) {
-          console.error(`[Fix Zero Positions] ❌ Error fixing ${position.tokenSymbol}:`, error);
-          failed++;
         }
       }
 
       res.json({
-        message: `Fixed ${fixed} positions, ${failed} failed or empty`,
+        message: `Fixed ${fixed} positions, removed ${removed} non-existent positions, ${failed} errors`,
         fixed,
+        removed,
         failed,
         total: zeroPositions.length,
         positions: zeroPositions.map(p => ({
