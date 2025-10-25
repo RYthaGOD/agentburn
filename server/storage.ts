@@ -7,6 +7,7 @@ import {
   aiBotConfigs,
   aiBotPositions,
   hivemindStrategies,
+  tokenBlacklist,
   type Project,
   type InsertProject,
   type Transaction,
@@ -23,6 +24,8 @@ import {
   type InsertAIBotPosition,
   type HivemindStrategy,
   type InsertHivemindStrategy,
+  type TokenBlacklist,
+  type InsertTokenBlacklist,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -76,6 +79,12 @@ export interface IStorage {
   // Hivemind Strategy operations
   getHivemindStrategies(ownerWalletAddress: string): Promise<HivemindStrategy[]>;
   createHivemindStrategy(strategy: InsertHivemindStrategy): Promise<HivemindStrategy>;
+
+  // Token Blacklist operations
+  getAllBlacklistedTokens(): Promise<TokenBlacklist[]>;
+  isTokenBlacklisted(tokenMint: string): Promise<boolean>;
+  addTokenToBlacklist(blacklistEntry: InsertTokenBlacklist): Promise<TokenBlacklist>;
+  removeTokenFromBlacklist(tokenMint: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -406,6 +415,48 @@ export class DatabaseStorage implements IStorage {
       .values(strategy)
       .returning();
     return created;
+  }
+
+  // Token Blacklist operations
+  async getAllBlacklistedTokens(): Promise<TokenBlacklist[]> {
+    return db
+      .select()
+      .from(tokenBlacklist)
+      .orderBy(desc(tokenBlacklist.createdAt));
+  }
+
+  async isTokenBlacklisted(tokenMint: string): Promise<boolean> {
+    const [entry] = await db
+      .select()
+      .from(tokenBlacklist)
+      .where(eq(tokenBlacklist.tokenMint, tokenMint));
+    return !!entry;
+  }
+
+  async addTokenToBlacklist(blacklistEntry: InsertTokenBlacklist): Promise<TokenBlacklist> {
+    const [created] = await db
+      .insert(tokenBlacklist)
+      .values(blacklistEntry)
+      .onConflictDoNothing() // If already exists, skip
+      .returning();
+    
+    // If conflict occurred, fetch the existing entry
+    if (!created) {
+      const [existing] = await db
+        .select()
+        .from(tokenBlacklist)
+        .where(eq(tokenBlacklist.tokenMint, blacklistEntry.tokenMint));
+      return existing;
+    }
+    
+    return created;
+  }
+
+  async removeTokenFromBlacklist(tokenMint: string): Promise<boolean> {
+    const result = await db
+      .delete(tokenBlacklist)
+      .where(eq(tokenBlacklist.tokenMint, tokenMint));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 }
 

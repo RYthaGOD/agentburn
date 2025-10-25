@@ -231,13 +231,23 @@ async function getCachedOrFetchTokens(config?: {
   console.log(`  - Low-cap new tokens: ${pumpfunLowCapTokens.length} tokens`);
   console.log(`  - Total (deduplicated): ${allTokens.length} tokens`);
   
+  // Filter out blacklisted tokens
+  const blacklistedTokens = await storage.getAllBlacklistedTokens();
+  const blacklistSet = new Set(blacklistedTokens.map(b => b.tokenMint));
+  const filteredTokens = allTokens.filter(token => !blacklistSet.has(token.mint));
+  
+  if (filteredTokens.length < allTokens.length) {
+    const blockedCount = allTokens.length - filteredTokens.length;
+    console.log(`[AI Bot] 🚫 Filtered out ${blockedCount} blacklisted token(s)`);
+  }
+  
   tokenDataCache.set(cacheKey, {
-    tokens: allTokens,
+    tokens: filteredTokens,
     timestamp: now,
     expiresAt: now + CACHE_DURATION_MS,
   });
 
-  return allTokens;
+  return filteredTokens;
 }
 
 /**

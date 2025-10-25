@@ -266,7 +266,18 @@ export const projectSecretsRelations = relations(projectSecrets, ({ one }) => ({
   }),
 }));
 
-// No relations for aiBotConfigs - it's standalone
+// Token blacklist - prevents AI bot from trading specific tokens
+export const tokenBlacklist = pgTable("token_blacklist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tokenMint: text("token_mint").notNull().unique(), // Token address to blacklist
+  tokenSymbol: text("token_symbol"), // Optional symbol for reference
+  tokenName: text("token_name"), // Optional name for reference
+  reason: text("reason"), // Why this token was blacklisted
+  addedBy: text("added_by").notNull(), // Wallet address of who added it
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// No relations for aiBotConfigs or tokenBlacklist - both are standalone
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
@@ -392,3 +403,14 @@ export const insertHivemindStrategySchema = createInsertSchema(hivemindStrategie
 
 export type HivemindStrategy = typeof hivemindStrategies.$inferSelect;
 export type InsertHivemindStrategy = z.infer<typeof insertHivemindStrategySchema>;
+
+export const insertTokenBlacklistSchema = createInsertSchema(tokenBlacklist).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  tokenMint: z.string().min(32, "Invalid Solana token address"),
+  addedBy: z.string().min(32, "Invalid wallet address"),
+});
+
+export type TokenBlacklist = typeof tokenBlacklist.$inferSelect;
+export type InsertTokenBlacklist = z.infer<typeof insertTokenBlacklistSchema>;

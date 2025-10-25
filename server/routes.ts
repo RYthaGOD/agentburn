@@ -2095,6 +2095,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Token Blacklist Management Routes
+  app.get("/api/blacklist", async (req, res) => {
+    try {
+      const blacklistedTokens = await storage.getAllBlacklistedTokens();
+      res.json(blacklistedTokens);
+    } catch (error: any) {
+      console.error("Get blacklist error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/blacklist", authRateLimit, async (req, res) => {
+    try {
+      const { insertTokenBlacklistSchema } = await import("@shared/schema");
+      const validatedData = insertTokenBlacklistSchema.parse(req.body);
+      
+      const blacklistEntry = await storage.addTokenToBlacklist(validatedData);
+      
+      console.log(`[Blacklist] Added token ${validatedData.tokenMint} (${validatedData.tokenSymbol || 'unknown'}) by ${validatedData.addedBy}`);
+      
+      res.json({
+        success: true,
+        message: "Token added to blacklist",
+        entry: blacklistEntry,
+      });
+    } catch (error: any) {
+      console.error("Add to blacklist error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/blacklist/:tokenMint", authRateLimit, async (req, res) => {
+    try {
+      const { tokenMint } = req.params;
+      
+      const success = await storage.removeTokenFromBlacklist(tokenMint);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Token not found in blacklist" });
+      }
+      
+      console.log(`[Blacklist] Removed token ${tokenMint} from blacklist`);
+      
+      res.json({
+        success: true,
+        message: "Token removed from blacklist",
+      });
+    } catch (error: any) {
+      console.error("Remove from blacklist error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
