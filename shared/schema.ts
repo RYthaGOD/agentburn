@@ -59,7 +59,7 @@ export const transactions = pgTable("transactions", {
   projectId: varchar("project_id").references(() => projects.id), // Nullable for standalone AI bot transactions
   type: text("type").notNull(), // claim, buyback, burn, volume_buy, volume_sell, limit_buy, ai_buy, ai_sell
   amount: decimal("amount", { precision: 18, scale: 9 }).notNull(),
-  tokenAmount: decimal("token_amount", { precision: 18, scale: 9 }),
+  tokenAmount: decimal("token_amount", { precision: 30, scale: 9 }), // Increased to handle tokens with trillion+ supply
   txSignature: text("tx_signature").notNull(),
   status: text("status").notNull(), // pending, completed, failed
   errorMessage: text("error_message"),
@@ -138,7 +138,7 @@ export const aiBotConfigs = pgTable("ai_bot_configs", {
   buybackTokenMint: text("buyback_token_mint"), // Token mint address to buyback (e.g., MY BOT token)
   buybackPercentage: decimal("buyback_percentage", { precision: 5, scale: 2 }).notNull().default("5"), // % of profit to use for buyback (default 5%)
   totalBuybackSOL: decimal("total_buyback_sol", { precision: 18, scale: 9 }).notNull().default("0"), // Total SOL spent on buybacks
-  totalTokensBurned: decimal("total_tokens_burned", { precision: 18, scale: 9 }).notNull().default("0"), // Total tokens permanently burned
+  totalTokensBurned: decimal("total_tokens_burned", { precision: 30, scale: 9 }).notNull().default("0"), // Total tokens permanently burned (increased for high-supply tokens)
   
   // Status tracking
   lastBotRunAt: timestamp("last_bot_run_at"),
@@ -157,7 +157,7 @@ export const aiBotPositions = pgTable("ai_bot_positions", {
   tokenName: text("token_name"),
   entryPriceSOL: decimal("entry_price_sol", { precision: 18, scale: 9 }).notNull(),
   amountSOL: decimal("amount_sol", { precision: 18, scale: 9 }).notNull(),
-  tokenAmount: decimal("token_amount", { precision: 18, scale: 9 }).notNull(),
+  tokenAmount: decimal("token_amount", { precision: 30, scale: 9 }).notNull(), // Increased to handle high-supply tokens (billions/trillions)
   buyTxSignature: text("buy_tx_signature").notNull(),
   buyTimestamp: timestamp("buy_timestamp").notNull().defaultNow(),
   lastCheckTimestamp: timestamp("last_check_timestamp").notNull().defaultNow(),

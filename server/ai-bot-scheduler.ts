@@ -1193,7 +1193,7 @@ async function analyzeTokenWithDeepSeekOnly(
     return cached;
   }
 
-  const prompt = `Analyze this Solana token for trading (quick scan - use your superior reasoning):
+  const prompt = `You are an aggressive Solana trading bot. Analyze this token for BUYING OPPORTUNITIES.
 
 Token: ${tokenData.name} (${tokenData.symbol})
 Price: $${tokenData.priceUSD.toFixed(6)} (${tokenData.priceSOL.toFixed(9)} SOL)
@@ -1206,6 +1206,17 @@ Has positive momentum: ${(tokenData.priceChange1h ?? 0) > 0 && (tokenData.priceC
 
 Risk Tolerance: ${riskTolerance}
 Budget: ${budgetPerTrade} SOL
+
+IMPORTANT: This is a QUICK SCAN for active trading opportunities.
+- If the token has positive momentum and good fundamentals → action should be "buy"
+- If you see a trading opportunity with >60% confidence → action should be "buy"
+- Only use "hold" if there's NO clear trading opportunity OR confidence is below 60%
+- Use "sell" only for existing positions that should be exited
+
+Be AGGRESSIVE with BUY recommendations for tokens with:
+- Positive price momentum (1h and 24h)
+- Strong volume relative to liquidity
+- Good fundamentals
 
 Respond ONLY with valid JSON:
 {
