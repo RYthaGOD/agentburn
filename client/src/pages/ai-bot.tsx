@@ -157,6 +157,30 @@ export default function AIBot() {
     refetchInterval: 5000, // Refetch every 5 seconds for live updates
   });
 
+  // Fetch MY BOT token data (featured token)
+  const { data: myBotToken } = useQuery<{
+    pairs: Array<{
+      baseToken: { name: string; symbol: string; address: string };
+      priceUsd: string;
+      priceNative: string;
+      volume: { h24: number };
+      priceChange: { h24: number };
+      txns: { h24: { buys: number; sells: number } };
+      fdv: number;
+      marketCap: number;
+      url: string;
+    }>;
+  }>({
+    queryKey: ["my-bot-token"],
+    queryFn: async () => {
+      const response = await fetch("https://api.dexscreener.com/latest/dex/tokens/FQptMsS3tnyPbK68rTZm3n3R4NHBX5r9edshyyvxpump");
+      if (!response.ok) throw new Error("Failed to fetch MY BOT token data");
+      return response.json();
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+    enabled: connected && !!publicKey,
+  });
+
   // Load initial activity logs from scheduler status
   useEffect(() => {
     if (schedulerStatus?.activityLogs && schedulerStatus.activityLogs.length > 0) {
@@ -546,6 +570,107 @@ export default function AIBot() {
                   </div>
                 )}
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* MY BOT Featured Token */}
+      {myBotToken && myBotToken.pairs && myBotToken.pairs[0] && (
+        <Card className="border-primary/50 bg-gradient-to-r from-background via-primary/5 to-background">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Brain className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold">{myBotToken.pairs[0].baseToken.name}</div>
+                  <div className="text-sm text-muted-foreground">
+                    ${myBotToken.pairs[0].baseToken.symbol}
+                  </div>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-lg px-4 py-2">
+                Connected Token
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 rounded-lg bg-background/50 border hover-elevate">
+                <div className="text-xs font-medium text-muted-foreground mb-1">Price (USD)</div>
+                <div className="text-2xl font-bold">
+                  ${parseFloat(myBotToken.pairs[0].priceUsd).toFixed(8)}
+                </div>
+                <div className={`text-xs mt-1 ${myBotToken.pairs[0].priceChange.h24 >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {myBotToken.pairs[0].priceChange.h24 >= 0 ? '+' : ''}
+                  {myBotToken.pairs[0].priceChange.h24.toFixed(2)}% (24h)
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg bg-background/50 border hover-elevate">
+                <div className="text-xs font-medium text-muted-foreground mb-1">Market Cap</div>
+                <div className="text-2xl font-bold">
+                  ${myBotToken.pairs[0].marketCap.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  FDV: ${myBotToken.pairs[0].fdv.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg bg-background/50 border hover-elevate">
+                <div className="text-xs font-medium text-muted-foreground mb-1">24h Volume</div>
+                <div className="text-2xl font-bold">
+                  ${myBotToken.pairs[0].volume.h24.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {myBotToken.pairs[0].txns.h24.buys + myBotToken.pairs[0].txns.h24.sells} txns
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg bg-background/50 border hover-elevate">
+                <div className="text-xs font-medium text-muted-foreground mb-1">24h Trading</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1">
+                    <div className="text-xs text-green-500 mb-1">
+                      Buys: {myBotToken.pairs[0].txns.h24.buys}
+                    </div>
+                    <div className="text-xs text-red-500">
+                      Sells: {myBotToken.pairs[0].txns.h24.sells}
+                    </div>
+                  </div>
+                  <div className="text-sm">
+                    {myBotToken.pairs[0].txns.h24.buys > myBotToken.pairs[0].txns.h24.sells ? '🟢' : '🔴'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="default"
+                className="flex-1"
+                onClick={() => window.open(myBotToken.pairs[0].url, '_blank')}
+                data-testid="button-view-dexscreener"
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                View on DexScreener
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => window.open(`https://pump.fun/${myBotToken.pairs[0].baseToken.address}`, '_blank')}
+                data-testid="button-trade-pumpfun"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Trade on Pump.fun
+              </Button>
+            </div>
+
+            <div className="mt-3 p-3 rounded-lg bg-muted/30 border">
+              <div className="text-xs text-muted-foreground mb-1">Token Address</div>
+              <div className="font-mono text-xs break-all">{myBotToken.pairs[0].baseToken.address}</div>
             </div>
           </CardContent>
         </Card>
