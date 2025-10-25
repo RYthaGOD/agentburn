@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduler } from "./scheduler";
-import { startAITradingBotScheduler, startPositionMonitoringScheduler, startPortfolioRebalancingScheduler, startWalletSyncScheduler } from "./ai-bot-scheduler";
+import { startAITradingBotScheduler, startPositionMonitoringScheduler, startPortfolioRebalancingScheduler, startWalletSyncScheduler, startDatabaseCleanupScheduler } from "./ai-bot-scheduler";
 import { realtimeService } from "./realtime";
 import {
   securityHeaders,
@@ -125,6 +125,9 @@ export async function triggerGracefulShutdown() {
   
   // Initialize wallet synchronization scheduler (every 5 minutes)
   startWalletSyncScheduler();
+  
+  // Initialize database cleanup scheduler (daily at 3 AM + startup)
+  startDatabaseCleanupScheduler();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
