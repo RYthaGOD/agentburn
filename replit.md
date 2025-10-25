@@ -116,6 +116,14 @@ This bot operates independently with configurations stored in a dedicated `aiBot
 - Runs on startup and every hour via cron scheduler.
 - Production-tested for long-running stability.
 
+**System Stability & Error Handling:**
+- **Global Error Handlers:** Process-level handlers for unhandledRejection and uncaughtException ensure controlled shutdown on critical failures
+- **Graceful Shutdown:** Async-aware shutdown sequence: stops scheduler → shuts down realtime service → closes HTTP server → exits
+- **Timeout Protection:** 10-second watchdog timer forces exit if shutdown hangs, preventing indefinite hangs
+- **Route Error Isolation:** Express error middleware logs and responds to client errors without triggering process exit
+- **Automatic Restart:** Replit automatically restarts process after exit(1), ensuring continuous operation
+- **Resource Cleanup:** Proper cleanup of all resources (cron jobs, WebSocket connections, HTTP server) before restart
+
 **Performance Optimizations (Oct 25, 2025):**
 - **Eliminated Jupiter Balances API dependency** - Removed broken `/balances` endpoint (404 errors), now reads positions directly from database for faster and more reliable portfolio analysis
 - **Fixed portfolio calculation with token decimals** - Added `tokenDecimals` column to `aiBotPositions` table; now fetches and stores actual token decimals (6 for PumpFun, 9 for Solana) and correctly converts raw units to decimal amounts using stored decimals
