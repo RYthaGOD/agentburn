@@ -100,13 +100,13 @@ function generateStrategyFromSentiment(
   let riskLevel: HivemindStrategy["riskLevel"] = "conservative";
   let preferredMarketCap = "low";
   
-  // Hivemind-controlled parameters - STRICT WEALTH-GROWING APPROACH
+  // Hivemind-controlled parameters - STRICT WEALTH-GROWING APPROACH (CONSERVATIVE SETTINGS)
   let budgetPerTrade = 0.02; // REDUCED: Very small trades for capital preservation & drawdown minimization
-  let minVolumeUSD = 20000; // INCREASED: Higher volume for better liquidity
-  let minLiquidityUSD = 15000; // INCREASED: Much higher liquidity required (nearly 2x)
-  let minOrganicScore = 60; // STRICTER: Higher organic volume requirement
-  let minQualityScore = 50; // STRICTER: Higher quality requirement
-  let minTransactions24h = 40; // INCREASED: More active tokens only
+  let minVolumeUSD = 25000; // CONSERVATIVE: Higher volume for better liquidity ($25k minimum)
+  let minLiquidityUSD = 20000; // CONSERVATIVE: Much higher liquidity required for safe exits ($20k minimum)
+  let minOrganicScore = 70; // CONSERVATIVE: Higher organic volume requirement (70% minimum)
+  let minQualityScore = 60; // CONSERVATIVE: Higher quality requirement (60% minimum)
+  let minTransactions24h = 50; // CONSERVATIVE: More active tokens only (50 minimum)
   let minPotentialPercent = 30; // Higher upside required to justify risk
 
   switch (sentiment) {
