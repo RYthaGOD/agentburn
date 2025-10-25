@@ -441,6 +441,35 @@ export default function AIBot() {
     }
   };
 
+  const updateConfig = async (updates: Partial<AIBotConfig>) => {
+    if (!publicKey || !signMessage) return;
+    
+    try {
+      const message = `Update AI bot buyback config for wallet ${publicKey.toString()} at ${Date.now()}`;
+      const messageBytes = new TextEncoder().encode(message);
+      const signature = await signMessage(messageBytes);
+      const signatureBase58 = bs58.encode(signature);
+
+      await apiRequest("POST", `/api/ai-bot/config`, {
+        ownerWalletAddress: publicKey.toString(),
+        signature: signatureBase58,
+        message,
+        ...updates,
+      });
+      
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/ai-bot/config", publicKey.toString()] 
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update buyback configuration",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   const handleConvertArrayKey = () => {
     setConversionError("");
     setConvertedBase58("");
@@ -677,7 +706,7 @@ export default function AIBot() {
       )}
 
       {/* Buyback & Burn Configuration */}
-      {config && (
+      {aiConfig && (
         <Card className="border-orange-500/50 bg-gradient-to-r from-background to-orange-500/5">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -695,14 +724,14 @@ export default function AIBot() {
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Enable</span>
                 <Switch
-                  checked={config.buybackEnabled || false}
+                  checked={aiConfig.buybackEnabled || false}
                   onCheckedChange={async (checked) => {
                     try {
                       await updateConfig({ buybackEnabled: checked });
                       if (checked) {
                         toast({
                           title: "Buyback & Burn Enabled",
-                          description: `${config.buybackPercentage || 5}% of profits will automatically buyback and burn tokens`,
+                          description: `${aiConfig.buybackPercentage || 5}% of profits will automatically buyback and burn tokens`,
                         });
                       } else {
                         toast({
@@ -731,11 +760,11 @@ export default function AIBot() {
                   <div>
                     <label className="text-sm font-medium mb-2 block">Token Mint Address</label>
                     <Input
-                      value={config.buybackTokenMint || 'FQptMsS3tnyPbK68rTZm3n3R4NHBX5r9edshyyvxpump'}
+                      value={aiConfig.buybackTokenMint || 'FQptMsS3tnyPbK68rTZm3n3R4NHBX5r9edshyyvxpump'}
                       onChange={(e) => updateConfig({ buybackTokenMint: e.target.value })}
                       placeholder="Token mint address to buyback"
                       className="font-mono text-xs"
-                      disabled={!config.buybackEnabled}
+                      disabled={!aiConfig.buybackEnabled}
                       data-testid="input-buyback-token-mint"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
@@ -747,7 +776,7 @@ export default function AIBot() {
                 <div className="space-y-3">
                   <div>
                     <label className="text-sm font-medium mb-2 block">
-                      Buyback Percentage: {config.buybackPercentage || 5}%
+                      Buyback Percentage: {aiConfig.buybackPercentage || 5}%
                     </label>
                     <div className="flex items-center gap-3">
                       <input
@@ -755,21 +784,21 @@ export default function AIBot() {
                         min="1"
                         max="20"
                         step="0.5"
-                        value={config.buybackPercentage || 5}
-                        onChange={(e) => updateConfig({ buybackPercentage: e.target.value })}
+                        value={String(aiConfig.buybackPercentage || 5)}
+                        onChange={(e) => updateConfig({ buybackPercentage: parseFloat(e.target.value) })}
                         className="flex-1"
-                        disabled={!config.buybackEnabled}
+                        disabled={!aiConfig.buybackEnabled}
                         data-testid="slider-buyback-percentage"
                       />
                       <Input
                         type="number"
-                        min="1"
-                        max="20"
-                        step="0.5"
-                        value={config.buybackPercentage || 5}
-                        onChange={(e) => updateConfig({ buybackPercentage: e.target.value })}
+                        min={1}
+                        max={20}
+                        step={0.5}
+                        value={String(aiConfig.buybackPercentage || 5)}
+                        onChange={(e) => updateConfig({ buybackPercentage: parseFloat(e.target.value) })}
                         className="w-20"
-                        disabled={!config.buybackEnabled}
+                        disabled={!aiConfig.buybackEnabled}
                         data-testid="input-buyback-percentage"
                       />
                     </div>
@@ -786,7 +815,7 @@ export default function AIBot() {
                   <div className="p-4 rounded-lg bg-background/50 border">
                     <div className="text-xs font-medium text-muted-foreground mb-1">Status</div>
                     <div className="text-lg font-bold">
-                      {config.buybackEnabled ? (
+                      {aiConfig.buybackEnabled ? (
                         <span className="text-green-500">Active</span>
                       ) : (
                         <span className="text-muted-foreground">Inactive</span>
@@ -797,21 +826,21 @@ export default function AIBot() {
                   <div className="p-4 rounded-lg bg-background/50 border">
                     <div className="text-xs font-medium text-muted-foreground mb-1">Total Buyback SOL</div>
                     <div className="text-lg font-bold">
-                      {parseFloat(config.totalBuybackSOL || '0').toFixed(4)} SOL
+                      {parseFloat(aiConfig.totalBuybackSOL || '0').toFixed(4)} SOL
                     </div>
                   </div>
 
                   <div className="p-4 rounded-lg bg-background/50 border">
                     <div className="text-xs font-medium text-muted-foreground mb-1">Tokens Burned</div>
                     <div className="text-lg font-bold text-orange-500">
-                      {parseFloat(config.totalTokensBurned || '0').toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      {parseFloat(aiConfig.totalTokensBurned || '0').toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
                   </div>
 
                   <div className="p-4 rounded-lg bg-background/50 border">
                     <div className="text-xs font-medium text-muted-foreground mb-1">Buyback %</div>
                     <div className="text-lg font-bold">
-                      {config.buybackPercentage || 5}%
+                      {aiConfig.buybackPercentage || 5}%
                     </div>
                   </div>
                 </div>
@@ -824,7 +853,7 @@ export default function AIBot() {
                   <div className="space-y-2 text-sm">
                     <p className="font-medium">How Automatic Buyback & Burn Works:</p>
                     <ul className="space-y-1 text-muted-foreground">
-                      <li>• When a trade closes profitably, {config.buybackPercentage || 5}% of the profit is automatically used</li>
+                      <li>• When a trade closes profitably, {aiConfig.buybackPercentage || 5}% of the profit is automatically used</li>
                       <li>• The bot buys your specified token using Jupiter or PumpSwap</li>
                       <li>• Purchased tokens are immediately and permanently burned using SPL Token burn</li>
                       <li>• This reduces circulating supply and supports token value over time</li>
