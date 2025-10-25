@@ -88,8 +88,9 @@ app.use("/api", globalRateLimit);
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    // Log error but don't rethrow - only route errors, not fatal system errors
+    console.error(`[Express Error] ${status}: ${message}`, err.stack);
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after
@@ -126,23 +127,61 @@ app.use("/api", globalRateLimit);
   });
 
   // Global error handlers for controlled shutdown on critical failures
-  process.on("unhandledRejection", (reason, promise) => {
+  process.on("unhandledRejection", async (reason, promise) => {
     console.error("❌ Unhandled Promise Rejection:", reason);
     console.error("Promise:", promise);
     // Allow process to restart cleanly on unhandled rejections
     console.error("Initiating controlled shutdown...");
-    scheduler.stop();
-    realtimeService.shutdown();
+    
+    // Force exit after 10 seconds if shutdown hangs
+    const forceExitTimer = setTimeout(() => {
+      console.error("⚠️ Shutdown timeout - forcing exit");
+      process.exit(1);
+    }, 10000);
+    
+    try {
+      scheduler.stop();
+      realtimeService.shutdown();
+      await new Promise((resolve, reject) => {
+        server.close((err) => {
+          if (err) reject(err);
+          else resolve(undefined);
+        });
+      });
+    } catch (shutdownError) {
+      console.error("Error during shutdown:", shutdownError);
+    }
+    
+    clearTimeout(forceExitTimer);
     process.exit(1);
   });
 
-  process.on("uncaughtException", (error) => {
+  process.on("uncaughtException", async (error) => {
     console.error("❌ Uncaught Exception:", error);
     console.error("Stack:", error.stack);
     // Allow process to restart cleanly on uncaught exceptions
     console.error("Initiating controlled shutdown...");
-    scheduler.stop();
-    realtimeService.shutdown();
+    
+    // Force exit after 10 seconds if shutdown hangs
+    const forceExitTimer = setTimeout(() => {
+      console.error("⚠️ Shutdown timeout - forcing exit");
+      process.exit(1);
+    }, 10000);
+    
+    try {
+      scheduler.stop();
+      realtimeService.shutdown();
+      await new Promise((resolve, reject) => {
+        server.close((err) => {
+          if (err) reject(err);
+          else resolve(undefined);
+        });
+      });
+    } catch (shutdownError) {
+      console.error("Error during shutdown:", shutdownError);
+    }
+    
+    clearTimeout(forceExitTimer);
     process.exit(1);
   });
 })();
