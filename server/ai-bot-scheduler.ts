@@ -41,6 +41,7 @@ let deepScanJob: cron.ScheduledTask | null = null;
 let memoryCleanupJob: cron.ScheduledTask | null = null;
 let positionMonitorJob: cron.ScheduledTask | null = null;
 let portfolioRebalancerJob: cron.ScheduledTask | null = null;
+let walletSyncJob: cron.ScheduledTask | null = null;
 
 /**
  * Stop all AI bot schedulers
@@ -76,6 +77,12 @@ export function stopAllAIBotSchedulers() {
     portfolioRebalancerJob.stop();
     portfolioRebalancerJob = null;
     console.log("[Portfolio Rebalancer] Portfolio rebalancing scheduler stopped");
+  }
+  
+  if (walletSyncJob) {
+    walletSyncJob.stop();
+    walletSyncJob = null;
+    console.log("[Wallet Sync] Wallet synchronization scheduler stopped");
   }
   
   console.log("[AI Bot Scheduler] All schedulers stopped successfully");
@@ -4209,56 +4216,85 @@ export async function rebalancePortfolioWithOpenAI() {
  * This ensures accurate performance tracking after manual position closures
  */
 async function syncPortfolioOnStartup(ownerWalletAddress: string, treasuryKeyBase58: string) {
+  await syncWalletPositions(ownerWalletAddress, false); // false = startup (less verbose logging)
+}
+
+/**
+ * Enhanced wallet sync - removes stale positions AND updates token amounts
+ * Runs continuously to ensure database always reflects actual blockchain state
+ */
+async function syncWalletPositions(ownerWalletAddress: string, verbose: boolean = true) {
   const shortAddress = `${ownerWalletAddress.slice(0, 8)}...`;
   try {
-    console.log(`[Portfolio Sync] 🔄 Starting sync for ${shortAddress}`);
+    if (verbose) {
+      console.log(`[Wallet Sync] 🔄 Syncing ${shortAddress}...`);
+    }
     
     // Get all token accounts from wallet
     const { getAllTokenAccounts } = await import("./solana");
-    console.log(`[Portfolio Sync] Fetching wallet token accounts for ${shortAddress}...`);
     const tokenAccounts = await getAllTokenAccounts(ownerWalletAddress);
-    console.log(`[Portfolio Sync] Found ${tokenAccounts.length} token accounts in wallet`);
     
-    // Create a set of token mints that exist in the wallet
-    const walletTokenMints = new Set<string>();
+    // Build map of wallet tokens: mint -> balance info
+    const walletTokens = new Map<string, { balance: number; decimals: number }>();
     for (const account of tokenAccounts) {
       const parsed = account.account.data.parsed;
-      const balance = parsed.info.tokenAmount.uiAmount;
+      const uiAmount = parsed.info.tokenAmount.uiAmount;
+      const amount = parsed.info.tokenAmount.amount;
+      const decimals = parsed.info.tokenAmount.decimals;
       
       // Only include tokens with non-zero balance
-      if (balance > 0) {
-        walletTokenMints.add(parsed.info.mint);
+      if (uiAmount > 0) {
+        walletTokens.set(parsed.info.mint, {
+          balance: parseFloat(amount),
+          decimals: decimals
+        });
       }
     }
-    console.log(`[Portfolio Sync] Found ${walletTokenMints.size} tokens with non-zero balance`);
     
     // Get all database positions
     const dbPositions = await storage.getAIBotPositions(ownerWalletAddress);
-    console.log(`[Portfolio Sync] Found ${dbPositions.length} positions in database`);
     
-    // Find positions in database that don't exist in wallet anymore
-    const positionsToRemove = dbPositions.filter(
-      position => !walletTokenMints.has(position.tokenMint)
-    );
+    let staleRemoved = 0;
+    let amountsUpdated = 0;
     
-    if (positionsToRemove.length === 0) {
-      console.log(`[Portfolio Sync] ✅ Portfolio in sync - ${dbPositions.length} positions match wallet`);
-      return;
+    // Process each database position
+    for (const position of dbPositions) {
+      const walletToken = walletTokens.get(position.tokenMint);
+      
+      if (!walletToken) {
+        // Position no longer exists in wallet - remove it
+        await storage.deleteAIBotPosition(position.id);
+        staleRemoved++;
+        if (verbose) {
+          console.log(`[Wallet Sync] ❌ Removed ${position.tokenSymbol} - no longer in wallet`);
+        }
+      } else {
+        // Check if token amount needs updating
+        const dbAmount = parseFloat(position.tokenAmount.toString());
+        const walletAmount = walletToken.balance;
+        
+        // Update if amounts differ by more than 0.01% (to account for rounding)
+        const amountDiff = Math.abs(dbAmount - walletAmount) / Math.max(dbAmount, walletAmount);
+        if (amountDiff > 0.0001) {
+          await storage.updateAIBotPosition(position.id, {
+            tokenAmount: walletAmount.toString(),
+            tokenDecimals: walletToken.decimals
+          });
+          amountsUpdated++;
+          if (verbose) {
+            console.log(`[Wallet Sync] 🔄 Updated ${position.tokenSymbol} amount: ${(dbAmount / Math.pow(10, walletToken.decimals)).toFixed(2)} → ${(walletAmount / Math.pow(10, walletToken.decimals)).toFixed(2)} tokens`);
+          }
+        }
+      }
     }
     
-    // Remove orphaned positions
-    console.log(`[Portfolio Sync] 🗑️  Removing ${positionsToRemove.length} orphaned position(s)...`);
-    
-    for (const position of positionsToRemove) {
-      await storage.deleteAIBotPosition(position.id);
-      console.log(`[Portfolio Sync] ❌ Removed ${position.tokenSymbol} (${position.tokenMint.slice(0, 8)}...) - no longer in wallet`);
+    if (verbose || staleRemoved > 0 || amountsUpdated > 0) {
+      const remainingPositions = dbPositions.length - staleRemoved;
+      console.log(`[Wallet Sync] ✅ Sync complete for ${shortAddress}: ${remainingPositions} positions (${staleRemoved} removed, ${amountsUpdated} updated)`);
     }
-    
-    const remainingPositions = dbPositions.length - positionsToRemove.length;
-    console.log(`[Portfolio Sync] ✅ Sync complete for ${shortAddress} - ${remainingPositions} active positions remain`);
     
   } catch (error) {
-    console.error(`[Portfolio Sync] Error syncing portfolio for ${shortAddress}:`, error);
+    console.error(`[Wallet Sync] Error syncing ${shortAddress}:`, error);
   }
 }
 
@@ -4283,4 +4319,43 @@ export function startPortfolioRebalancingScheduler() {
   });
 
   console.log("[Portfolio Rebalancer] ✅ Active (automatic rebalancing every 30 minutes)");
+}
+
+/**
+ * Run wallet synchronization for all active AI bots
+ * Ensures database positions always match actual blockchain holdings
+ */
+async function runWalletSync() {
+  try {
+    const configs = await storage.getAllAIBotConfigs();
+    const activeConfigs = configs.filter(c => c.enabled);
+    
+    if (activeConfigs.length === 0) {
+      return;
+    }
+    
+    for (const config of activeConfigs) {
+      await syncWalletPositions(config.ownerWalletAddress, true);
+    }
+  } catch (error) {
+    console.error("[Wallet Sync] Error during scheduled sync:", error);
+  }
+}
+
+/**
+ * Start automatic wallet synchronization scheduler (every 5 minutes)
+ * Continuously syncs database positions with actual blockchain holdings
+ */
+export function startWalletSyncScheduler() {
+  console.log("[Wallet Sync] 🔄 Starting automatic wallet synchronization...");
+  console.log("[Wallet Sync] Schedule: Every 5 minutes (keeps positions accurate)");
+
+  // Run every 5 minutes
+  walletSyncJob = cron.schedule("*/5 * * * *", () => {
+    runWalletSync().catch((error) => {
+      console.error("[Wallet Sync] Unexpected error:", error);
+    });
+  });
+
+  console.log("[Wallet Sync] ✅ Active (automatic sync every 5 minutes)");
 }

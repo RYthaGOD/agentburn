@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduler } from "./scheduler";
-import { startAITradingBotScheduler, startPositionMonitoringScheduler, startPortfolioRebalancingScheduler } from "./ai-bot-scheduler";
+import { startAITradingBotScheduler, startPositionMonitoringScheduler, startPortfolioRebalancingScheduler, startWalletSyncScheduler } from "./ai-bot-scheduler";
 import { realtimeService } from "./realtime";
 import {
   securityHeaders,
@@ -122,6 +122,9 @@ export async function triggerGracefulShutdown() {
   
   // Initialize portfolio rebalancing scheduler (every 30 minutes with OpenAI)
   startPortfolioRebalancingScheduler();
+  
+  // Initialize wallet synchronization scheduler (every 5 minutes)
+  startWalletSyncScheduler();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
