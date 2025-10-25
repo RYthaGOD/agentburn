@@ -1478,7 +1478,7 @@ async function findPositionToRotate(
   const newOpportunityConfidencePercent = newOpportunity.confidence * 100;
   
   // Only rotate if new opportunity is significantly better
-  const MIN_CONFIDENCE_IMPROVEMENT = 15; // New opportunity should be 15% more confident
+  const MIN_CONFIDENCE_IMPROVEMENT = 25; // CONSERVATIVE: New opportunity should be 25% more confident (raised from 15%)
   const confidenceImprovement = newOpportunityConfidencePercent - weakest.entryConfidence;
   
   // Or if we're cutting a loss to capture a good opportunity
@@ -1878,44 +1878,56 @@ interface TradeModeConfig {
 
 /**
  * Determine trade mode based on AI confidence level
+ * CONSERVATIVE APPROACH - Strict wealth-growing strategy
  */
 function determineTradeMode(confidence: number): TradeModeConfig {
-  if (confidence >= 0.75) {
-    // Mode B: SWING - High conviction longer-term trades
+  if (confidence >= 0.80) {
+    // Mode B: SWING - High conviction longer-term trades (RAISED from 75% to 80%)
     return {
       mode: "SWING",
-      minConfidence: 75,
-      positionSizePercent: confidence >= 0.90 ? 12 : confidence >= 0.85 ? 10 : 8,
+      minConfidence: 80, // CONSERVATIVE: Higher threshold for SWING trades
+      positionSizePercent: confidence >= 0.90 ? 9 : confidence >= 0.85 ? 7 : 5, // REDUCED: 5-9% (was 8-12%)
       maxHoldMinutes: 1440, // 24 hours
-      stopLossPercent: confidence >= 0.85 ? -50 : -30, // Wider stop for high confidence
+      stopLossPercent: confidence >= 0.85 ? -40 : -25, // TIGHTER: -25% to -40% (was -30% to -50%)
       profitTargetPercent: 15, // Let AI decide exit, but 15% minimum
     };
-  } else {
-    // Mode A: SCALP - Quick micro-profits with tight risk control
+  } else if (confidence >= 0.65) {
+    // Mode A: SCALP - Quick micro-profits with tight risk control (RAISED from 58% to 65%)
     return {
       mode: "SCALP",
-      minConfidence: 58,
-      positionSizePercent: confidence >= 0.70 ? 7 : confidence >= 0.65 ? 6 : 5,
+      minConfidence: 65, // CONSERVATIVE: Higher threshold for SCALP trades
+      positionSizePercent: confidence >= 0.75 ? 6 : confidence >= 0.70 ? 4 : 3, // REDUCED: 3-6% (was 5-7%)
       maxHoldMinutes: 30, // 30 minute review threshold for faster trading
-      stopLossPercent: -15, // Tighter stop for faster exits
-      profitTargetPercent: confidence >= 0.70 ? 8 : confidence >= 0.65 ? 6 : 4, // Quick profit targets
+      stopLossPercent: -10, // TIGHTER: -10% (was -15%) for better capital protection
+      profitTargetPercent: confidence >= 0.75 ? 8 : confidence >= 0.70 ? 6 : 4, // Quick profit targets
+    };
+  } else {
+    // Below minimum threshold - return conservative defaults (should be filtered out)
+    return {
+      mode: "SCALP",
+      minConfidence: 65,
+      positionSizePercent: 3,
+      maxHoldMinutes: 30,
+      stopLossPercent: -10,
+      profitTargetPercent: 4,
     };
   }
 }
 
 /**
  * DUAL-MODE POSITION SIZING (SCALP vs SWING)
+ * CONSERVATIVE STRATEGY - Strict wealth-growing approach
  * 
- * SCALP Mode (58-74% confidence) - OPTIMIZED FOR SPEED:
- * - Position: 5-7% of portfolio
+ * SCALP Mode (65-79% confidence) - SELECTIVE QUICK TRADES:
+ * - Position: 3-6% of portfolio (REDUCED for capital preservation)
  * - Quick profits: +4-8% targets
- * - Tight stop: -15% for fast exits
+ * - Tight stop: -10% for better capital protection (TIGHTENED from -15%)
  * - Max hold: 30 minutes
  * 
- * SWING Mode (75%+ confidence):
- * - Position: 8-12% of portfolio (scales with confidence)
+ * SWING Mode (80%+ confidence) - HIGH CONVICTION ONLY:
+ * - Position: 5-9% of portfolio (REDUCED from 8-12% for lower risk)
  * - Larger profits: +15%+ targets
- * - Wider stop: -30% to -50%
+ * - Tighter stop: -25% to -40% (TIGHTENED from -30% to -50%)
  * - Longer holds: AI-driven exits
  */
 function calculateDynamicTradeAmount(
