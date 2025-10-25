@@ -1,0 +1,166 @@
+tatus: 402,
+  headers: Headers {
+    date: 'Sat, 25 Oct 2025 03:15:17 GMT',
+    'content-type': 'application/json',
+    'content-length': '111',
+    connection: 'keep-alive',
+    'cf-ray': '993e8c6e8da17579-SEA',
+    vary: 'origin, access-control-request-method, access-control-request-headers',
+    'access-control-allow-credentials': 'true',
+    'x-ds-trace-id': '922a6d174c7348eb7a61f3c140f4de76',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'cf-cache-status': 'DYNAMIC',
+    'set-cookie': '__cf_bm=W5gwGJ1zw1EZpRMGYDkwURQ9ZFjuC8Ntmjk861.vWoo-1761362117-1.0.1.1-dtI9W2P0ZyUMzqcbriAJJsqLCuKGz10CHdcy1oVKO3uzic7PiKM87S1jpJnwj92uIB_wsgwhie1z_mxo6W339Hn0LuYgkNauoRV6tdmpCoE; path=/; expires=Sat, 25-Oct-25 03:45:17 GMT; domain=.deepseek.com; HttpOnly; Secure; SameSite=None',
+    server: 'cloudflare'
+  },
+  requestID: null,
+  error: {
+    message: 'Insufficient Balance',
+    type: 'unknown_error',
+    param: null,
+    code: 'invalid_request_error'
+  },
+  code: 'invalid_request_error',
+  param: null,
+  type: 'unknown_error'
+}
+[Quick Scan] ⏭️ ZARA: HOLD 0.0% (below 75% hivemind threshold, will re-analyze in deep scan)
+[DeepSeek] Quick analysis failed: APIError: 402 Insufficient Balance
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/core/error.ts:103:12)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/client.ts:478:28)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/client.ts:728:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async analyzeTokenWithDeepSeekOnly (/home/runner/workspace/server/ai-bot-scheduler.ts:1506:22)
+    at async runQuickTechnicalScan (/home/runner/workspace/server/ai-bot-scheduler.ts:1395:35) {
+  status: 402,
+  headers: Headers {
+    date: 'Sat, 25 Oct 2025 03:15:18 GMT',
+    'content-type': 'application/json',
+    'content-length': '111',
+    connection: 'keep-alive',
+    'cf-ray': '993e8c725a25c3c6-SEA',
+    vary: 'origin, access-control-request-method, access-control-request-headers',
+    'access-control-allow-credentials': 'true',
+    'x-ds-trace-id': '604a52637e7ac71b5f42554fbf2dac27',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'cf-cache-status': 'DYNAMIC',
+    'set-cookie': '__cf_bm=yEcJOe0JwofWdoy6EGxRGaYiWmfucwHJht_5W3mvnMg-1761362118-1.0.1.1-WDoOun6CkukpN6dVt_ww6I4WMlWklTBUCjwo6y_C1kL6y_QCgeZAtu0CpelQLVnxwW4rfQl5DmudWzz9F906rCtJP5suBIsDpv3uRnkvSus; path=/; expires=Sat, 25-Oct-25 03:45:18 GMT; domain=.deepseek.com; HttpOnly; Secure; SameSite=None',
+    server: 'cloudflare'
+  },
+  requestID: null,
+  error: {
+    message: 'Insufficient Balance',
+    type: 'unknown_error',
+    param: null,
+    code: 'invalid_request_error'
+  },
+  code: 'invalid_request_error',
+  param: null,
+  type: 'unknown_error'
+}
+[Quick Scan] ⏭️ PAYAI: HOLD 0.0% (below 75% hivemind threshold, will re-analyze in deep scan)
+[DeepSeek] Quick analysis failed: APIError: 402 Insufficient Balance
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/core/error.ts:103:12)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/client.ts:478:28)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/client.ts:728:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async analyzeTokenWithDeepSeekOnly (/home/runner/workspace/server/ai-bot-scheduler.ts:1506:22)
+    at async runQuickTechnicalScan (/home/runner/workspace/server/ai-bot-scheduler.ts:1395:35) {
+  status: 402,
+  headers: Headers {
+    date: 'Sat, 25 Oct 2025 03:15:18 GMT',
+    'content-type': 'application/json',
+    'content-length': '111',
+    connection: 'keep-alive',
+    'cf-ray': '993e8c75bb4a7579-SEA',
+    vary: 'origin, access-control-request-method, access-control-request-headers',
+    'access-control-allow-credentials': 'true',
+    'x-ds-trace-id': 'b71b2041c265713324f741d86b76e86a',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'cf-cache-status': 'DYNAMIC',
+    'set-cookie': '__cf_bm=Dyl6uu9wNj4ETwLErZ7OMJl6MTr1rFHBUmKER6LJsA8-1761362118-1.0.1.1-TjKb1kNW84AcQIGuidWS6Ij5dFb4tvzYUbglsCUj9ZchKts4kyX6WUIonsg2Bvr4Q0bFvJFf6Mc7ZdCHZdUEEMY2zAcih4wzc6lEWpeIzfU; path=/; expires=Sat, 25-Oct-25 03:45:18 GMT; domain=.deepseek.com; HttpOnly; Secure; SameSite=None',
+    server: 'cloudflare'
+  },
+  requestID: null,
+  error: {
+    message: 'Insufficient Balance',
+    type: 'unknown_error',
+    param: null,
+    code: 'invalid_request_error'
+  },
+  code: 'invalid_request_error',
+  param: null,
+  type: 'unknown_error'
+}
+[Quick Scan] ⏭️ pippin: HOLD 0.0% (below 75% hivemind threshold, will re-analyze in deep scan)
+[DeepSeek] Quick analysis failed: APIError: 402 Insufficient Balance
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/core/error.ts:103:12)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/client.ts:478:28)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/client.ts:728:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async analyzeTokenWithDeepSeekOnly (/home/runner/workspace/server/ai-bot-scheduler.ts:1506:22)
+    at async runQuickTechnicalScan (/home/runner/workspace/server/ai-bot-scheduler.ts:1395:35) {
+  status: 402,
+  headers: Headers {
+    date: 'Sat, 25 Oct 2025 03:15:19 GMT',
+    'content-type': 'application/json',
+    'content-length': '111',
+    connection: 'keep-alive',
+    'cf-ray': '993e8c794ed9c3c6-SEA',
+    vary: 'origin, access-control-request-method, access-control-request-headers',
+    'access-control-allow-credentials': 'true',
+    'x-ds-trace-id': 'b6d6b6d6f1ba02ae6b2b443902c6e2a3',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'cf-cache-status': 'DYNAMIC',
+    'set-cookie': '__cf_bm=9hg_ZZlOrjxczv6Hd2ATnOB6i8uGNywElhGUpPsRRnQ-1761362119-1.0.1.1-gXUAmGMdCIFsfmXr.aWo_SgtAXfKARez.FMIRKepBt766vuFhUl_lvCEHzcxUW_VufAH09ZcDkR3RZnd1W1PfAyXWA_PFxe2JSIDkBhEsrs; path=/; expires=Sat, 25-Oct-25 03:45:19 GMT; domain=.deepseek.com; HttpOnly; Secure; SameSite=None',
+    server: 'cloudflare'
+  },
+  requestID: null,
+  error: {
+    message: 'Insufficient Balance',
+    type: 'unknown_error',
+    param: null,
+    code: 'invalid_request_error'
+  },
+  code: 'invalid_request_error',
+  param: null,
+  type: 'unknown_error'
+}
+[Quick Scan] ⏭️ USELESS: HOLD 0.0% (below 75% hivemind threshold, will re-analyze in deep scan)
+[DeepSeek] Quick analysis failed: APIError: 402 Insufficient Balance
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/core/error.ts:103:12)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/client.ts:478:28)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/client.ts:728:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async analyzeTokenWithDeepSeekOnly (/home/runner/workspace/server/ai-bot-scheduler.ts:1506:22)
+    at async runQuickTechnicalScan (/home/runner/workspace/server/ai-bot-scheduler.ts:1395:35) {
+  status: 402,
+  headers: Headers {
+    date: 'Sat, 25 Oct 2025 03:15:19 GMT',
+    'content-type': 'application/json',
+    'content-length': '111',
+    connection: 'keep-alive',
+    'cf-ray': '993e8c7c99607579-SEA',
+    vary: 'origin, access-control-request-method, access-control-request-headers',
+    'access-control-allow-credentials': 'true',
+    'x-ds-trace-id': 'cb112c743909d68391488b1fc3c57bb4',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'cf-cache-status': 'DYNAMIC',
+    'set-cookie': '__cf_bm=8DbecmPylALZ.nmnlabqG3eKYPc27trdw60WH8GOtgU-1761362119-1.0.1.1-Y.pDgQhP6RHL93YUxTE2i.EoleAn4fBpt0gfLPrUQf3McKcfYJ2Cyk0qLWkJ2UdeAvgXR_vKkKKv..5iOr7_Dej97EWqvv89_gMDwBtwkWI; path=/; expires=Sat, 25-Oct-25 03:45:19 GMT; domain=.deepseek.com; HttpOnly; Secure; SameSite=None',
+    server: 'cloudflare'
+  },
+  requestID: null,
+  error: {
+    message: 'Insufficient Balance',
+    type: 'unknown_error',
+    param: null,
+    code: 'invalid_request_error'
+  },
+  code: 'invalid_request_error',
+  param: null,
+  type: 'unknown_error'

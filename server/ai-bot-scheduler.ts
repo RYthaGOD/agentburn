@@ -1283,12 +1283,12 @@ async function runStandaloneAIBots() {
 
 /**
  * Quick scan mode: Technical filters + fast Cerebras AI for 75%+ quality trades
- * Runs every 10 minutes with cached data for speed
+ * Runs every 5 minutes with cached data for speed (2x more opportunities)
  */
 async function runQuickTechnicalScan() {
   schedulerStatus.quickScan.status = 'running';
   schedulerStatus.quickScan.lastRun = Date.now();
-  schedulerStatus.quickScan.nextRun = Date.now() + (10 * 60 * 1000); // 10 minutes
+  schedulerStatus.quickScan.nextRun = Date.now() + (5 * 60 * 1000); // 5 minutes
   
   try {
     console.log("[Quick Scan] Starting enhanced scan (technical + fast AI)...");
@@ -1798,20 +1798,20 @@ async function executeQuickTrade(
 }
 
 /**
- * AUTONOMOUS COMPOUNDING POSITION SIZING
+ * AUTONOMOUS COMPOUNDING POSITION SIZING (ENHANCED - 50% MORE AGGRESSIVE)
  * Uses percentage of portfolio + AI confidence for exponential growth
  * 
  * Base: 0.02 SOL minimum (conservative floor for small portfolios)
- * Percentage-based: Grows as portfolio grows (enables TRUE compounding)
+ * Percentage-based: 15% per trade (up from 10%) - grows as portfolio grows
  * AI Confidence: Increases size for high confidence (up to 1.5x for 90%+ confidence)
- * Dynamic cap: 15% of total portfolio (scales with growth, not fixed)
+ * Dynamic cap: 20% of total portfolio (up from 15%) - faster compounding!
  */
 function calculateDynamicTradeAmount(
   baseAmount: number,
   confidence: number,
   availableBalance: number,
   portfolioValue: number = 0,
-  portfolioPercentPerTrade: number = 10
+  portfolioPercentPerTrade: number = 15
 ): number {
   // Calculate percentage-based trade size (enables compounding as portfolio grows)
   const portfolioBasedAmount = (portfolioValue * portfolioPercentPerTrade) / 100;
@@ -1831,11 +1831,11 @@ function calculateDynamicTradeAmount(
   
   tradeSize = tradeSize * confidenceMultiplier;
   
-  // DYNAMIC CAP: Max 15% of portfolio per position (scales with growth!)
+  // DYNAMIC CAP: Max 20% of portfolio per position (up from 15% - faster growth!)
   // Small portfolio: ~0.02-0.05 SOL max
-  // Medium portfolio (1 SOL): ~0.15 SOL max  
-  // Large portfolio (10 SOL): ~1.5 SOL max (exponential compounding!)
-  const dynamicMaxPosition = Math.max(0.03, portfolioValue * 0.15);
+  // Medium portfolio (1 SOL): ~0.20 SOL max  
+  // Large portfolio (10 SOL): ~2.0 SOL max (exponential compounding!)
+  const dynamicMaxPosition = Math.max(0.03, portfolioValue * 0.20);
   tradeSize = Math.min(tradeSize, dynamicMaxPosition);
   
   // Ensure minimum trade size (0.01 SOL minimum for Solana network)
@@ -1917,8 +1917,8 @@ export function startAITradingBotScheduler() {
   console.log("[AI Bot Scheduler] Starting...");
   console.log(`[AI Bot Scheduler] Active AI providers (${activeProviders.length}): ${activeProviders.join(", ")}`);
 
-  // Quick scans every 10 minutes (technical filters only, uses cache)
-  cron.schedule("*/10 * * * *", () => {
+  // Quick scans every 5 minutes (technical filters only, uses cache)
+  cron.schedule("*/5 * * * *", () => {
     runQuickTechnicalScan().catch((error) => {
       console.error("[Quick Scan] Unexpected error:", error);
     });
@@ -1932,7 +1932,7 @@ export function startAITradingBotScheduler() {
   });
 
   console.log("[AI Bot Scheduler] Active");
-  console.log("  - Quick scans: Every 10 minutes (technical + DeepSeek AI for 75%+ trades)");
+  console.log("  - Quick scans: Every 5 minutes (technical + DeepSeek AI for 75%+ trades) 🚀 2X FASTER");
   console.log("  - Deep scans: Every 30 minutes (7-model consensus for all opportunities)");
 }
 
@@ -3586,12 +3586,14 @@ async function executeSellForPosition(
     }
 
     // Execute the swap
-    const signature = await executeSwapOrder(swapOrder, treasuryKeyBase58);
+    const swapResult = await executeSwapOrder(swapOrder, treasuryKeyBase58);
     
-    if (!signature) {
+    if (!swapResult || !swapResult.transactionId) {
       console.error(`[Position Monitor] ❌ Failed to execute sell for ${position.tokenSymbol}`);
       return;
     }
+
+    const signature = swapResult.transactionId;
 
     console.log(`[Position Monitor] ✅ SOLD ${position.tokenSymbol}!`);
     console.log(`[Position Monitor] 📝 Transaction: https://solscan.io/tx/${signature}`);
