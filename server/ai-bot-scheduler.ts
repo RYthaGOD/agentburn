@@ -2144,6 +2144,9 @@ async function analyzePortfolio(walletAddress: string, solBalance: number): Prom
           const valueSOL = amount * priceSOL;
           totalTokenValueSOL += valueSOL;
           
+          // Debug logging for portfolio valuation
+          console.log(`[Portfolio Debug] ${position.tokenSymbol}: ${amount.toFixed(2)} tokens @ ${priceSOL.toFixed(9)} SOL = ${valueSOL.toFixed(4)} SOL`);
+          
           holdings.push({
             mint: position.tokenMint,
             symbol: position.tokenSymbol || "UNKNOWN",
