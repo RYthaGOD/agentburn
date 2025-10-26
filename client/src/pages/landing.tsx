@@ -24,11 +24,9 @@ export default function Landing() {
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border backdrop-blur-xl bg-background/80">
         <div className="container mx-auto flex h-16 items-center justify-between px-6 lg:px-8">
-          <Link href="/">
-            <a className="flex items-center gap-2 hover-elevate">
-              <Sparkles className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-bold">GigaBrain</span>
-            </a>
+          <Link href="/" className="flex items-center gap-2 hover-elevate">
+            <Sparkles className="h-8 w-8 text-primary" />
+            <span className="text-2xl font-bold">GigaBrain</span>
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/stats">
@@ -536,8 +534,8 @@ export default function Landing() {
                   <li>✓ Auto position sizing</li>
                   <li>✓ Drawdown protection</li>
                 </ul>
-                <Link href="/learn">
-                  <a className="text-sm text-primary hover:underline">Learn More →</a>
+                <Link href="/learn" className="text-sm text-primary hover:underline">
+                  Learn More →
                 </Link>
               </CardContent>
             </Card>
@@ -554,8 +552,8 @@ export default function Landing() {
                   <li>✓ Quality metrics</li>
                   <li>✓ Risk assessment</li>
                 </ul>
-                <Link href="/analyze">
-                  <a className="text-sm text-primary hover:underline">Try Now →</a>
+                <Link href="/analyze" className="text-sm text-primary hover:underline">
+                  Try Now →
                 </Link>
               </CardContent>
             </Card>
@@ -572,8 +570,8 @@ export default function Landing() {
                   <li>✓ Jupiter integration</li>
                   <li>✓ Real-time monitoring</li>
                 </ul>
-                <Link href="/dashboard">
-                  <a className="text-sm text-primary hover:underline">Get Started →</a>
+                <Link href="/dashboard" className="text-sm text-primary hover:underline">
+                  Get Started →
                 </Link>
               </CardContent>
             </Card>

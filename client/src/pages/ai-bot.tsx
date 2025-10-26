@@ -210,16 +210,16 @@ export default function AIBot() {
   }, [schedulerStatus]);
 
   const isEnabled = aiConfig?.enabled || false;
-  const budgetUsed = parseFloat(aiConfig?.budgetUsed || "0");
-  const totalBudget = parseFloat(aiConfig?.totalBudget || "0");
+  const budgetUsed = parseFloat(aiConfig?.budgetUsed || "0") || 0;
+  const totalBudget = parseFloat(aiConfig?.totalBudget || "0") || 0;
   const remainingBudget = totalBudget - budgetUsed;
   
   // Autonomous capital calculations using REAL wallet data
   const portfolioValue = holdings?.totalValueSOL || 0; // Real total value from blockchain
   const walletSOL = holdings?.solBalance || 0; // Real SOL balance
-  const capitalInPositions = budgetUsed; // Active AI bot trades
+  const capitalInPositions = budgetUsed || 0; // Active AI bot trades
   const feeReserve = 0.01;
-  const availableCapital = Math.max(0, walletSOL - feeReserve - capitalInPositions);
+  const availableCapital = Math.max(0, (walletSOL || 0) - feeReserve - (capitalInPositions || 0));
   
   // Dynamic position sizing calculations (10% base, up to 15% with high confidence)
   const basePositionSize = portfolioValue * 0.10;
