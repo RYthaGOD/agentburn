@@ -1,7 +1,7 @@
 // AI Trading Bot Scheduler - Grok-powered PumpFun trading automation
 // Scans PumpFun trending tokens, analyzes with Grok AI, and executes trades
 
-import cron from "node-cron";
+import cron, { type ScheduledTask } from "node-cron";
 import { storage } from "./storage";
 import { analyzeTokenWithGrok, analyzeTokenWithHiveMind, isGrokConfigured, getAIClient, type TokenMarketData } from "./grok-analysis";
 import { buyTokenWithJupiter, buyTokenWithFallback, getTokenPrice, getSwapOrder, executeSwapOrder, getWalletBalances } from "./jupiter";
@@ -36,13 +36,13 @@ const aiBotStates = new Map<string, AIBotState>();
 /**
  * Cron job references for graceful shutdown
  */
-let quickScanJob: cron.ScheduledTask | null = null;
-let deepScanJob: cron.ScheduledTask | null = null;
-let memoryCleanupJob: cron.ScheduledTask | null = null;
-let positionMonitorJob: cron.ScheduledTask | null = null;
-let portfolioRebalancerJob: cron.ScheduledTask | null = null;
-let walletSyncJob: cron.ScheduledTask | null = null;
-let databaseCleanupJob: cron.ScheduledTask | null = null;
+let quickScanJob: ScheduledTask | null = null;
+let deepScanJob: ScheduledTask | null = null;
+let memoryCleanupJob: ScheduledTask | null = null;
+let positionMonitorJob: ScheduledTask | null = null;
+let portfolioRebalancerJob: ScheduledTask | null = null;
+let walletSyncJob: ScheduledTask | null = null;
+let databaseCleanupJob: ScheduledTask | null = null;
 
 /**
  * Stop all AI bot schedulers
@@ -301,6 +301,8 @@ function logActivity(category: ActivityLog['category'], type: ActivityLog['type'
     category,
     message,
   };
+  
+  console.log(`[Activity Log] ${category} - ${type}: ${message}`);
   
   // Keep only last 100 logs (optimized: pop instead of slice to avoid array recreation)
   schedulerStatus.activityLogs.unshift(log);
@@ -1333,6 +1335,7 @@ async function runQuickTechnicalScan() {
               );
               
               console.log(`[Quick Scan] ⏭️ Skipping ${token.symbol} - auto-blacklisted due to bundle activity`);
+              logActivity('quick_scan', 'info', `⚠️ SKIP ${token.symbol}: Pump & dump detected (score: ${bundleResult.score}/100)`);
               continue; // Skip this token
             }
             
@@ -1375,8 +1378,10 @@ async function runQuickTechnicalScan() {
             } else if (quickAnalysis.confidence >= minThreshold && quickAnalysis.action !== "sell") {
               // High confidence but not BUY action - log for analysis
               console.log(`[Quick Scan] ⚠️ ${token.symbol}: ${quickAnalysis.action.toUpperCase()} ${(quickAnalysis.confidence * 100).toFixed(1)}% (meets ${(minThreshold * 100).toFixed(0)}% threshold but action is ${quickAnalysis.action}, not buy)`);
+              logActivity('quick_scan', 'info', `🤔 ${token.symbol}: ${quickAnalysis.action.toUpperCase()} ${(quickAnalysis.confidence * 100).toFixed(1)}% - AI says ${quickAnalysis.action.toUpperCase()}, not BUY`);
             } else {
               console.log(`[Quick Scan] ⏭️ ${token.symbol}: ${quickAnalysis.action.toUpperCase()} ${(quickAnalysis.confidence * 100).toFixed(1)}% (below ${(minThreshold * 100).toFixed(0)}% SCALP threshold)`);
+              logActivity('quick_scan', 'info', `⏭️ ${token.symbol}: ${quickAnalysis.action.toUpperCase()} ${(quickAnalysis.confidence * 100).toFixed(1)}% - Below ${(minThreshold * 100).toFixed(0)}% threshold`);
             }
           }
         }
@@ -2019,6 +2024,7 @@ async function executeQuickTrade(
         console.log(`[Quick Scan] ⏭️ SKIP ${token.symbol} - Max re-buys reached (${currentRebuyCount}/2)`);
         console.log(`[Quick Scan]    Position opened at: ${entryPrice.toFixed(8)} SOL`);
         console.log(`[Quick Scan]    Current price: ${currentPrice.toFixed(8)} SOL (${priceChangePercent > 0 ? '+' : ''}${priceChangePercent.toFixed(2)}%)`);
+        logActivity('quick_scan', 'info', `⏭️ SKIP ${token.symbol}: Max re-buys (${currentRebuyCount}/2) - ${priceChangePercent > 0 ? '+' : ''}${priceChangePercent.toFixed(2)}%`);
         return;
       }
       
@@ -2037,6 +2043,7 @@ async function executeQuickTrade(
         console.log(`[Quick Scan]    Re-buys: ${currentRebuyCount}/2`);
         console.log(`[Quick Scan]    Drawback requirement: ${hasDrawback ? '✅' : '❌'} (need -10% dip, have ${priceChangePercent.toFixed(2)}%)`);
         console.log(`[Quick Scan]    Higher confidence: ${hasHigherConfidence ? '✅' : '❌'} (need >${previousConfidence}%, have ${newConfidence.toFixed(1)}%)`);
+        logActivity('quick_scan', 'info', `💼 SKIP ${token.symbol}: Holding (${priceChangePercent > 0 ? '+' : ''}${priceChangePercent.toFixed(2)}%) - AI ${newConfidence.toFixed(0)}% vs ${previousConfidence}%`);
         return;
       }
       
