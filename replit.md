@@ -73,9 +73,15 @@ A dedicated scheduler service automates buyback execution using `node-cron`, han
 - **Automatic Portfolio Rebalancing:** Every 30 minutes using full hivemind analysis.
 - **AI-Powered Strategy Learning:** Every 3 hours, analyzes trade journal patterns (win rate, avg profit, failure reasons, successful token characteristics) and regenerates optimal trading strategy based on performance data.
 - **Trade Journal & Pattern Analysis:** Tracks complete trade lifecycle, categorizes losses, identifies winning patterns, and integrates data into strategy regeneration.
-- **11-Model Hivemind System:** DeepSeek, DeepSeek #2, xAI Grok, Together AI, OpenRouter, Groq, Cerebras, Google Gemini, ChatAnywhere, OpenAI, OpenAI #2. Models run in parallel with majority voting.
+- **11-Model Hivemind System:** DeepSeek, DeepSeek #2, xAI Grok, Together AI, OpenRouter, Groq, Cerebras, Google Gemini, ChatAnywhere, OpenAI, OpenAI #2. Models run in parallel with **weighted confidence voting** (not simple majority).
 - **Smart Model Prioritization:** 3-tier priority system (free reliable, free with limits, paid) to optimize cost/performance.
-- **Intelligent Circuit Breaker Protection:** 
+- **Improved AI Consensus Algorithm:**
+  - **Weighted Voting**: High-confidence votes carry more weight than low-confidence ones
+  - **Smart Tie-Breaking**: 3-way ties use highest individual confidence; 2-way ties use average of tied actions
+  - **No More 0% Confidence**: Returns actual average confidence of winning action (e.g., "HOLD 65%" instead of "HOLD 0%")
+  - **Better Decision Clarity**: Shows agreement percentage AND average confidence (e.g., "2/4 models BUY, 67% avg confidence")
+
+**Intelligent Circuit Breaker Protection:** 
   - Immediately disables models with 402/401 errors (insufficient credits/auth) for 30 minutes
   - Standard circuit breaker disables models after 3 consecutive failures for 5 minutes
   - Automatic rotation to healthy models ensures continuous operation

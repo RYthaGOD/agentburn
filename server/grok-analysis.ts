@@ -518,43 +518,61 @@ export async function analyzeTokenWithHiveMind(
 
   console.log(`[Hive Mind] ${successfulVotes.length}/${votes.length} models responded successfully`);
 
-  // Calculate weighted consensus
+  // Calculate weighted consensus with improved tie-breaking
   const buyVotes = successfulVotes.filter(v => v.analysis.action === "buy");
   const sellVotes = successfulVotes.filter(v => v.analysis.action === "sell");
   const holdVotes = successfulVotes.filter(v => v.analysis.action === "hold");
 
-  // Weight by confidence
+  // Weight by confidence (sum of all confidence scores for each action)
   const buyWeight = buyVotes.reduce((sum, v) => sum + v.analysis.confidence, 0);
   const sellWeight = sellVotes.reduce((sum, v) => sum + v.analysis.confidence, 0);
   const holdWeight = holdVotes.reduce((sum, v) => sum + v.analysis.confidence, 0);
 
   const totalWeight = buyWeight + sellWeight + holdWeight;
   
-  // Determine consensus action
+  // Calculate average confidence for each action (for smarter consensus)
+  const buyAvgConfidence = buyVotes.length > 0 ? buyWeight / buyVotes.length : 0;
+  const sellAvgConfidence = sellVotes.length > 0 ? sellWeight / sellVotes.length : 0;
+  const holdAvgConfidence = holdVotes.length > 0 ? holdWeight / holdVotes.length : 0;
+  
+  // Determine consensus action using WEIGHTED voting (not just count)
+  // This prioritizes high-confidence votes over low-confidence ones
   let consensusAction: "buy" | "sell" | "hold" = "hold";
   let consensusConfidence = 0;
   let consensusDescription = "";
 
-  if (buyWeight > sellWeight && buyWeight > holdWeight) {
+  // Winner is determined by total weight (confidence * vote count)
+  const maxWeight = Math.max(buyWeight, sellWeight, holdWeight);
+  
+  if (buyWeight === maxWeight && buyWeight > 0) {
     const agreementPercent = buyVotes.length / successfulVotes.length;
-    if (agreementPercent >= minAgreement) {
-      consensusAction = "buy";
-      consensusConfidence = buyWeight / totalWeight;
-      consensusDescription = `${buyVotes.length}/${successfulVotes.length} models recommend BUY (${(agreementPercent * 100).toFixed(0)}% agreement)`;
-    } else {
-      consensusDescription = `Insufficient BUY consensus (${(agreementPercent * 100).toFixed(0)}% < ${(minAgreement * 100).toFixed(0)}% required)`;
-    }
-  } else if (sellWeight > buyWeight && sellWeight > holdWeight) {
+    // Use average confidence of BUY votes (not diluted by other votes)
+    consensusAction = "buy";
+    consensusConfidence = buyAvgConfidence;
+    consensusDescription = `${buyVotes.length}/${successfulVotes.length} models recommend BUY (${(agreementPercent * 100).toFixed(0)}% agreement, ${(buyAvgConfidence * 100).toFixed(0)}% avg confidence)`;
+  } else if (sellWeight === maxWeight && sellWeight > 0) {
     const agreementPercent = sellVotes.length / successfulVotes.length;
-    if (agreementPercent >= minAgreement) {
-      consensusAction = "sell";
-      consensusConfidence = sellWeight / totalWeight;
-      consensusDescription = `${sellVotes.length}/${successfulVotes.length} models recommend SELL (${(agreementPercent * 100).toFixed(0)}% agreement)`;
-    } else {
-      consensusDescription = `Insufficient SELL consensus (${(agreementPercent * 100).toFixed(0)}% < ${(minAgreement * 100).toFixed(0)}% required)`;
-    }
+    consensusAction = "sell";
+    consensusConfidence = sellAvgConfidence;
+    consensusDescription = `${sellVotes.length}/${successfulVotes.length} models recommend SELL (${(agreementPercent * 100).toFixed(0)}% agreement, ${(sellAvgConfidence * 100).toFixed(0)}% avg confidence)`;
   } else {
-    consensusDescription = `No clear consensus - defaulting to HOLD`;
+    // HOLD wins or tie between actions
+    consensusAction = "hold";
+    // For HOLD, use average confidence if we have HOLD votes, otherwise use overall average
+    consensusConfidence = holdVotes.length > 0 ? holdAvgConfidence : (totalWeight / successfulVotes.length);
+    
+    if (buyWeight === sellWeight && buyWeight === holdWeight && buyWeight > 0) {
+      // Perfect 3-way tie - use highest individual confidence vote as tiebreaker
+      const highestVote = successfulVotes.reduce((max, v) => v.analysis.confidence > max.analysis.confidence ? v : max);
+      consensusAction = highestVote.analysis.action;
+      consensusConfidence = highestVote.analysis.confidence;
+      consensusDescription = `3-way tie - using highest confidence vote (${highestVote.provider}: ${consensusAction.toUpperCase()} ${(consensusConfidence * 100).toFixed(0)}%)`;
+    } else if (buyWeight === holdWeight || sellWeight === holdWeight) {
+      // 2-way tie - use average of tied actions
+      consensusDescription = `Tie (${holdVotes.length}/${successfulVotes.length} HOLD) - average confidence ${(consensusConfidence * 100).toFixed(0)}%`;
+    } else {
+      consensusDescription = `${holdVotes.length}/${successfulVotes.length} models recommend HOLD (${(holdAvgConfidence * 100).toFixed(0)}% avg confidence)`;
+    }
   }
 
   // Aggregate metrics
