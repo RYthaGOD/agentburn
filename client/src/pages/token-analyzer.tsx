@@ -78,9 +78,9 @@ export default function TokenAnalyzer() {
       <div className="container mx-auto px-4 py-12 space-y-8 max-w-4xl">
         {/* Hero Section */}
         <div className="text-center space-y-4 py-8">
-          <Badge variant="outline" className="mb-4">
-            <Activity className="h-3 w-3 mr-1" />
-            Free Token Analysis Tool
+          <Badge variant="outline" className="mb-4 bg-green-500/10 border-green-500/30 text-green-500">
+            <Sparkles className="h-3 w-3 mr-1" />
+            100% Free Forever • No Wallet Required • Unlimited Use
           </Badge>
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary bg-clip-text text-transparent">
             AI-Powered Token Analyzer

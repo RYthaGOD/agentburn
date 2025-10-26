@@ -33,9 +33,9 @@ export default function HowItWorks() {
       <div className="container mx-auto px-4 py-12 space-y-12">
         {/* Hero */}
         <div className="text-center space-y-4 py-8">
-          <Badge variant="outline" className="mb-4">
-            <Brain className="h-3 w-3 mr-1" />
-            Understanding GigaBrain AI
+          <Badge variant="outline" className="mb-4 bg-green-500/10 border-green-500/30 text-green-500">
+            <Sparkles className="h-3 w-3 mr-1" />
+            Free Educational Content • Learn Before You Trade
           </Badge>
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary bg-clip-text text-transparent">
             How GigaBrain Works

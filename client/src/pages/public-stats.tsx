@@ -70,9 +70,9 @@ export default function PublicStats() {
       <div className="container mx-auto px-4 py-12 space-y-8">
         {/* Hero Section */}
         <div className="text-center space-y-4 py-8">
-          <Badge variant="outline" className="mb-4">
-            <Activity className="h-3 w-3 mr-1" />
-            Live Performance Dashboard
+          <Badge variant="outline" className="mb-4 bg-green-500/10 border-green-500/30 text-green-500">
+            <Sparkles className="h-3 w-3 mr-1" />
+            Free to View • No Wallet Required • Real-Time Data
           </Badge>
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary bg-clip-text text-transparent">
             Real-Time GigaBrain Performance
