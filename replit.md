@@ -46,6 +46,13 @@ This bot operates independently with configurations stored in a dedicated `aiBot
 - **Deep Scans:** Every 15 minutes using the full 7-model hivemind for high-confidence swing opportunities (75%+ AI confidence).
 - **Automatic Portfolio Rebalancing:** Every 30 minutes using full 7-model hivemind analysis for optimal sell recommendations.
 - **AI-Powered Strategy Learning:** Every 3 hours, the full 7-model hivemind analyzes recent trading performance (win rate, avg profit, trade count) and intelligently optimizes strategy parameters instead of using rule-based logic. AI continuously learns and improves based on actual performance. Manual regeneration available via dashboard for immediate recalibration.
+- **Trade Journal & Pattern Analysis:** Comprehensive trade lifecycle tracking from entry to exit with automated pattern recognition.
+  - **Complete Trade Recording:** Every trade captures entry price, AI confidence, market conditions (organic/quality scores, liquidity, volume), exit price, profit/loss, hold duration, and exit reason.
+  - **Failure Reason Classification:** Automatic categorization of losses (stop-loss, timeout, AI low confidence, market downturn) to identify recurring mistakes.
+  - **Winning Pattern Identification:** Analyzes characteristics of profitable trades (avg organic/quality scores, liquidity thresholds, volume levels) to refine entry filters.
+  - **AI Integration:** Pattern analysis data feeds directly into strategy regeneration, enabling AI to learn from past failures and focus on proven winning characteristics.
+  - **Performance Optimization:** Database index on buyTxSignature ensures fast journal lookups during sell execution. Journal writes wrapped in try/catch to prevent trade interruption on DB errors.
+  - **API Endpoints:** `/api/ai-bot/trade-journal/:ownerWalletAddress` and `/api/ai-bot/trade-patterns/:ownerWalletAddress` for accessing trade history and analytics.
 - **Hivemind Benefits:** All 7 models (OpenAI, OpenAI #2, DeepSeek, DeepSeek #2, Cerebras, Google Gemini, Groq) run in parallel for ALL decisions, providing superior accuracy through majority voting. When models agree, confidence is averaged. When models disagree, higher-confidence model prevails.
 - **Redundancy & Failover:** Built-in redundancy with 7 models ensures high availability. System continues operating even if some models fail. Graceful fallback to rule-based strategy if AI fails, then to conservative defaults.
 
