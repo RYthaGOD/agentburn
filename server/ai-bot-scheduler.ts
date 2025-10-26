@@ -1822,7 +1822,7 @@ async function executeQuickTrade(
     }
     
     // MAX PORTFOLIO ALLOCATION: Prevent over-deployment to maintain liquidity
-    const MAX_PORTFOLIO_ALLOCATION = 0.85; // Keep 15% in reserve for opportunities and fees
+    const MAX_PORTFOLIO_ALLOCATION = 0.90; // Keep 10% in reserve for fees and emergency liquidity
     const maxDeployableCapital = portfolio.totalValueSOL * MAX_PORTFOLIO_ALLOCATION;
     const currentlyDeployed = portfolio.totalValueSOL - actualBalance;
     const remainingAllocation = Math.max(0, maxDeployableCapital - currentlyDeployed);
@@ -1832,7 +1832,7 @@ async function executeQuickTrade(
       const oldAvailable = availableBalance;
       availableBalance = Math.max(0, remainingAllocation);
       console.log(`[Quick Scan] ⚠️ Portfolio allocation limit: ${(currentlyDeployed / portfolio.totalValueSOL * 100).toFixed(1)}% deployed`);
-      console.log(`[Quick Scan] 🔒 Capping available balance from ${oldAvailable.toFixed(4)} to ${availableBalance.toFixed(4)} SOL to maintain ${((1 - MAX_PORTFOLIO_ALLOCATION) * 100).toFixed(0)}% reserve`);
+      console.log(`[Quick Scan] 🔒 Capping available balance from ${oldAvailable.toFixed(4)} to ${availableBalance.toFixed(4)} SOL to maintain ${((1 - MAX_PORTFOLIO_ALLOCATION) * 100).toFixed(0)}% liquidity reserve for capital growth`);
     }
 
     // Calculate dynamic trade amount based on AI confidence (using refreshed balance if rewards were claimed)
@@ -2602,7 +2602,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     }
     
     // MAX PORTFOLIO ALLOCATION: Prevent over-deployment to maintain liquidity
-    const MAX_PORTFOLIO_ALLOCATION = 0.85; // Keep 15% in reserve for opportunities and fees
+    const MAX_PORTFOLIO_ALLOCATION = 0.90; // Keep 10% in reserve for fees and emergency liquidity
     const maxDeployableCapital = portfolio.totalValueSOL * MAX_PORTFOLIO_ALLOCATION;
     const currentlyDeployed = portfolio.totalValueSOL - actualBalance;
     const remainingAllocation = Math.max(0, maxDeployableCapital - currentlyDeployed);
@@ -2612,7 +2612,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
       const oldAvailable = availableBalance;
       availableBalance = Math.max(0, remainingAllocation);
       addLog(`⚠️ Portfolio allocation limit: ${(currentlyDeployed / portfolio.totalValueSOL * 100).toFixed(1)}% deployed`, "warning");
-      addLog(`🔒 Capping available balance from ${oldAvailable.toFixed(4)} to ${availableBalance.toFixed(4)} SOL to maintain ${((1 - MAX_PORTFOLIO_ALLOCATION) * 100).toFixed(0)}% reserve`, "info");
+      addLog(`🔒 Capping available balance from ${oldAvailable.toFixed(4)} to ${availableBalance.toFixed(4)} SOL to maintain ${((1 - MAX_PORTFOLIO_ALLOCATION) * 100).toFixed(0)}% liquidity reserve for capital growth`, "info");
     }
 
     if (availableBalance <= 0) {
