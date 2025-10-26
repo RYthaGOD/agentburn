@@ -50,6 +50,7 @@ export default function AIBot() {
   const [isSavingKey, setIsSavingKey] = useState(false);
   const [isDeletingKey, setIsDeletingKey] = useState(false);
   const [isPurchasingSubscription, setIsPurchasingSubscription] = useState(false);
+  const [isRebalancing, setIsRebalancing] = useState(false);
   const [scanLog, setScanLog] = useState<Array<{
     timestamp: number;
     message: string;
@@ -304,6 +305,69 @@ export default function AIBot() {
       });
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handlePortfolioRebalance = async () => {
+    if (!publicKey) {
+      toast({
+        title: "Error",
+        description: "Please connect wallet first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!aiConfig?.enabled) {
+      toast({
+        title: "Error",
+        description: "Please enable the AI bot first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRebalancing(true);
+    
+    try {
+      toast({
+        title: "🤖 Analyzing Portfolio",
+        description: "11-model hivemind is evaluating all positions...",
+      });
+
+      const response = await fetch("/api/ai-bot/analyze-rebalance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ownerWalletAddress: publicKey.toString(),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Portfolio rebalance failed");
+      }
+
+      const result = await response.json();
+
+      toast({
+        title: "✅ Portfolio Analysis Complete",
+        description: result.message || "Check activity logs for AI recommendations",
+      });
+
+      // Refresh positions and activity logs
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-bot/positions", publicKey.toString()] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-bot/scheduler-status"] });
+      
+    } catch (error: any) {
+      console.error("Portfolio rebalance error:", error);
+      toast({
+        title: "Portfolio Rebalance Failed",
+        description: error.message || "Failed to analyze portfolio",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRebalancing(false);
     }
   };
 
@@ -2251,6 +2315,27 @@ export default function AIBot() {
               <>
                 <Zap className="mr-2 h-5 w-5" />
                 Scan & Trade Now
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={handlePortfolioRebalance}
+            disabled={isRebalancing || !hasTreasuryKey || !isEnabled || activePositions.length === 0}
+            className="w-full mt-2"
+            size="lg"
+            variant="outline"
+            data-testid="button-rebalance-portfolio"
+          >
+            {isRebalancing ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Analyzing Positions...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-5 w-5" />
+                Analyze Portfolio ({activePositions.length} positions)
               </>
             )}
           </Button>
