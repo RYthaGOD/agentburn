@@ -16,9 +16,17 @@ BurnBot is a SaaS platform designed for Solana SPL token creators to automate to
 ### Public API Routes (No Authentication)
 - `GET /api/public/stats` - Returns aggregated performance data from all users
 - `GET /api/public/analyze-token/:tokenMint` - Returns AI analysis for any Solana token (currently mock data)
+- `GET /api/ai-bot/subscription/status/:ownerWalletAddress` - Returns subscription status and free trades remaining
+
+### Subscription & Access Model
+- **10 Free Trades**: Every new user gets 10 completely free AI trades with no payment required
+- **2-Week Subscription**: After free trades, users pay 0.15 SOL for 2 weeks of unlimited AI trading access
+- **Trading Fee**: 1% platform fee applies to all trades (both free and subscription trades)
+- **Payment**: Solana-native (SOL) payments to treasury wallet `jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38`
+- **Verification**: On-chain transaction verification before subscription activation
 
 ### Conversion Funnel
-Landing → Try Token Analyzer (see AI capabilities) → Learn How It Works (understand hivemind) → View Live Stats (verify real performance) → Connect Wallet → Start Trading
+Landing → Try Token Analyzer (see AI capabilities) → Learn How It Works (understand hivemind) → View Live Stats (verify real performance) → Connect Wallet → Start Trading (10 free trades) → Purchase 2-Week Access
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

@@ -111,17 +111,17 @@ export default function Landing() {
                 ✓ First 10 trades completely free
               </p>
               <p className="text-sm text-muted-foreground">
-                Then only 1% fee per trade • No monthly subscription • No credit card required
+                Then 0.15 SOL for 2 weeks unlimited access • 1% fee per trade • No credit card required
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* What's Free */}
+      {/* Pricing & Access */}
       <section className="py-12 bg-gradient-to-br from-green-500/10 to-primary/10 border-y border-green-500/20">
         <div className="container mx-auto px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-6">What's Free Forever</h2>
+          <h2 className="text-3xl font-bold mb-6">Simple, Transparent Pricing</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             <Card className="bg-background/80 backdrop-blur">
               <CardContent className="pt-6">
@@ -147,12 +147,15 @@ export default function Landing() {
             </Card>
             <Card className="bg-background/80 backdrop-blur">
               <CardContent className="pt-6">
-                <Badge variant="outline" className="mb-3 bg-green-500/10 border-green-500/30 text-green-500">
-                  First 10 Free
+                <Badge variant="outline" className="mb-3 bg-primary/20 border-primary/40 text-primary">
+                  10 Free Trades
                 </Badge>
                 <h3 className="font-semibold mb-2">AI Trading</h3>
-                <p className="text-sm text-muted-foreground">
-                  10 free trades. Then 1% per trade. No monthly fees.
+                <p className="text-sm text-muted-foreground mb-3">
+                  Try 10 trades free. Then 0.15 SOL for 2 weeks unlimited access.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  + 1% fee per trade (always applied)
                 </p>
               </CardContent>
             </Card>
