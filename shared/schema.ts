@@ -149,6 +149,12 @@ export const aiBotConfigs = pgTable("ai_bot_configs", {
   totalPlatformFeesPaid: decimal("total_platform_fees_paid", { precision: 18, scale: 9 }).notNull().default("0"), // Cumulative platform fees paid in SOL
   isFeeExempt: boolean("is_fee_exempt").notNull().default(false), // Computed field - true if wallet is in exemption list
   
+  // Subscription & Free Trades (10 free trades, then 0.15 SOL for 2 weeks unlimited access)
+  freeTradesUsed: integer("free_trades_used").notNull().default(0), // Count of free trades used (0-10)
+  subscriptionActive: boolean("subscription_active").notNull().default(false), // True if user has paid for 2-week access
+  subscriptionExpiresAt: timestamp("subscription_expires_at"), // When 2-week subscription ends
+  subscriptionPaymentTxSignature: text("subscription_payment_tx_signature"), // SOL payment transaction signature for 0.15 SOL
+  
   // Real-time Performance Metrics
   totalTrades: integer("total_trades").notNull().default(0), // Total completed trades
   winningTrades: integer("winning_trades").notNull().default(0), // Trades with profit > 0
