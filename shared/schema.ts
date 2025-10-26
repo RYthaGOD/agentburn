@@ -286,7 +286,62 @@ export const tokenBlacklist = pgTable("token_blacklist", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// No relations for aiBotConfigs or tokenBlacklist - both are standalone
+// Trade Journal - tracks all trades with outcomes, patterns, and insights
+export const tradeJournal = pgTable("trade_journal", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerWalletAddress: text("owner_wallet_address").notNull(), // Trader who made this trade
+  
+  // Trade identification
+  buyTxSignature: text("buy_tx_signature").notNull(), // Link to buy transaction
+  sellTxSignature: text("sell_tx_signature"), // Link to sell transaction (null if position still open)
+  
+  // Token information
+  tokenMint: text("token_mint").notNull(),
+  tokenSymbol: text("token_symbol").notNull(),
+  tokenName: text("token_name"),
+  
+  // Trade execution
+  tradeMode: text("trade_mode").notNull(), // "SCALP" or "SWING"
+  entryPriceSOL: decimal("entry_price_sol", { precision: 18, scale: 9 }).notNull(),
+  exitPriceSOL: decimal("exit_price_sol", { precision: 18, scale: 9 }), // Null if still open
+  amountSOL: decimal("amount_sol", { precision: 18, scale: 9 }).notNull(),
+  tokenAmount: decimal("token_amount", { precision: 30, scale: 9 }).notNull(),
+  
+  // Performance
+  profitLossSOL: decimal("profit_loss_sol", { precision: 18, scale: 9 }), // Actual profit/loss in SOL
+  profitLossPercent: decimal("profit_loss_percent", { precision: 10, scale: 2 }), // Percentage return
+  holdDurationMinutes: integer("hold_duration_minutes"), // How long position was held
+  
+  // AI Decision Making
+  aiConfidenceAtBuy: decimal("ai_confidence_at_buy", { precision: 5, scale: 2 }).notNull(), // AI confidence when buying (0-100)
+  aiConfidenceAtSell: decimal("ai_confidence_at_sell", { precision: 5, scale: 2 }), // AI confidence when selling
+  potentialUpsideAtBuy: decimal("potential_upside_at_buy", { precision: 10, scale: 2 }), // AI's projected upside % at entry
+  
+  // Market Conditions at Entry
+  organicScoreAtBuy: integer("organic_score_at_buy"), // 0-100
+  qualityScoreAtBuy: integer("quality_score_at_buy"), // 0-100
+  liquidityUSDAtBuy: decimal("liquidity_usd_at_buy", { precision: 18, scale: 2 }),
+  volumeUSD24hAtBuy: decimal("volume_usd_24h_at_buy", { precision: 18, scale: 2 }),
+  
+  // Exit Analysis
+  exitReason: text("exit_reason").notNull(), // "profit_target", "stop_loss", "ai_sell", "timeout", "manual", "trailing_stop"
+  wasSuccessful: boolean("was_successful").notNull(), // Did we make money?
+  metProfitTarget: boolean("met_profit_target"), // Did we hit our profit target?
+  hitStopLoss: boolean("hit_stop_loss"), // Did we hit stop-loss?
+  
+  // Pattern Detection & Learning
+  failureReason: text("failure_reason"), // Why this trade failed (if it did)
+  tokenCharacteristics: text("token_characteristics"), // JSON: Notable patterns about this token
+  marketCondition: text("market_condition"), // "bullish", "bearish", "neutral", "volatile" at time of trade
+  lessonsLearned: text("lessons_learned"), // What can we learn from this trade?
+  
+  // Timestamps
+  entryAt: timestamp("entry_at").notNull(),
+  exitAt: timestamp("exit_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// No relations for aiBotConfigs, tokenBlacklist, or tradeJournal - all are standalone
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
@@ -423,3 +478,11 @@ export const insertTokenBlacklistSchema = createInsertSchema(tokenBlacklist).omi
 
 export type TokenBlacklist = typeof tokenBlacklist.$inferSelect;
 export type InsertTokenBlacklist = z.infer<typeof insertTokenBlacklistSchema>;
+
+export const insertTradeJournalSchema = createInsertSchema(tradeJournal).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type TradeJournal = typeof tradeJournal.$inferSelect;
+export type InsertTradeJournal = z.infer<typeof insertTradeJournalSchema>;

@@ -715,31 +715,43 @@ async function fetchTrendingPumpFunTokens(config?: {
         };
       })
       .filter((pair: any) => {
-        // DUAL-MODE FILTERS: Defaults optimized for SCALP mode (more inclusive)
-        // SCALP: 35% organic, 25% quality, $5k liquidity
-        // SWING: Uses hivemind strategy for tighter filters
-        const minOrganicScore = config?.minOrganicScore ?? 35;
-        const minQualityScore = config?.minQualityScore ?? 25;
-        const minLiquidity = config?.minLiquidityUSD ?? 5000;
-        const minTxns = config?.minTransactions24h ?? 15;
+        // STRICT QUALITY FILTERS: High-quality tokens only to maximize win rate
+        // 80%+ organic score, 70%+ quality score, 100+ holders, 24h+ age
+        const minOrganicScore = config?.minOrganicScore ?? 80;
+        const minQualityScore = config?.minQualityScore ?? 70;
+        const minLiquidity = config?.minLiquidityUSD ?? 20000; // Raised to $20k for safer trades
+        const minTxns = config?.minTransactions24h ?? 50; // More activity = more reliable
         
         const txns24h = (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0);
         const liquidityUSD = pair.liquidity?.usd || 0;
+        
+        // Check token age (must be at least 24 hours old to avoid new scams)
+        const pairAge = pair.pairCreatedAt ? Date.now() - pair.pairCreatedAt : Infinity;
+        const MIN_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+        const isOldEnough = pairAge >= MIN_AGE_MS;
+        
+        // DexScreener doesn't provide holder count directly, but we can estimate from transaction count
+        // More unique transactions usually means more holders
+        const estimatedHolders = Math.floor(txns24h * 0.3); // Rough estimate: 30% of txs are unique holders
+        const minHolders = 100;
+        const hasEnoughHolders = estimatedHolders >= minHolders;
         
         return (
           pair.organicScore >= minOrganicScore &&
           pair.qualityScore >= minQualityScore &&
           liquidityUSD >= minLiquidity &&
-          txns24h >= minTxns
+          txns24h >= minTxns &&
+          isOldEnough &&
+          hasEnoughHolders
         );
       })
       .sort((a: any, b: any) => b.qualityScore - a.qualityScore) // Sort by quality score (best first)
       .slice(0, 35); // Take top 35 highest quality tokens
     
-    const minOrganicScore = config?.minOrganicScore ?? 40;
-    const minQualityScore = config?.minQualityScore ?? 30;
+    const minOrganicScore = config?.minOrganicScore ?? 80;
+    const minQualityScore = config?.minQualityScore ?? 70;
     
-    console.log(`[AI Bot] 📊 Filtered to ${scoredPairs.length} tokens with organic volume (min ${minOrganicScore}% organic, min ${minQualityScore}% quality)`);
+    console.log(`[AI Bot] 📊 Filtered to ${scoredPairs.length} HIGH-QUALITY tokens (min ${minOrganicScore}% organic, min ${minQualityScore}% quality, 24h+ age, 100+ holders)`);
     if (scoredPairs.length > 0) {
       const top = scoredPairs[0];
       console.log(`[AI Bot] 🏆 Top token: ${top.baseToken?.symbol} - Quality: ${top.qualityScore.toFixed(1)}%, Organic: ${top.organicScore.toFixed(1)}%`);
@@ -2152,7 +2164,7 @@ function determineTradeMode(confidence: number): TradeModeConfig {
       minConfidence: 80, // CONSERVATIVE: Higher threshold for SWING trades
       positionSizePercent: confidence >= 0.90 ? 9 : confidence >= 0.85 ? 7 : 5, // REDUCED: 5-9% (was 8-12%)
       maxHoldMinutes: 1440, // 24 hours
-      stopLossPercent: confidence >= 0.85 ? -40 : -25, // TIGHTER: -25% to -40% (was -30% to -50%)
+      stopLossPercent: confidence >= 0.85 ? -25 : -15, // TIGHTER: -15% to -25% for better capital preservation
       profitTargetPercent: 15, // Let AI decide exit, but 15% minimum
     };
   } else if (confidence >= 0.65) {
@@ -2162,7 +2174,7 @@ function determineTradeMode(confidence: number): TradeModeConfig {
       minConfidence: 65, // CONSERVATIVE: Higher threshold for SCALP trades
       positionSizePercent: confidence >= 0.75 ? 6 : confidence >= 0.70 ? 4 : 3, // REDUCED: 3-6% (was 5-7%)
       maxHoldMinutes: 30, // 30 minute review threshold for faster trading
-      stopLossPercent: -10, // TIGHTER: -10% (was -15%) for better capital protection
+      stopLossPercent: confidence >= 0.75 ? -8 : confidence >= 0.70 ? -6 : -5, // TIGHTEST: -5% to -8% for maximum capital protection
       profitTargetPercent: confidence >= 0.75 ? 8 : confidence >= 0.70 ? 6 : 4, // Quick profit targets
     };
   } else {
@@ -2172,7 +2184,7 @@ function determineTradeMode(confidence: number): TradeModeConfig {
       minConfidence: 65,
       positionSizePercent: 3,
       maxHoldMinutes: 30,
-      stopLossPercent: -10,
+      stopLossPercent: -5, // Tightest possible
       profitTargetPercent: 4,
     };
   }
@@ -2185,13 +2197,13 @@ function determineTradeMode(confidence: number): TradeModeConfig {
  * SCALP Mode (65-79% confidence) - SELECTIVE QUICK TRADES:
  * - Position: 3-6% of portfolio (REDUCED for capital preservation)
  * - Quick profits: +4-8% targets
- * - Tight stop: -10% for better capital protection (TIGHTENED from -15%)
+ * - Tight stop: -5% to -8% for maximum capital protection
  * - Max hold: 30 minutes
  * 
  * SWING Mode (80%+ confidence) - HIGH CONVICTION ONLY:
  * - Position: 5-9% of portfolio (REDUCED from 8-12% for lower risk)
  * - Larger profits: +15%+ targets
- * - Tighter stop: -25% to -40% (TIGHTENED from -30% to -50%)
+ * - Tighter stop: -15% to -25% for better capital preservation
  * - Longer holds: AI-driven exits
  */
 function calculateDynamicTradeAmount(
@@ -3101,10 +3113,10 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
       }
     }
 
-    // Check active positions for AI-driven profit-taking with STRICT DRAWDOWN PROTECTION
+    // Check active positions for AI-driven profit-taking with TIGHTEST CAPITAL PROTECTION
     const minAiSellConfidence = config.minAiSellConfidence || 50; // INCREASED: Faster exits (was 40)
     const holdIfHighConfidence = config.holdIfHighConfidence || 70;
-    const stopLossPercent = -30; // Auto-sell if position drops >30% to limit drawdowns
+    const stopLossPercent = -8; // TIGHT: Auto-sell if position drops >8% to preserve capital
     
     if (botState.activePositions.size > 0) {
       addLog(`📊 Checking ${botState.activePositions.size} active positions - Mode: 100% AI & Hivemind Strategy`, "info");
@@ -3155,7 +3167,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
           const dbPosition = await storage.getAIBotPositions(ownerWalletAddress);
           const positionData = dbPosition.find(p => p.tokenMint === mint);
           const isSwingTrade = positionData?.isSwingTrade === 1;
-          const swingStopLoss = -50; // Wider stop-loss for swing trades
+          const swingStopLoss = -25; // TIGHTER: -25% stop-loss for swing trades (was -50%)
           const effectiveStopLoss = isSwingTrade ? swingStopLoss : stopLossPercent;
           
           if (isSwingTrade) {
@@ -3887,7 +3899,7 @@ async function monitorPositionsWithDeepSeek() {
 
             // 🛡️ TRAILING STOP-LOSS: Lock in profits as position grows
             const isSwingTrade = position.isSwingTrade === 1;
-            let stopLossThreshold = isSwingTrade ? -50 : -30;
+            let stopLossThreshold = isSwingTrade ? -25 : -8;
             
             // Upgrade stop-loss based on profit level
             if (profitPercent >= 200) {

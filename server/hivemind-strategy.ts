@@ -213,8 +213,8 @@ function parseAIStrategyResponse(reasoning: string): Partial<HivemindStrategy> |
       budgetPerTrade: Math.max(0.015, Math.min(0.04, parsed.budgetPerTrade || 0.02)),
       minVolumeUSD: Math.max(15000, Math.min(80000, parsed.minVolumeUSD || 25000)),
       minLiquidityUSD: Math.max(15000, Math.min(40000, parsed.minLiquidityUSD || 20000)),
-      minOrganicScore: Math.max(60, Math.min(80, parsed.minOrganicScore || 70)),
-      minQualityScore: Math.max(50, Math.min(70, parsed.minQualityScore || 60)),
+      minOrganicScore: Math.max(75, Math.min(95, parsed.minOrganicScore || 80)),
+      minQualityScore: Math.max(65, Math.min(85, parsed.minQualityScore || 70)),
       minTransactions24h: Math.max(30, Math.min(100, parsed.minTransactions24h || 50)),
       minPotentialPercent: Math.max(20, Math.min(50, parsed.minPotentialPercent || 30)),
       reasoning: parsed.reasoning || reasoning.substring(0, 500),
@@ -299,8 +299,8 @@ function generateStrategyFromSentiment(
   let budgetPerTrade = 0.02; // REDUCED: Very small trades for capital preservation & drawdown minimization
   let minVolumeUSD = 25000; // CONSERVATIVE: Higher volume for better liquidity ($25k minimum)
   let minLiquidityUSD = 20000; // CONSERVATIVE: Much higher liquidity required for safe exits ($20k minimum)
-  let minOrganicScore = 70; // CONSERVATIVE: Higher organic volume requirement (70% minimum)
-  let minQualityScore = 60; // CONSERVATIVE: Higher quality requirement (60% minimum)
+  let minOrganicScore = 80; // STRICT: Higher organic volume requirement (80% minimum)
+  let minQualityScore = 70; // STRICT: Higher quality requirement (70% minimum)
   let minTransactions24h = 50; // CONSERVATIVE: More active tokens only (50 minimum)
   let minPotentialPercent = 30; // Higher upside required to justify risk
 
@@ -316,8 +316,8 @@ function generateStrategyFromSentiment(
       budgetPerTrade = 0.025; // REDUCED: Small trades even in bull markets
       minVolumeUSD = 25000; // CONSERVATIVE: High volume even in bull market ($25k minimum)
       minLiquidityUSD = 20000; // CONSERVATIVE: High liquidity for safe exits ($20k minimum)
-      minOrganicScore = 70; // CONSERVATIVE: Strict quality filter (70% minimum)
-      minQualityScore = 60; // CONSERVATIVE: Strict quality filter (60% minimum)
+      minOrganicScore = 80; // STRICT: Maximum quality filter (80% minimum)
+      minQualityScore = 70; // STRICT: Maximum quality filter (70% minimum)
       minTransactions24h = 50; // CONSERVATIVE: Active tokens required (50 minimum)
       minPotentialPercent = 35; // Good upside
       break;

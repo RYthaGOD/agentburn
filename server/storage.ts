@@ -85,6 +85,18 @@ export interface IStorage {
   isTokenBlacklisted(tokenMint: string): Promise<boolean>;
   addTokenToBlacklist(blacklistEntry: InsertTokenBlacklist): Promise<TokenBlacklist>;
   removeTokenFromBlacklist(tokenMint: string): Promise<boolean>;
+
+  // Trade Journal operations (learning from trades)
+  getTradeJournalEntries(ownerWalletAddress: string, limit?: number): Promise<TradeJournal[]>;
+  createTradeJournalEntry(entry: InsertTradeJournal): Promise<TradeJournal>;
+  updateTradeJournalEntry(id: string, updates: Partial<InsertTradeJournal>): Promise<TradeJournal | undefined>;
+  getTradePatterns(ownerWalletAddress: string): Promise<{
+    winRate: number;
+    avgProfit: number;
+    totalTrades: number;
+    commonFailureReasons: { reason: string; count: number }[];
+    bestTokenCharacteristics: any[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {

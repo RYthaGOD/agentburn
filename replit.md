@@ -31,9 +31,9 @@ This bot operates independently with configurations stored in a dedicated `aiBot
 - Strict percentage-based position sizing (3-6% for SCALP, 5-9% for SWING) with a 0.01 SOL minimum for small portfolios and strict caps for larger portfolios.
 - Dynamic allocation based on market conditions via hivemind strategy that regenerates every 3 hours, adjusting position sizes, confidence thresholds, and risk parameters based on market sentiment (bullish/bearish/neutral/volatile) and recent performance.
 - AI-driven exits with no fixed profit targets, requiring a minimum 75% AI confidence.
-- Enhanced quality filters: 70%+ organic score, 60%+ quality score, $25k+ volume, $20k+ liquidity.
+- **STRICT quality filters (Win Rate Optimized):** 80%+ organic score, 70%+ quality score, $25k+ volume, $20k+ liquidity, 24h+ token age, 100+ estimated holders.
 - Portfolio diversification with a 25% maximum concentration limit per position.
-- Stop-loss protection at -30% for SCALP and -50% for SWING trades.
+- **TIGHTER stop-loss protection (Capital Preservation):** -5% to -8% for SCALP, -15% to -25% for SWING trades.
 - Portfolio Drawdown Circuit Breaker pauses trading if portfolio drops >20% from peak, resuming at -15%.
 - Faster exit threshold: AI sell confidence raised from 40% to 50%.
 
@@ -49,13 +49,13 @@ This bot operates independently with configurations stored in a dedicated `aiBot
 - **Hivemind Benefits:** All 7 models (OpenAI, OpenAI #2, DeepSeek, DeepSeek #2, Cerebras, Google Gemini, Groq) run in parallel for ALL decisions, providing superior accuracy through majority voting. When models agree, confidence is averaged. When models disagree, higher-confidence model prevails.
 - **Redundancy & Failover:** Built-in redundancy with 7 models ensures high availability. System continues operating even if some models fail. Graceful fallback to rule-based strategy if AI fails, then to conservative defaults.
 
-**Dual-Mode Trading Strategy (Conservative):**
-- **SCALP Mode (65-79% AI confidence):** 3-6% of portfolio, max 30-minute hold, -10% stop-loss, +4-8% profit targets.
-- **SWING Mode (80%+ AI confidence):** 5-9% of portfolio, max 24-hour hold, -25% to -40% stop-loss, +15% minimum profit target.
+**Dual-Mode Trading Strategy (Win Rate Optimized):**
+- **SCALP Mode (65-79% AI confidence):** 3-6% of portfolio, max 30-minute hold, **-5% to -8% stop-loss** (TIGHTER), +4-8% profit targets.
+- **SWING Mode (80%+ AI confidence):** 5-9% of portfolio, max 24-hour hold, **-15% to -25% stop-loss** (TIGHTER), +15% minimum profit target.
 
 **Sell Decision Framework:**
 - AI continuously monitors positions. Deep scan analysis and automatic portfolio rebalancing provide ongoing evaluation and sell recommendations.
-- Automatic Stop-Loss Override: -15% for SCALP, -30% to -50% for SWING.
+- **Automatic Stop-Loss Override (OPTIMIZED):** -5% to -8% for SCALP, -15% to -25% for SWING.
 - Exit Criteria: AI confidence drops below 50%, profit target hit, or max hold time reached.
 
 **Opportunistic Position Rotation:**
