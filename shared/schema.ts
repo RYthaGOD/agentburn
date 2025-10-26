@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, integer, boolean, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -339,7 +339,10 @@ export const tradeJournal = pgTable("trade_journal", {
   entryAt: timestamp("entry_at").notNull(),
   exitAt: timestamp("exit_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  // Index for fast lookup during sell execution
+  index("trade_journal_buy_tx_idx").on(table.buyTxSignature),
+]);
 
 // No relations for aiBotConfigs, tokenBlacklist, or tradeJournal - all are standalone
 
