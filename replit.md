@@ -88,7 +88,23 @@ Defense-in-depth security: rate limiting, DDoS protection, security headers (Hel
 Supports secure encrypted key management. Automated workflow includes claiming PumpFun rewards, balance checks, optimal SOL to token swaps via Jupiter Ultra API, and token burns. Includes a payment/trial system with whitelisted wallets.
 
 ### Transaction Fee System
-A 0.5% transaction fee applies after the first 60 free transactions per project, deducted from SOL and sent to a treasury wallet.
+
+**Project-Linked Bots (Volume Bot, Buy Bot):**
+- 0.5% transaction fee applies after the first 60 free transactions per project
+- Deducted from SOL and sent to a treasury wallet
+
+**AI Trading Bot:**
+- 1% platform fee on all buy transactions (deducted before trade execution)
+- Fee is sent to treasury wallet: `jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38`
+- Exempt wallet: `924yATAEdnrYmncJMX2je7dpiEfVRqCSPmQ2NK3QfoXA` (0% fees)
+- Transaction records track:
+  - Gross amount (pre-fee)
+  - Net amount (actual trade size after fee)
+  - Platform fee deducted
+  - Fee exemption status
+  - Fee transfer transaction signature
+- AI bot config tracks cumulative platform fees paid for transparency
+- Budget calculations account for fees in addition to trade amounts
 
 ## External Dependencies
 
