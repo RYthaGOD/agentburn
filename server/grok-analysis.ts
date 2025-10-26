@@ -360,13 +360,26 @@ function getAllAIClients(context: OpenAIUsageContext = {}): Array<{ client: Open
   });
   
   // INTELLIGENT MODEL SELECTION: Ensure we get requested number of WORKING models
+  // Filter out models with health below 70 (models with 2+ recent failures)
+  const MINIMUM_HEALTH_THRESHOLD = 70;
+  
   if (context.maxModels && context.maxModels > 0) {
-    const availableModels = clients.filter(c => isModelAvailable(c.provider));
+    const availableModels = clients.filter(c => {
+      const isAvailable = isModelAvailable(c.provider);
+      const health = getModelHealthScore(c.provider);
+      const meetsThreshold = health >= MINIMUM_HEALTH_THRESHOLD;
+      
+      if (isAvailable && !meetsThreshold) {
+        console.log(`[AI Optimization] ⏭️ Skipping ${c.provider} (health: ${health}, below threshold of ${MINIMUM_HEALTH_THRESHOLD})`);
+      }
+      
+      return isAvailable && meetsThreshold;
+    });
     const requestedCount = context.maxModels;
     
     if (availableModels.length < requestedCount) {
-      console.warn(`[AI Optimization] ⚠️ Requested ${requestedCount} models but only ${availableModels.length} available (some circuit-broken)`);
-      console.log(`[AI Optimization] Using all ${availableModels.length} available models: ${availableModels.map(c => c.provider).join(", ")}`);
+      console.warn(`[AI Optimization] ⚠️ Requested ${requestedCount} models but only ${availableModels.length} available (some circuit-broken or degraded)`);
+      console.log(`[AI Optimization] Using all ${availableModels.length} available healthy models: ${availableModels.map(c => c.provider).join(", ")}`);
       return availableModels;
     }
     
@@ -376,7 +389,18 @@ function getAllAIClients(context: OpenAIUsageContext = {}): Array<{ client: Open
     return selected;
   }
 
-  return clients;
+  // For non-maxModels requests, still filter by health threshold
+  const healthyModels = clients.filter(c => {
+    const health = getModelHealthScore(c.provider);
+    return health >= MINIMUM_HEALTH_THRESHOLD;
+  });
+  
+  if (healthyModels.length < clients.length) {
+    const skipped = clients.filter(c => getModelHealthScore(c.provider) < MINIMUM_HEALTH_THRESHOLD);
+    console.log(`[AI Optimization] ⏭️ Skipped ${skipped.length} degraded models: ${skipped.map(c => `${c.provider}(health:${getModelHealthScore(c.provider)})`).join(", ")}`);
+  }
+
+  return healthyModels;
 }
 
 /**
