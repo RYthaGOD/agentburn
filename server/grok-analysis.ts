@@ -234,24 +234,18 @@ export async function analyzeTokenWithHiveMind(
     context.isPeakHours = isPeakTradingHours();
   }
 
-  const clients = getAllAIClients(context);
+  // FORCE FULL HIVEMIND: Always use all 7 models (including premium OpenAI) for every decision
+  const clients = getAllAIClients({ ...context, forceInclude: true });
   
   if (clients.length === 0) {
     throw new Error("No AI providers configured for hive mind");
   }
 
   const providers = clients.map(c => c.provider).join(", ");
-  const openAIIncluded = clients.some(c => c.provider.includes("OpenAI"));
-  const openAICount = clients.filter(c => c.provider.includes("OpenAI")).length;
   
-  // Enhanced logging for AI usage transparency
-  if (openAIIncluded) {
-    console.log(`[Hive Mind] 💰 Using ${clients.length} AI models including ${openAICount} OpenAI provider(s) for HIGH-CONFIDENCE analysis`);
-    console.log(`[Hive Mind] 📊 Providers: ${providers}`);
-  } else {
-    console.log(`[Hive Mind] 🆓 Using ${clients.length} FREE AI models (DeepSeek-first strategy, 60%+ cost savings)`);
-    console.log(`[Hive Mind] 📊 Providers: ${providers}`);
-  }
+  // FULL HIVEMIND: All 7 models used for every decision
+  console.log(`[Hive Mind] 🧠 FULL HIVEMIND: All ${clients.length} AI models running in parallel for maximum accuracy`);
+  console.log(`[Hive Mind] 📊 Providers: ${providers}`);
   
   // Query all models in parallel
   const votes = await Promise.all(
@@ -285,82 +279,17 @@ export async function analyzeTokenWithHiveMind(
     })
   );
 
-  // Filter successful votes
-  let successfulVotes = votes.filter(v => v.success);
+  // Filter successful votes (all 7 models already attempted in parallel)
+  const successfulVotes = votes.filter(v => v.success);
   const failedVotes = votes.filter(v => !v.success);
   
-  // SMART FAILOVER STRATEGY:
-  // If any free providers (Groq, ChatAnywhere, Google Gemini, DeepSeek) failed,
-  // ensure premium providers (DeepSeek #2 + OpenAI) are always included
-  const freeProvidersFailed = failedVotes.some(v => 
-    ["Groq", "ChatAnywhere", "Google Gemini", "DeepSeek", "Cerebras", "Together AI", "OpenRouter"].includes(v.provider)
-  );
-  
-  if (freeProvidersFailed && failedVotes.length > 0) {
-    console.warn(`[Hive Mind] ⚠️ ${failedVotes.length} free provider(s) failed - ensuring premium coverage with DeepSeek #2 + OpenAI`);
-    
-    // Always include premium providers when free ones fail
-    const fallbackClients = getAllAIClients({ forceInclude: true });
-    const premiumProviders = fallbackClients.filter(c => 
-      c.provider === "DeepSeek #2" || c.provider.includes("OpenAI")
-    );
-    
-    // Only retry providers that haven't succeeded yet
-    const alreadySucceededProviders = successfulVotes.map(v => v.provider);
-    const newFallbacks = premiumProviders.filter(c => 
-      !alreadySucceededProviders.includes(c.provider)
-    );
-    
-    if (newFallbacks.length > 0) {
-      console.log(`[Hive Mind] 🔄 Activating ${newFallbacks.length} premium provider(s): ${newFallbacks.map(c => c.provider).join(", ")}`);
-      
-      const fallbackVotes = await Promise.all(
-        newFallbacks.map(async ({ client, model, provider }) => {
-          try {
-            const analysis = await analyzeSingleModel(
-              client,
-              model,
-              provider,
-              tokenData,
-              userRiskTolerance,
-              budgetPerTrade
-            );
-            return { provider, analysis, success: true };
-          } catch (error) {
-            console.error(`[Hive Mind] ${provider} premium fallback failed:`, error instanceof Error ? error.message : String(error));
-            return {
-              provider,
-              analysis: {
-                action: "hold" as const,
-                confidence: 0,
-                reasoning: `${provider} fallback analysis failed`,
-                potentialUpsidePercent: 0,
-                riskLevel: "high" as const,
-                keyFactors: ["Provider error"],
-              },
-              success: false,
-              error: error instanceof Error ? error.message : String(error),
-            };
-          }
-        })
-      );
-      
-      // Add fallback votes to total votes
-      votes.push(...fallbackVotes);
-      successfulVotes = votes.filter(v => v.success);
-      
-      const newSuccesses = fallbackVotes.filter(v => v.success).length;
-      if (newSuccesses > 0) {
-        console.log(`[Hive Mind] ✅ Premium fallback added ${newSuccesses}/${fallbackVotes.length} successful vote(s)`);
-      }
-    } else {
-      console.log(`[Hive Mind] ✅ Premium providers (DeepSeek #2 + OpenAI) already active and successful`);
-    }
+  if (failedVotes.length > 0) {
+    console.warn(`[Hive Mind] ⚠️ ${failedVotes.length}/${votes.length} model(s) failed: ${failedVotes.map(v => v.provider).join(", ")}`);
   }
   
-  // If still no successful votes, all providers failed
+  // If all models failed
   if (successfulVotes.length === 0) {
-    throw new Error("All AI providers failed to analyze token (including premium fallback: DeepSeek #2 + OpenAI)");
+    throw new Error(`All ${votes.length} AI providers failed to analyze token`);
   }
 
   console.log(`[Hive Mind] ${successfulVotes.length}/${votes.length} models responded successfully`);
