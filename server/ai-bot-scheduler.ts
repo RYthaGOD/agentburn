@@ -4550,17 +4550,17 @@ async function executeSellForPosition(
     const amountSOL = parseFloat(position.amountSOL);
     const entryPrice = parseFloat(position.entryPriceSOL);
 
-    console.log(`[Position Monitor] 💰 Tokens to sell: ${tokenAmount.toFixed(2)} ${position.tokenSymbol}`);
+    // IMPORTANT: tokenAmount from database is ALREADY in raw units (not human-readable)
+    // It was stored during buy with actual tokens received from Jupiter swap response
+    const tokenAmountRaw = Math.floor(tokenAmount);
+    
+    console.log(`[Position Monitor] 💰 Tokens to sell: ${tokenAmount.toFixed(0)} ${position.tokenSymbol} (raw units)`);
     console.log(`[Position Monitor] 📊 Entry: ${entryPrice.toFixed(9)} SOL, Investment: ${amountSOL.toFixed(4)} SOL`);
 
     // Execute sell with Jupiter → PumpSwap fallback
-    const { sellTokenWithFallback, getTokenDecimals } = await import("./jupiter");
+    const { sellTokenWithFallback } = await import("./jupiter");
     
-    // Get token decimals for proper amount calculation
-    const decimals = await getTokenDecimals(position.tokenMint);
-    const tokenAmountRaw = Math.floor(tokenAmount * Math.pow(10, decimals));
-    
-    console.log(`[Position Monitor] 🔄 Executing swap with fallback: ${tokenAmount.toFixed(2)} ${position.tokenSymbol} → SOL`);
+    console.log(`[Position Monitor] 🔄 Executing swap with fallback: ${tokenAmountRaw} raw tokens → SOL`);
     
     // Try Jupiter first, then PumpSwap if it fails
     const sellResult = await sellTokenWithFallback(
