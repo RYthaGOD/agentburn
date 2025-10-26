@@ -2408,15 +2408,15 @@ export function startAITradingBotScheduler() {
   console.log("[AI Bot Scheduler] Starting...");
   console.log(`[AI Bot Scheduler] Active AI providers (${activeProviders.length}): ${activeProviders.join(", ")}`);
 
-  // Quick scans every 2 minutes (dual-mode: scalp + swing opportunities) - OPTIMIZED FOR SPEED
-  quickScanJob = cron.schedule("*/2 * * * *", () => {
+  // Quick scans every 1 minute (dual-mode: scalp + swing opportunities) - HIGH FREQUENCY FOR MAX OPPORTUNITIES
+  quickScanJob = cron.schedule("* * * * *", () => {
     runQuickTechnicalScan().catch((error) => {
       console.error("[Quick Scan] Unexpected error:", error);
     });
   });
 
-  // Deep scans every 15 minutes (full AI analysis with all 7 models)
-  deepScanJob = cron.schedule("*/15 * * * *", () => {
+  // Deep scans every 10 minutes (full AI analysis with all 7 models) - INCREASED FREQUENCY
+  deepScanJob = cron.schedule("*/10 * * * *", () => {
     runAITradingBots().catch((error) => {
       console.error("[Deep Scan] Unexpected error:", error);
     });
@@ -2454,10 +2454,10 @@ export function startAITradingBotScheduler() {
     console.error("[Quick Scan] Initial scan error:", error);
   });
 
-  console.log("[AI Bot Scheduler] Active - OPTIMIZED FOR API EFFICIENCY ⚡");
-  console.log("  - Quick scans: Every 2 minutes (4 AI models, SCALP opportunities) 🎯 OPTIMIZED");
+  console.log("[AI Bot Scheduler] Active - HIGH FREQUENCY SCANNING FOR MAXIMUM OPPORTUNITIES ⚡");
+  console.log("  - Quick scans: Every 1 minute (4 AI models, SCALP opportunities) 🚀 HIGH FREQUENCY");
   console.log("  - Position monitoring: Every 3 minutes (DeepSeek only) 💰 SAVES 50% API CALLS");
-  console.log("  - Deep scans: Every 15 minutes (ALL models for SWING trades)");
+  console.log("  - Deep scans: Every 10 minutes (ALL models for SWING trades) 🔥 INCREASED FREQUENCY");
   console.log("  - Strategy updates: Every 3 hours (adaptive hivemind rebalancing)");
   console.log("  - Memory cleanup: Every hour (removes inactive bots and expired cache)");
   console.log("  - Circuit Breaker: Auto-disables failing models for 5 minutes");
