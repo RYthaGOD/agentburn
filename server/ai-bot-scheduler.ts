@@ -4211,16 +4211,23 @@ async function monitorPositionsWithDeepSeek() {
 
 /**
  * Fetch comprehensive market data from DexScreener for position analysis
+ * Enhanced with technical indicators for better sell decisions
  */
 async function fetchPositionMarketData(tokenMint: string): Promise<{
   volumeUSD24h: number;
   liquidityUSD: number;
   priceChange24h: number;
   priceChange1h: number;
+  priceChange5m: number;
   txns24h: number;
   buyPressure: number;
   buyTxns24h: number;
   sellTxns24h: number;
+  volumeChange24h: number; // % change in volume
+  liquidityChange24h: number; // % change in liquidity (drain detection)
+  priceChangeM5: number; // 5-minute momentum
+  fdv: number; // Fully diluted valuation
+  marketCap: number;
 } | null> {
   try {
     const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenMint}`);
@@ -4236,15 +4243,39 @@ async function fetchPositionMarketData(tokenMint: string): Promise<{
     const sellTxns = pair.txns?.h24?.sells || 0;
     const totalTxns = buyTxns + sellTxns;
 
+    // Advanced metrics
+    const volume24h = parseFloat(pair.volume?.h24 || "0");
+    const volume6h = parseFloat(pair.volume?.h6 || "0");
+    const volume1h = parseFloat(pair.volume?.h1 || "0");
+    
+    // Volume trend: compare recent to older periods
+    // If 6h volume is less than half of expected (proportional to 24h), volume is declining
+    const expectedVolume6h = volume24h * 0.25; // Expect 25% of 24h volume in last 6h
+    const volumeTrend = volume6h > 0 ? ((volume6h / expectedVolume6h) - 1) * 100 : 0;
+    
+    // Liquidity change detection (rug pull indicator)
+    const currentLiquidity = parseFloat(pair.liquidity?.usd || "0");
+    const baseLiquidity = parseFloat(pair.liquidity?.base || "0");
+    const quoteLiquidity = parseFloat(pair.liquidity?.quote || "0");
+    const totalProvided = baseLiquidity + quoteLiquidity;
+    const liquidityUtilization = totalProvided > 0 ? (currentLiquidity / totalProvided) : 1;
+    const liquidityChange = (liquidityUtilization - 1) * 100; // Negative = liquidity being pulled
+
     return {
-      volumeUSD24h: parseFloat(pair.volume?.h24 || "0"),
-      liquidityUSD: parseFloat(pair.liquidity?.usd || "0"),
+      volumeUSD24h: volume24h,
+      liquidityUSD: currentLiquidity,
       priceChange24h: parseFloat(pair.priceChange?.h24 || "0"),
       priceChange1h: parseFloat(pair.priceChange?.h1 || "0"),
+      priceChange5m: parseFloat(pair.priceChange?.m5 || "0"),
       txns24h: totalTxns,
       buyTxns24h: buyTxns,
       sellTxns24h: sellTxns,
       buyPressure: totalTxns > 0 ? (buyTxns / totalTxns) * 100 : 50,
+      volumeChange24h: volumeTrend,
+      liquidityChange24h: liquidityChange,
+      priceChangeM5: parseFloat(pair.priceChange?.m5 || "0"),
+      fdv: parseFloat(pair.fdv || "0"),
+      marketCap: parseFloat(pair.marketCap || "0"),
     };
   } catch (error) {
     console.error(`[Position Monitor] Failed to fetch DexScreener data:`, error);
@@ -4270,7 +4301,7 @@ async function analyzePositionWithAI(
   console.log(`[Position Monitor] 📊 Fetching market data for ${position.tokenSymbol} from DexScreener...`);
   const marketData = await fetchPositionMarketData(position.tokenMint);
 
-  // Build comprehensive analysis prompt with market metrics
+  // Build comprehensive analysis prompt with advanced technical metrics
   let marketMetrics = "";
   if (marketData) {
     console.log(`[Position Monitor] ✅ Market data fetched for ${position.tokenSymbol}:`);
@@ -4278,45 +4309,114 @@ async function analyzePositionWithAI(
     console.log(`  - Buy Pressure: ${marketData.buyPressure.toFixed(1)}% (${marketData.buyTxns24h} buys vs ${marketData.sellTxns24h} sells)`);
     console.log(`  - Price Change: 24h ${marketData.priceChange24h > 0 ? '+' : ''}${marketData.priceChange24h.toFixed(2)}%, 1h ${marketData.priceChange1h > 0 ? '+' : ''}${marketData.priceChange1h.toFixed(2)}%`);
     
+    // Technical analysis signals
+    const momentumSignal = marketData.priceChange5m > 0 && marketData.priceChange1h > 0 && marketData.priceChange24h > 0 
+      ? "🟢 BULLISH (all timeframes positive)" 
+      : marketData.priceChange5m < 0 && marketData.priceChange1h < 0 
+      ? "🔴 BEARISH (recent momentum dying)" 
+      : "🟡 MIXED";
+    
+    const volumeSignal = marketData.volumeChange24h > 20 
+      ? "🟢 INCREASING (healthy)" 
+      : marketData.volumeChange24h < -30 
+      ? "🔴 DECLINING (warning)" 
+      : "🟡 STABLE";
+    
+    const liquiditySignal = marketData.liquidityChange24h < -10 
+      ? "🔴 DRAINING (rug risk!)" 
+      : marketData.liquidityChange24h > 10 
+      ? "🟢 INCREASING (healthy)" 
+      : "🟡 STABLE";
+    
+    const buyPressureSignal = marketData.buyPressure > 55 
+      ? "🟢 STRONG BUYING" 
+      : marketData.buyPressure < 40 
+      ? "🔴 HEAVY SELLING" 
+      : "🟡 BALANCED";
+    
     marketMetrics = `
-MARKET METRICS (24h):
-- Volume: $${marketData.volumeUSD24h.toLocaleString()}
-- Liquidity: $${marketData.liquidityUSD.toLocaleString()}
-- Price Change 24h: ${marketData.priceChange24h > 0 ? '+' : ''}${marketData.priceChange24h.toFixed(2)}%
-- Price Change 1h: ${marketData.priceChange1h > 0 ? '+' : ''}${marketData.priceChange1h.toFixed(2)}%
-- Total Transactions: ${marketData.txns24h}
+MARKET METRICS & TECHNICAL ANALYSIS:
+
+Price Action:
+- Current Trend: ${momentumSignal}
+- 5-minute: ${marketData.priceChange5m > 0 ? '+' : ''}${marketData.priceChange5m.toFixed(2)}%
+- 1-hour: ${marketData.priceChange1h > 0 ? '+' : ''}${marketData.priceChange1h.toFixed(2)}%
+- 24-hour: ${marketData.priceChange24h > 0 ? '+' : ''}${marketData.priceChange24h.toFixed(2)}%
+
+Volume Analysis:
+- 24h Volume: $${marketData.volumeUSD24h.toLocaleString()}
+- Volume Trend: ${volumeSignal} (${marketData.volumeChange24h > 0 ? '+' : ''}${marketData.volumeChange24h.toFixed(1)}% vs expected)
+- Volume/Liquidity Ratio: ${marketData.liquidityUSD > 0 ? (marketData.volumeUSD24h / marketData.liquidityUSD).toFixed(2) : 'N/A'}
+
+Liquidity Status:
+- Current Liquidity: $${marketData.liquidityUSD.toLocaleString()}
+- Liquidity Trend: ${liquiditySignal} (${marketData.liquidityChange24h > 0 ? '+' : ''}${marketData.liquidityChange24h.toFixed(1)}%)
+- ⚠️ RUG RISK: ${marketData.liquidityChange24h < -15 ? 'HIGH - liquidity being pulled!' : 'LOW'}
+
+Order Flow:
+- Buy Pressure: ${buyPressureSignal} (${marketData.buyPressure.toFixed(1)}%)
 - Buy Transactions: ${marketData.buyTxns24h}
 - Sell Transactions: ${marketData.sellTxns24h}
-- Buy Pressure: ${marketData.buyPressure.toFixed(1)}% (healthy above 45%)
-- Volume/Liquidity Ratio: ${marketData.liquidityUSD > 0 ? (marketData.volumeUSD24h / marketData.liquidityUSD).toFixed(2) : 'N/A'}`;
+- Total Transactions: ${marketData.txns24h}
+
+Valuation:
+- Market Cap: $${marketData.marketCap.toLocaleString()}
+- FDV: $${marketData.fdv.toLocaleString()}`;
   } else {
     console.log(`[Position Monitor] ⚠️ Failed to fetch market data for ${position.tokenSymbol} - AI will analyze with limited data`);
     marketMetrics = `
-MARKET METRICS: Unavailable (low liquidity or delisted token)`;
+MARKET METRICS: Unavailable (low liquidity or delisted token)
+⚠️ WARNING: This is a major red flag - likely rug pulled or very illiquid`;
   }
 
-  const prompt = `Analyze this cryptocurrency position to decide: HOLD or SELL?
+  const prompt = `You are an expert technical analyst. Analyze this cryptocurrency position and decide: HOLD or SELL?
 
-Position: ${position.tokenSymbol}
+POSITION DETAILS:
+Token: ${position.tokenSymbol}
 Entry Price: ${parseFloat(position.entryPriceSOL).toFixed(9)} SOL
 Current Price: ${currentPriceSOL.toFixed(9)} SOL
 Profit/Loss: ${profitPercent > 0 ? '+' : ''}${profitPercent.toFixed(2)}%
 AI Confidence at Buy: ${aiConfidenceAtBuy.toFixed(0)}%
-Position Type: ${isSwingTrade ? 'SWING TRADE (high confidence, wider stop-loss)' : 'Regular Position'}
-Stop-Loss: ${isSwingTrade ? '-50%' : '-30%'}
+Position Type: ${isSwingTrade ? 'SWING TRADE (high confidence, 24h target)' : 'SCALP TRADE (quick 30min target)'}
 ${marketMetrics}
 
+TECHNICAL ANALYSIS FRAMEWORK - Analyze these signals carefully:
+
+1. MOMENTUM ANALYSIS (Most Important):
+   - Is the short-term momentum (5m, 1h) still positive?
+   - Are all timeframes aligned (bullish across 5m, 1h, 24h)?
+   - 🔴 SELL SIGNAL: Recent timeframes turning negative while we're in profit
+
+2. VOLUME TREND (Critical for exits):
+   - Is volume increasing (healthy) or declining (warning)?
+   - 🔴 SELL SIGNAL: Volume declining >30% = interest dying
+
+3. LIQUIDITY HEALTH (Rug Pull Detection):
+   - Is liquidity stable or draining?
+   - 🔴 IMMEDIATE SELL: Liquidity draining <-10% = potential rug pull
+
+4. ORDER FLOW (Market Sentiment):
+   - Is buy pressure >45% (healthy) or <40% (weak)?
+   - 🔴 SELL SIGNAL: Heavy selling pressure <40% = distribution phase
+
+5. PROFIT PROTECTION:
+   - Current P/L: ${profitPercent.toFixed(2)}%
+   - ${profitPercent > 15 ? '✅ In profit - protect gains if momentum weakens' : profitPercent > 0 ? '🟡 Small profit - only sell on clear reversal' : '🔴 In loss - hold unless critical red flags'}
+
 DECISION RULES:
-- For ${isSwingTrade ? 'SWING TRADES' : 'REGULAR positions'}: SELL only if you have 60%+ confidence momentum is dead
-- RED FLAGS: Buy pressure <40%, declining volume, negative price trends, low liquidity
-- Consider: Is buying pressure declining? Is volume dropping? Are there red flags?
-- If momentum is still strong or data unclear, HOLD
+- SELL if 2+ major red flags appear (momentum dying, volume declining, heavy selling, liquidity drain)
+- SELL if any CRITICAL signal (liquidity draining, rug risk)
+- SELL if we're in good profit ${profitPercent > 15 ? `(+${profitPercent.toFixed(0)}%)` : ''} AND momentum shows clear reversal
+- HOLD if momentum still healthy OR only 1 minor warning
+- HOLD if data unavailable/unclear (better safe than sorry)
+
+Your confidence should be 70%+ to SELL, otherwise HOLD.
 
 Respond ONLY with valid JSON:
 {
   "action": "HOLD" | "SELL",
   "confidence": 0-100,
-  "reasoning": "brief explanation"
+  "reasoning": "specific technical reasons (mention which signals)"
 }`;
 
   // FULL HIVEMIND CONSENSUS: Run all 7 AI models in parallel for maximum accuracy
