@@ -47,8 +47,27 @@ interface ActivityLog {
   message: string;
 }
 
+interface PerformanceUpdate {
+  walletAddress: string;
+  totalTrades: number;
+  winRate: string;
+  roiPercent: string;
+  netProfitSOL: string;
+  winningTrades: number;
+  losingTrades: number;
+  totalProfitSOL: string;
+  totalLossSOL: string;
+  averageProfitPercent: string;
+  averageLossPercent: string;
+  bestTradePercent: string;
+  worstTradePercent: string;
+  averageHoldTimeMinutes: number;
+  scalpTradeCount: number;
+  swingTradeCount: number;
+}
+
 interface WebSocketMessage {
-  type: "price_update" | "bot_event" | "transaction_event" | "accuracy_check" | "ai_activity_log";
+  type: "price_update" | "bot_event" | "transaction_event" | "accuracy_check" | "ai_activity_log" | "performance_update";
   data: any;
   timestamp: number;
 }
@@ -61,6 +80,7 @@ interface RealtimeContextValue {
   subscribeToTransactions: (callback: (event: TransactionEvent) => void) => () => void;
   subscribeToAccuracyChecks: (callback: (event: AccuracyCheck) => void) => () => void;
   subscribeToActivityLogs: (callback: (log: ActivityLog) => void) => () => void;
+  subscribeToPerformanceUpdates: (callback: (update: PerformanceUpdate) => void) => () => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
@@ -80,6 +100,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const transactionCallbacksRef = useRef<Set<(event: TransactionEvent) => void>>(new Set());
   const accuracyCheckCallbacksRef = useRef<Set<(event: AccuracyCheck) => void>>(new Set());
   const activityLogCallbacksRef = useRef<Set<(log: ActivityLog) => void>>(new Set());
+  const performanceUpdateCallbacksRef = useRef<Set<(update: PerformanceUpdate) => void>>(new Set());
 
   // WebSocket connection setup function
   const connectWebSocket = useCallback(() => {
@@ -188,6 +209,21 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
             });
             break;
           }
+
+          case "performance_update": {
+            const performanceUpdate = message.data as PerformanceUpdate;
+            
+            // Invalidate AI bot config for this specific wallet to refresh performance metrics
+            queryClient.invalidateQueries({ 
+              queryKey: ["/api/ai-bot/config", performanceUpdate.walletAddress] 
+            });
+            
+            // Notify subscribers
+            performanceUpdateCallbacksRef.current.forEach((callback) => {
+              callback(performanceUpdate);
+            });
+            break;
+          }
         }
       } catch (error) {
         console.error("[WebSocket] Error parsing message:", error);
@@ -275,6 +311,13 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const subscribeToPerformanceUpdates = useCallback((callback: (update: PerformanceUpdate) => void) => {
+    performanceUpdateCallbacksRef.current.add(callback);
+    return () => {
+      performanceUpdateCallbacksRef.current.delete(callback);
+    };
+  }, []);
+
   const value: RealtimeContextValue = {
     isConnected,
     latestPrices,
@@ -283,6 +326,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     subscribeToTransactions,
     subscribeToAccuracyChecks,
     subscribeToActivityLogs,
+    subscribeToPerformanceUpdates,
   };
 
   return (
@@ -335,4 +379,13 @@ export function useAccuracyChecks(callback: (event: AccuracyCheck) => void) {
     const unsubscribe = subscribeToAccuracyChecks(callback);
     return unsubscribe;
   }, [subscribeToAccuracyChecks, callback]);
+}
+
+export function usePerformanceUpdates(callback: (update: PerformanceUpdate) => void) {
+  const { subscribeToPerformanceUpdates } = useRealtime();
+  
+  useEffect(() => {
+    const unsubscribe = subscribeToPerformanceUpdates(callback);
+    return unsubscribe;
+  }, [subscribeToPerformanceUpdates, callback]);
 }

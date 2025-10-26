@@ -472,6 +472,7 @@ export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type UsedSignature = typeof usedSignatures.$inferSelect;
+export type SelectTradeJournal = typeof tradeJournal.$inferSelect;
 export type InsertUsedSignature = z.infer<typeof insertUsedSignatureSchema>;
 export type ProjectSecret = typeof projectSecrets.$inferSelect;
 export type InsertProjectSecret = z.infer<typeof insertProjectSecretSchema>;

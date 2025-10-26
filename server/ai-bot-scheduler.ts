@@ -4441,6 +4441,14 @@ async function executeSellForPosition(
         });
         
         console.log(`[Position Monitor] 📊 Trade Journal updated: ${wasSuccessful ? '✅ WIN' : '❌ LOSS'} (${profitPercent.toFixed(2)}%)`);
+        
+        // Update performance metrics in real-time
+        try {
+          const { updatePerformanceOnTrade } = await import("./performance-tracker");
+          await updatePerformanceOnTrade(config.ownerWalletAddress);
+        } catch (perfError) {
+          console.error(`[Position Monitor] ⚠️ Failed to update performance metrics:`, perfError);
+        }
       }
     } catch (journalError) {
       console.error(`[Position Monitor] ⚠️ Failed to update trade journal:`, journalError);

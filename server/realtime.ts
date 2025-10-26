@@ -6,7 +6,7 @@ import type { Server } from "http";
 import { getTokenPrice } from "./jupiter";
 
 interface WebSocketMessage {
-  type: "price_update" | "bot_event" | "transaction_event" | "accuracy_check" | "ai_activity_log";
+  type: "price_update" | "bot_event" | "transaction_event" | "accuracy_check" | "ai_activity_log" | "performance_update";
   data: any;
   timestamp: number;
 }
@@ -178,6 +178,31 @@ class RealtimeService {
   }) {
     this.broadcast({
       type: "accuracy_check",
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
+  emitPerformanceUpdate(data: {
+    walletAddress: string;
+    totalTrades: number;
+    winRate: string;
+    roiPercent: string;
+    netProfitSOL: string;
+    winningTrades: number;
+    losingTrades: number;
+    totalProfitSOL: string;
+    totalLossSOL: string;
+    averageProfitPercent: string;
+    averageLossPercent: string;
+    bestTradePercent: string;
+    worstTradePercent: string;
+    averageHoldTimeMinutes: number;
+    scalpTradeCount: number;
+    swingTradeCount: number;
+  }) {
+    this.broadcast({
+      type: "performance_update",
       data,
       timestamp: Date.now(),
     });
