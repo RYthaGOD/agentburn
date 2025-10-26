@@ -1,7 +1,7 @@
 # BurnBot - Solana Token Buyback & Burn SaaS Platform
 
 ## Overview
-BurnBot is a SaaS platform designed for Solana SPL token creators to automate token buyback and burn operations. It offers a no-code solution with a dashboard, flexible scheduling, and transaction monitoring to enhance tokenomics through automated and verifiable burn mechanisms. The platform also includes a Volume Bot, a Buy Bot, and a standalone AI Trading Bot. The AI Trading Bot uses a 7-model AI consensus system with automatic failover to scan and analyze trending tokens, executing trades based on AI confidence and profit potential. It features autonomous capital management, dynamic position sizing, and intelligent bundle activity detection to avoid pump-and-dump schemes.
+BurnBot is a SaaS platform designed for Solana SPL token creators to automate token buyback and burn operations. It offers a no-code solution with a dashboard, flexible scheduling, and transaction monitoring to enhance tokenomics through automated and verifiable burn mechanisms. The platform also includes a Volume Bot, a Buy Bot, and **GigaBrain** - the standalone AI Trading Bot. GigaBrain ("Black and Gold Never Fold") uses a 10-model AI hivemind consensus system with automatic failover to scan and analyze trending tokens, executing trades based on AI confidence and profit potential. It features autonomous capital management, dynamic position sizing, and intelligent bundle activity detection to avoid pump-and-dump schemes.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,7 +9,7 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend
-Built with React 18+, TypeScript, and Vite, using Wouter for routing, shadcn/ui (New York variant) on Radix UI primitives, and Tailwind CSS for dark mode. TanStack Query manages server state, and React Hook Form with Zod handles form validation. The design follows a "Fire/Molten" theme.
+Built with React 18+, TypeScript, and Vite, using Wouter for routing, shadcn/ui (New York variant) on Radix UI primitives, and Tailwind CSS for dark mode. TanStack Query manages server state, and React Hook Form with Zod handles form validation. The GigaBrain AI trading interface features a premium "Black and Gold" theme with gold accents (HSL 48° 100% 50%) on deep black backgrounds.
 
 ### Backend
 An Express.js server in TypeScript using an ESM module system, a RESTful API, centralized error handling, Zod schema validation, a storage abstraction layer, and a repository pattern for database operations.
@@ -23,8 +23,8 @@ A dedicated scheduler service automates buyback execution using `node-cron`, han
 - **Volume Bot:** Configurable buy/sell cycles with settings for amounts, percentages, intervals, and price guards.
 - **Buy Bot (Limit Orders):** Executes buy orders based on target SOL prices with configurable limits and slippage protection.
 
-#### AI Trading Bot (Standalone)
-This bot operates independently, utilizing a "hive mind" system where 7 AI models vote on trades with automatic failover, restricted to whitelisted wallets.
+#### GigaBrain AI Trading Bot (Standalone)
+**GigaBrain** - "Black and Gold Never Fold" - is the autonomous AI trading bot that operates independently, utilizing a 10-model hivemind system where multiple AI models vote on trades with automatic failover, restricted to whitelisted wallets.
 
 **Autonomous Capital Management:**
 - Maintains 10% liquidity reserve.
