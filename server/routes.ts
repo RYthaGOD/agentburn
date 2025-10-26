@@ -916,6 +916,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get trade journal entries for analysis
+  app.get("/api/ai-bot/trade-journal/:ownerWalletAddress", async (req, res) => {
+    try {
+      const { ownerWalletAddress } = req.params;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      
+      const entries = await storage.getTradeJournalEntries(ownerWalletAddress, limit);
+      res.json({ success: true, entries });
+    } catch (error: any) {
+      console.error("[API] Error fetching trade journal:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Get trade pattern analysis
+  app.get("/api/ai-bot/trade-patterns/:ownerWalletAddress", async (req, res) => {
+    try {
+      const { ownerWalletAddress } = req.params;
+      const patterns = await storage.getTradePatterns(ownerWalletAddress);
+      res.json({ success: true, patterns });
+    } catch (error: any) {
+      console.error("[API] Error fetching trade patterns:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   // Get wallet holdings analysis (SOL + all SPL tokens)
   app.get("/api/ai-bot/holdings/:ownerWalletAddress", async (req, res) => {
     try {

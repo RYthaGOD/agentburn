@@ -2121,6 +2121,28 @@ async function executeQuickTrade(
           isSwingTrade,
         });
         
+        // 📊 TRADE JOURNAL: Record entry for learning and pattern analysis
+        await storage.createTradeJournalEntry({
+          ownerWalletAddress: config.ownerWalletAddress,
+          buyTxSignature: result.signature,
+          tokenMint: token.mint,
+          tokenSymbol: token.symbol,
+          tokenName: token.name,
+          tradeMode: isSwingTrade ? "SWING" : "SCALP",
+          entryPriceSOL: token.priceSOL.toString(),
+          amountSOL: tradeAmount.toString(),
+          tokenAmount: tokensReceived.toString(),
+          aiConfidenceAtBuy: aiConfidence.toString(),
+          potentialUpsideAtBuy: analysis.potentialUpsidePercent.toString(),
+          organicScoreAtBuy: analysis.organicScore,
+          qualityScoreAtBuy: analysis.qualityScore,
+          liquidityUSDAtBuy: token.liquidityUSD?.toString(),
+          volumeUSD24hAtBuy: token.volumeUSD24h.toString(),
+          exitReason: "pending", // Will be updated on sell
+          wasSuccessful: false, // Will be updated on sell
+          entryAt: new Date(),
+        });
+        
         if (isSwingTrade) {
           console.log(`[Quick Scan] 🎯 SWING TRADE: High AI confidence (${aiConfidence}%) - using swing strategy for ${token.symbol}`);
         }
@@ -3080,7 +3102,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
             const { getTokenDecimals } = await import("./jupiter");
             const tokenDecimals = await getTokenDecimals(token.mint);
             
-            await storage.createAIBotPosition({
+            const newPosition = await storage.createAIBotPosition({
               ownerWalletAddress,
               tokenMint: token.mint,
               tokenSymbol: token.symbol,
@@ -3095,6 +3117,28 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
               aiConfidenceAtBuy: aiConfidence,
               aiPotentialAtBuy: analysis.potentialUpsidePercent.toString(),
               isSwingTrade,
+            });
+            
+            // 📊 TRADE JOURNAL: Record entry for learning and pattern analysis
+            await storage.createTradeJournalEntry({
+              ownerWalletAddress,
+              buyTxSignature: result.signature,
+              tokenMint: token.mint,
+              tokenSymbol: token.symbol,
+              tokenName: token.name,
+              tradeMode: isSwingTrade ? "SWING" : "SCALP",
+              entryPriceSOL: token.priceSOL.toString(),
+              amountSOL: tradeAmount.toString(),
+              tokenAmount: tokensReceived.toString(),
+              aiConfidenceAtBuy: aiConfidence.toString(),
+              potentialUpsideAtBuy: analysis.potentialUpsidePercent.toString(),
+              organicScoreAtBuy: analysis.organicScore,
+              qualityScoreAtBuy: analysis.qualityScore,
+              liquidityUSDAtBuy: token.liquidityUSD?.toString(),
+              volumeUSD24hAtBuy: token.volumeUSD24h.toString(),
+              exitReason: "pending", // Will be updated on sell
+              wasSuccessful: false, // Will be updated on sell
+              entryAt: new Date(),
             });
             
             if (isSwingTrade) {
@@ -4266,6 +4310,68 @@ async function executeSellForPosition(
     });
 
     console.log(`[Position Monitor] 💼 Capital freed: ${amountSOL.toFixed(4)} SOL (available for new trades)`);
+
+    // 📊 TRADE JOURNAL: Update entry with exit data for pattern analysis
+    try {
+      // Find the journal entry by buy transaction signature
+      const journalEntries = await storage.getTradeJournalEntries(config.ownerWalletAddress);
+      const journalEntry = journalEntries.find(j => j.buyTxSignature === position.buyTxSignature && !j.exitAt);
+      
+      if (journalEntry) {
+        // Calculate hold duration
+        const entryTime = new Date(journalEntry.entryAt).getTime();
+        const exitTime = Date.now();
+        const holdDurationMinutes = Math.floor((exitTime - entryTime) / (1000 * 60));
+        
+        // Determine exit reason and success criteria
+        const wasSuccessful = profitPercent > 0;
+        const metProfitTarget = profitPercent >= 15; // Minimum profit target
+        const hitStopLoss = profitPercent <= -5; // Stop-loss threshold
+        
+        // Analyze failure reason if applicable
+        let failureReason: string | undefined;
+        if (!wasSuccessful) {
+          if (hitStopLoss) {
+            failureReason = "hit_stop_loss";
+          } else if (reason.includes("timeout") || holdDurationMinutes > 1440) {
+            failureReason = "max_hold_time_exceeded";
+          } else if (reason.includes("AI") || reason.includes("Hivemind")) {
+            failureReason = "ai_low_confidence";
+          } else {
+            failureReason = "market_downturn";
+          }
+        }
+        
+        // Extract token characteristics for pattern analysis
+        const tokenCharacteristics = JSON.stringify({
+          organicScore: journalEntry.organicScoreAtBuy,
+          qualityScore: journalEntry.qualityScoreAtBuy,
+          liquidityUSD: journalEntry.liquidityUSDAtBuy,
+          volumeUSD24h: journalEntry.volumeUSD24hAtBuy,
+          aiConfidence: journalEntry.aiConfidenceAtBuy,
+          tradeMode: journalEntry.tradeMode,
+        });
+        
+        await storage.updateTradeJournalEntry(journalEntry.id, {
+          sellTxSignature: signature,
+          exitPriceSOL: currentPrice.toString(),
+          profitLossSOL: profitSOL.toString(),
+          profitLossPercent: profitPercent.toString(),
+          holdDurationMinutes,
+          exitReason: reason.substring(0, 100), // First 100 chars of reason
+          wasSuccessful,
+          metProfitTarget,
+          hitStopLoss,
+          failureReason,
+          tokenCharacteristics,
+          exitAt: new Date(),
+        });
+        
+        console.log(`[Position Monitor] 📊 Trade Journal updated: ${wasSuccessful ? '✅ WIN' : '❌ LOSS'} (${profitPercent.toFixed(2)}%)`);
+      }
+    } catch (journalError) {
+      console.error(`[Position Monitor] ⚠️ Failed to update trade journal:`, journalError);
+    }
 
     // Delete position from database
     await storage.deleteAIBotPosition(position.id);

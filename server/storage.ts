@@ -8,6 +8,7 @@ import {
   aiBotPositions,
   hivemindStrategies,
   tokenBlacklist,
+  tradeJournal,
   type Project,
   type InsertProject,
   type Transaction,
@@ -26,6 +27,8 @@ import {
   type InsertHivemindStrategy,
   type TokenBlacklist,
   type InsertTokenBlacklist,
+  type TradeJournal,
+  type InsertTradeJournal,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -469,6 +472,108 @@ export class DatabaseStorage implements IStorage {
       .delete(tokenBlacklist)
       .where(eq(tokenBlacklist.tokenMint, tokenMint));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Trade Journal operations
+  async getTradeJournalEntries(ownerWalletAddress: string, limit?: number): Promise<TradeJournal[]> {
+    const query = db
+      .select()
+      .from(tradeJournal)
+      .where(eq(tradeJournal.ownerWalletAddress, ownerWalletAddress))
+      .orderBy(desc(tradeJournal.createdAt));
+    
+    if (limit) {
+      return query.limit(limit);
+    }
+    
+    return query;
+  }
+
+  async createTradeJournalEntry(entry: InsertTradeJournal): Promise<TradeJournal> {
+    const [created] = await db
+      .insert(tradeJournal)
+      .values(entry)
+      .returning();
+    return created;
+  }
+
+  async updateTradeJournalEntry(id: string, updates: Partial<InsertTradeJournal>): Promise<TradeJournal | undefined> {
+    const [updated] = await db
+      .update(tradeJournal)
+      .set(updates)
+      .where(eq(tradeJournal.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getTradePatterns(ownerWalletAddress: string): Promise<{
+    winRate: number;
+    avgProfit: number;
+    totalTrades: number;
+    commonFailureReasons: { reason: string; count: number }[];
+    bestTokenCharacteristics: any[];
+  }> {
+    // Get all completed trades (those with exit data)
+    const completedTrades = await db
+      .select()
+      .from(tradeJournal)
+      .where(eq(tradeJournal.ownerWalletAddress, ownerWalletAddress));
+    
+    const finished = completedTrades.filter(t => t.exitAt !== null);
+    
+    if (finished.length === 0) {
+      return {
+        winRate: 0,
+        avgProfit: 0,
+        totalTrades: 0,
+        commonFailureReasons: [],
+        bestTokenCharacteristics: [],
+      };
+    }
+    
+    // Calculate win rate
+    const wins = finished.filter(t => t.wasSuccessful).length;
+    const winRate = (wins / finished.length) * 100;
+    
+    // Calculate average profit (including losses)
+    const totalProfit = finished.reduce((sum, t) => {
+      const profit = parseFloat(t.profitLossPercent || "0");
+      return sum + profit;
+    }, 0);
+    const avgProfit = totalProfit / finished.length;
+    
+    // Find common failure reasons
+    const failureReasonMap = new Map<string, number>();
+    finished.filter(t => !t.wasSuccessful && t.failureReason).forEach(t => {
+      const reason = t.failureReason!;
+      failureReasonMap.set(reason, (failureReasonMap.get(reason) || 0) + 1);
+    });
+    
+    const commonFailureReasons = Array.from(failureReasonMap.entries())
+      .map(([reason, count]) => ({ reason, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5); // Top 5 failure reasons
+    
+    // Find characteristics of winning trades
+    const winningTrades = finished.filter(t => t.wasSuccessful);
+    const bestTokenCharacteristics = winningTrades
+      .filter(t => t.tokenCharacteristics)
+      .map(t => {
+        try {
+          return JSON.parse(t.tokenCharacteristics!);
+        } catch {
+          return null;
+        }
+      })
+      .filter(c => c !== null);
+    
+    return {
+      winRate,
+      avgProfit,
+      totalTrades: finished.length,
+      commonFailureReasons,
+      bestTokenCharacteristics,
+    };
   }
 }
 
