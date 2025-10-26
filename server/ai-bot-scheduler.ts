@@ -2122,26 +2122,30 @@ async function executeQuickTrade(
         });
         
         // 📊 TRADE JOURNAL: Record entry for learning and pattern analysis
-        await storage.createTradeJournalEntry({
-          ownerWalletAddress: config.ownerWalletAddress,
-          buyTxSignature: result.signature,
-          tokenMint: token.mint,
-          tokenSymbol: token.symbol,
-          tokenName: token.name,
-          tradeMode: isSwingTrade ? "SWING" : "SCALP",
-          entryPriceSOL: token.priceSOL.toString(),
-          amountSOL: tradeAmount.toString(),
-          tokenAmount: tokensReceived.toString(),
-          aiConfidenceAtBuy: aiConfidence.toString(),
-          potentialUpsideAtBuy: analysis.potentialUpsidePercent.toString(),
-          organicScoreAtBuy: analysis.organicScore,
-          qualityScoreAtBuy: analysis.qualityScore,
-          liquidityUSDAtBuy: token.liquidityUSD?.toString(),
-          volumeUSD24hAtBuy: token.volumeUSD24h.toString(),
-          exitReason: "pending", // Will be updated on sell
-          wasSuccessful: false, // Will be updated on sell
-          entryAt: new Date(),
-        });
+        try {
+          await storage.createTradeJournalEntry({
+            ownerWalletAddress: config.ownerWalletAddress,
+            buyTxSignature: result.signature,
+            tokenMint: token.mint,
+            tokenSymbol: token.symbol,
+            tokenName: token.name,
+            tradeMode: isSwingTrade ? "SWING" : "SCALP",
+            entryPriceSOL: token.priceSOL.toString(),
+            amountSOL: tradeAmount.toString(),
+            tokenAmount: tokensReceived.toString(),
+            aiConfidenceAtBuy: aiConfidence.toString(),
+            potentialUpsideAtBuy: analysis.potentialUpsidePercent.toString(),
+            organicScoreAtBuy: analysis.organicScore,
+            qualityScoreAtBuy: analysis.qualityScore,
+            liquidityUSDAtBuy: token.liquidityUSD?.toString(),
+            volumeUSD24hAtBuy: token.volumeUSD24h.toString(),
+            exitReason: "pending", // Will be updated on sell
+            wasSuccessful: false, // Will be updated on sell
+            entryAt: new Date(),
+          });
+        } catch (journalError) {
+          console.error(`[Quick Scan] ⚠️ Failed to create trade journal entry (non-critical):`, journalError);
+        }
         
         if (isSwingTrade) {
           console.log(`[Quick Scan] 🎯 SWING TRADE: High AI confidence (${aiConfidence}%) - using swing strategy for ${token.symbol}`);
@@ -3120,26 +3124,30 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
             });
             
             // 📊 TRADE JOURNAL: Record entry for learning and pattern analysis
-            await storage.createTradeJournalEntry({
-              ownerWalletAddress,
-              buyTxSignature: result.signature,
-              tokenMint: token.mint,
-              tokenSymbol: token.symbol,
-              tokenName: token.name,
-              tradeMode: isSwingTrade ? "SWING" : "SCALP",
-              entryPriceSOL: token.priceSOL.toString(),
-              amountSOL: tradeAmount.toString(),
-              tokenAmount: tokensReceived.toString(),
-              aiConfidenceAtBuy: aiConfidence.toString(),
-              potentialUpsideAtBuy: analysis.potentialUpsidePercent.toString(),
-              organicScoreAtBuy: analysis.organicScore,
-              qualityScoreAtBuy: analysis.qualityScore,
-              liquidityUSDAtBuy: token.liquidityUSD?.toString(),
-              volumeUSD24hAtBuy: token.volumeUSD24h.toString(),
-              exitReason: "pending", // Will be updated on sell
-              wasSuccessful: false, // Will be updated on sell
-              entryAt: new Date(),
-            });
+            try {
+              await storage.createTradeJournalEntry({
+                ownerWalletAddress,
+                buyTxSignature: result.signature,
+                tokenMint: token.mint,
+                tokenSymbol: token.symbol,
+                tokenName: token.name,
+                tradeMode: isSwingTrade ? "SWING" : "SCALP",
+                entryPriceSOL: token.priceSOL.toString(),
+                amountSOL: tradeAmount.toString(),
+                tokenAmount: tokensReceived.toString(),
+                aiConfidenceAtBuy: aiConfidence.toString(),
+                potentialUpsideAtBuy: analysis.potentialUpsidePercent.toString(),
+                organicScoreAtBuy: analysis.organicScore,
+                qualityScoreAtBuy: analysis.qualityScore,
+                liquidityUSDAtBuy: token.liquidityUSD?.toString(),
+                volumeUSD24hAtBuy: token.volumeUSD24h.toString(),
+                exitReason: "pending", // Will be updated on sell
+                wasSuccessful: false, // Will be updated on sell
+                entryAt: new Date(),
+              });
+            } catch (journalError) {
+              console.error(`[Deep Scan] ⚠️ Failed to create trade journal entry (non-critical):`, journalError);
+            }
             
             if (isSwingTrade) {
               addLog(`🎯 SWING TRADE: High AI confidence (${aiConfidence}%) - holding for bigger gains`, "success");
