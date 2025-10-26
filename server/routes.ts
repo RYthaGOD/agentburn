@@ -1035,11 +1035,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Check AI bot whitelist
-      const { AI_BOT_WHITELISTED_WALLETS } = await import("@shared/config");
-      if (!AI_BOT_WHITELISTED_WALLETS.includes(ownerWalletAddress)) {
+      // Check subscription/free trades access
+      const config = await storage.getAIBotConfig(ownerWalletAddress);
+      if (!config) {
+        return res.status(404).json({ message: "AI bot config not found" });
+      }
+
+      const { hasAIBotAccess, getAccessStatusMessage } = await import("./subscription-access");
+      const hasAccess = hasAIBotAccess({
+        freeTradesUsed: config.freeTradesUsed || 0,
+        subscriptionActive: config.subscriptionActive || false,
+        subscriptionExpiresAt: config.subscriptionExpiresAt || null,
+      });
+      
+      if (!hasAccess) {
+        const statusMessage = getAccessStatusMessage({
+          freeTradesUsed: config.freeTradesUsed || 0,
+          subscriptionActive: config.subscriptionActive || false,
+          subscriptionExpiresAt: config.subscriptionExpiresAt || null,
+        });
         return res.status(403).json({ 
-          message: "AI Trading Bot access restricted to whitelisted wallets only" 
+          message: `AI Trading Bot access denied: ${statusMessage.message}` 
         });
       }
 
@@ -1487,14 +1503,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Message expired. Please try again." });
       }
 
-      // Check AI bot whitelist (RESTRICTED FEATURE)
-      const { AI_BOT_WHITELISTED_WALLETS } = await import("@shared/config");
-      const isWhitelisted = AI_BOT_WHITELISTED_WALLETS.includes(ownerWalletAddress);
-      
-      if (!isWhitelisted) {
-        return res.status(403).json({ 
-          message: "AI Trading Bot access is restricted. Your wallet is not whitelisted for this feature." 
+      // Check subscription/free trades access
+      const existingConfig = await storage.getAIBotConfig(ownerWalletAddress);
+      if (existingConfig) {
+        const { hasAIBotAccess, getAccessStatusMessage } = await import("./subscription-access");
+        const hasAccess = hasAIBotAccess({
+          freeTradesUsed: existingConfig.freeTradesUsed || 0,
+          subscriptionActive: existingConfig.subscriptionActive || false,
+          subscriptionExpiresAt: existingConfig.subscriptionExpiresAt || null,
         });
+        
+        if (!hasAccess) {
+          const statusMessage = getAccessStatusMessage({
+            freeTradesUsed: existingConfig.freeTradesUsed || 0,
+            subscriptionActive: existingConfig.subscriptionActive || false,
+            subscriptionExpiresAt: existingConfig.subscriptionExpiresAt || null,
+          });
+          return res.status(403).json({ 
+            message: `AI Trading Bot access denied: ${statusMessage.message}` 
+          });
+        }
       }
 
       // Validate the private key format (Solana private keys are base58 encoded)

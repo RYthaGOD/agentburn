@@ -1118,25 +1118,29 @@ async function runStandaloneAIBots() {
 
     console.log(`[Standalone AI Bot Scheduler] Running for ${enabledConfigs.length} standalone AI bots`);
 
-    // Get AI bot whitelist
-    const { AI_BOT_WHITELISTED_WALLETS } = await import("@shared/config");
+    // Check subscription/free trades access for each bot
+    const { hasAIBotAccess } = await import("./subscription-access");
     
-    // Filter to only whitelisted wallets
-    const whitelistedConfigs = enabledConfigs.filter((c: any) => 
-      AI_BOT_WHITELISTED_WALLETS.includes(c.ownerWalletAddress)
+    // Filter to only bots with active access (free trades or subscription)
+    const accessibleConfigs = enabledConfigs.filter((c: any) => 
+      hasAIBotAccess({
+        freeTradesUsed: c.freeTradesUsed || 0,
+        subscriptionActive: c.subscriptionActive || false,
+        subscriptionExpiresAt: c.subscriptionExpiresAt || null,
+      })
     );
     
-    if (whitelistedConfigs.length === 0) {
-      console.log("[Standalone AI Bot Scheduler] No whitelisted wallets enabled for AI trading");
+    if (accessibleConfigs.length === 0) {
+      console.log("[Standalone AI Bot Scheduler] No bots with active access (free trades or subscription)");
       return;
     }
     
-    console.log(`[Standalone AI Bot Scheduler] ${whitelistedConfigs.length} whitelisted wallets active`);
+    console.log(`[Standalone AI Bot Scheduler] ${accessibleConfigs.length} bots with active access`);
 
     // Check and generate hivemind strategies for each bot before running deep scan
     const { shouldGenerateNewStrategy, generateHivemindStrategy, saveHivemindStrategy, getLatestStrategy } = await import("./hivemind-strategy");
     
-    for (const config of whitelistedConfigs) {
+    for (const config of accessibleConfigs) {
       const ownerWalletAddress = config.ownerWalletAddress;
       
       // Check if we need a new strategy
@@ -1160,8 +1164,8 @@ async function runStandaloneAIBots() {
       }
     }
 
-    // Run bots in parallel (with reasonable concurrency) - only whitelisted wallets
-    await Promise.all(whitelistedConfigs.map((c: any) => executeStandaloneAIBot(c.ownerWalletAddress)));
+    // Run bots in parallel (with reasonable concurrency) - only accessible wallets
+    await Promise.all(accessibleConfigs.map((c: any) => executeStandaloneAIBot(c.ownerWalletAddress)));
 
     console.log("[Standalone AI Bot Scheduler] All standalone bots completed");
   } catch (error) {
@@ -1190,23 +1194,27 @@ async function runQuickTechnicalScan() {
       return;
     }
     
-    // Get AI bot whitelist
-    const { AI_BOT_WHITELISTED_WALLETS } = await import("@shared/config");
+    // Check subscription/free trades access for each bot
+    const { hasAIBotAccess } = await import("./subscription-access");
     
-    // Filter to only whitelisted wallets
-    const whitelistedConfigs = enabledConfigs.filter((c: any) => 
-      AI_BOT_WHITELISTED_WALLETS.includes(c.ownerWalletAddress)
+    // Filter to only bots with active access (free trades or subscription)
+    const accessibleConfigs = enabledConfigs.filter((c: any) => 
+      hasAIBotAccess({
+        freeTradesUsed: c.freeTradesUsed || 0,
+        subscriptionActive: c.subscriptionActive || false,
+        subscriptionExpiresAt: c.subscriptionExpiresAt || null,
+      })
     );
     
-    if (whitelistedConfigs.length === 0) {
-      console.log("[Quick Scan] No whitelisted wallets enabled for AI trading");
+    if (accessibleConfigs.length === 0) {
+      console.log("[Quick Scan] No bots with active access (free trades or subscription)");
       return;
     }
     
     // Check if DeepSeek is available for fast AI analysis
     const hasDeepSeek = !!process.env.DEEPSEEK_API_KEY;
     
-    for (const config of whitelistedConfigs) {
+    for (const config of accessibleConfigs) {
       try {
         // Get or initialize bot state
         let botState = aiBotStates.get(config.ownerWalletAddress);
@@ -2060,18 +2068,25 @@ async function executeQuickTrade(
       
       console.log(`[Quick Scan] ✅ Received ${tokensReceived} tokens from swap`);
       
-      // Update budget tracking and cumulative platform fees
+      // Update budget tracking, cumulative platform fees, and free trades counter
       const budgetUsed = parseFloat(config.budgetUsed || "0");
       const totalSpent = tradeAmount; // Original amount before fee deduction
       const newBudgetUsed = budgetUsed + totalSpent;
       const currentFeesTotal = parseFloat(config.totalPlatformFeesPaid || "0");
       const newFeesTotal = currentFeesTotal + feeResult.feeDeducted;
       
+      // Increment free trades counter if user is on free tier
+      const freeTradesUsed = config.freeTradesUsed || 0;
+      const subscriptionActive = config.subscriptionActive || false;
+      const isUsingFreeTrade = freeTradesUsed < 20 && !subscriptionActive;
+      const newFreeTradesUsed = isUsingFreeTrade ? freeTradesUsed + 1 : freeTradesUsed;
+      
       await storage.createOrUpdateAIBotConfig({
         ownerWalletAddress: config.ownerWalletAddress,
         budgetUsed: newBudgetUsed.toString(),
         totalPlatformFeesPaid: newFeesTotal.toString(),
         isFeeExempt: feeResult.isExempt,
+        freeTradesUsed: newFreeTradesUsed,
       });
 
       // Record transaction with fee tracking
@@ -2577,19 +2592,28 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
   try {
     addLog(`[Standalone AI Bot] Running for wallet ${ownerWalletAddress}`, "info");
 
-    // Check AI bot whitelist (RESTRICTED FEATURE)
-    const { AI_BOT_WHITELISTED_WALLETS } = await import("@shared/config");
-    const isWhitelisted = AI_BOT_WHITELISTED_WALLETS.includes(ownerWalletAddress);
-    
-    if (!isWhitelisted) {
-      addLog(`[Standalone AI Bot] Access denied - wallet ${ownerWalletAddress} is not whitelisted for AI Trading Bot feature`, "error");
-      return logs;
-    }
-
     // Get AI bot config
     const config = await storage.getAIBotConfig(ownerWalletAddress);
     if (!config) {
       throw new Error("AI bot config not found");
+    }
+
+    // Check subscription/free trades access
+    const { hasAIBotAccess, getAccessStatusMessage } = await import("./subscription-access");
+    const hasAccess = hasAIBotAccess({
+      freeTradesUsed: config.freeTradesUsed || 0,
+      subscriptionActive: config.subscriptionActive || false,
+      subscriptionExpiresAt: config.subscriptionExpiresAt || null,
+    });
+    
+    if (!hasAccess) {
+      const statusMessage = getAccessStatusMessage({
+        freeTradesUsed: config.freeTradesUsed || 0,
+        subscriptionActive: config.subscriptionActive || false,
+        subscriptionExpiresAt: config.subscriptionExpiresAt || null,
+      });
+      addLog(`[Standalone AI Bot] Access denied - ${statusMessage.message}`, "error");
+      return logs;
     }
 
     // Check if AI bot is enabled - TRIGGER SYSTEM SHUTDOWN IF DISABLED
@@ -3084,18 +3108,25 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
           
           addLog(`✅ Received ${tokensReceived} tokens from swap`, "success");
           
-          // Update budget tracking, available balance, and cumulative platform fees
+          // Update budget tracking, available balance, cumulative platform fees, and free trades counter
           const totalSpent = tradeAmount; // Original amount before fee deduction
           const newBudgetUsed = budgetUsed + totalSpent;
           availableBalance -= totalSpent;
           const currentFeesTotal = parseFloat(config.totalPlatformFeesPaid || "0");
           const newFeesTotal = currentFeesTotal + feeResult.feeDeducted;
           
+          // Increment free trades counter if user is on free tier
+          const freeTradesUsed = config.freeTradesUsed || 0;
+          const subscriptionActive = config.subscriptionActive || false;
+          const isUsingFreeTrade = freeTradesUsed < 20 && !subscriptionActive;
+          const newFreeTradesUsed = isUsingFreeTrade ? freeTradesUsed + 1 : freeTradesUsed;
+          
           await storage.createOrUpdateAIBotConfig({
             ownerWalletAddress,
             budgetUsed: newBudgetUsed.toString(),
             totalPlatformFeesPaid: newFeesTotal.toString(),
             isFeeExempt: feeResult.isExempt,
+            freeTradesUsed: newFreeTradesUsed,
           });
           addLog(`💰 Budget updated: ${newBudgetUsed.toFixed(4)}/${totalBudget.toFixed(4)} SOL used (${availableBalance.toFixed(4)} SOL remaining)`, "info");
 
