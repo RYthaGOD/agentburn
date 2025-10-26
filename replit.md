@@ -1,7 +1,7 @@
 # BurnBot - Solana Token Buyback & Burn SaaS Platform
 
 ## Overview
-BurnBot is a SaaS platform for Solana SPL token creators, automating token buyback and burn operations. It offers a no-code solution with a dashboard, flexible scheduling, and transaction monitoring to enhance tokenomics through automated and verifiable burn mechanisms. The platform also includes a Volume Bot, a Buy Bot, and an independent AI Trading Bot. The AI Trading Bot scans trending tokens, analyzes them using a 7-model AI consensus system with automatic failover, and executes trades based on AI confidence and profit potential, featuring autonomous capital management, dynamic position sizing, and intelligent bundle activity detection to avoid pump-and-dump schemes.
+BurnBot is a SaaS platform designed for Solana SPL token creators to automate token buyback and burn operations. It offers a no-code solution with a dashboard, flexible scheduling, and transaction monitoring to enhance tokenomics through automated and verifiable burn mechanisms. The platform also includes a Volume Bot, a Buy Bot, and a standalone AI Trading Bot. The AI Trading Bot uses a 7-model AI consensus system with automatic failover to scan and analyze trending tokens, executing trades based on AI confidence and profit potential. It features autonomous capital management, dynamic position sizing, and intelligent bundle activity detection to avoid pump-and-dump schemes.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,7 +9,7 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend
-Built with React 18+, TypeScript, and Vite, utilizing Wouter for routing, shadcn/ui (New York variant) on Radix UI primitives, and Tailwind CSS for dark mode. TanStack Query manages server state, and React Hook Form with Zod handles form validation. The design features a "Fire/Molten" theme.
+Built with React 18+, TypeScript, and Vite, using Wouter for routing, shadcn/ui (New York variant) on Radix UI primitives, and Tailwind CSS for dark mode. TanStack Query manages server state, and React Hook Form with Zod handles form validation. The design follows a "Fire/Molten" theme.
 
 ### Backend
 An Express.js server in TypeScript using an ESM module system, a RESTful API, centralized error handling, Zod schema validation, a storage abstraction layer, and a repository pattern for database operations.
@@ -19,101 +19,61 @@ A dedicated scheduler service automates buyback execution using `node-cron`, han
 
 ### Trading Bot System
 
-#### Volume Bot & Buy Bot (Project-Linked)
+#### Project-Linked Bots (Volume Bot & Buy Bot)
 - **Volume Bot:** Configurable buy/sell cycles with settings for amounts, percentages, intervals, and price guards.
 - **Buy Bot (Limit Orders):** Executes buy orders based on target SOL prices with configurable limits and slippage protection.
 
 #### AI Trading Bot (Standalone)
-This bot operates independently with configurations stored in a dedicated `aiBotConfigs` table. It employs a "hive mind" system where 7 AI models vote on trades with automatic failover, restricted to whitelisted wallets.
+This bot operates independently, utilizing a "hive mind" system where 7 AI models vote on trades with automatic failover, restricted to whitelisted wallets.
 
 **Autonomous Capital Management:**
-- Maintains 10% liquidity reserve for capital growth (90% max deployment) with dynamic fee buffer scaling by portfolio size.
-- Strict percentage-based position sizing (3-6% for SCALP, 5-9% for SWING) with a 0.01 SOL minimum for small portfolios and strict caps for larger portfolios.
-- Dynamic allocation based on market conditions via hivemind strategy that regenerates every 3 hours, adjusting position sizes, confidence thresholds, and risk parameters based on market sentiment (bullish/bearish/neutral/volatile) and recent performance.
-- AI-driven exits with no fixed profit targets, requiring a minimum 75% AI confidence.
-- **STRICT quality filters (Win Rate Optimized):** 80%+ organic score, 70%+ quality score, $25k+ volume, $20k+ liquidity, 24h+ token age, 100+ estimated holders.
+- Maintains 10% liquidity reserve.
+- Strict percentage-based position sizing (3-6% for SCALP, 5-9% for SWING) with dynamic allocation based on market conditions.
+- AI-driven exits require a minimum 75% AI confidence.
+- Strict quality filters: 80%+ organic score, 70%+ quality score, $25k+ volume, $20k+ liquidity, 24h+ token age, 100+ estimated holders.
 - Portfolio diversification with a 25% maximum concentration limit per position.
-- **OPTIMIZED stop-loss protection (Profitability Balanced):** -8% to -12% for SCALP, -15% to -25% for SWING trades.
-- Portfolio Drawdown Circuit Breaker pauses trading if portfolio drops >20% from peak, resuming at -15%.
-- Optimized exit threshold: AI sell confidence at 45% (balanced for capturing bigger moves while protecting capital).
+- Optimized stop-loss protection (-8% to -12% for SCALP, -15% to -25% for SWING trades).
+- Portfolio Drawdown Circuit Breaker pauses trading if portfolio drops >20% from peak.
+- AI sell confidence exit threshold at 45%.
 
-**Token Discovery:**
-- Aggregates tokens from DexScreener Trending, PumpFun-style tokens via DexScreener, newly migrated PumpFun to PumpSwap tokens, and low-cap new launches, totaling ~80 tokens per scan.
+**Token Discovery:** Aggregates tokens from DexScreener Trending, PumpFun-style tokens, newly migrated PumpFun to PumpSwap tokens, and low-cap new launches.
 
-**Full Hivemind AI Workflow (All 7 Models for Maximum Accuracy):**
-- **Position Monitoring:** Every 1.5 minutes using all 7 AI models in parallel for consensus on sell decisions. SELL if majority (>50%) vote SELL with >=50% avg confidence OR any single model has >=75% confidence.
-- **Quick Technical Scans:** Every 2 minutes using all 7 AI models in parallel for scalp trades (62-79% AI confidence). Multiple model consensus provides superior accuracy over dual-model approach.
-- **Deep Scans:** Every 15 minutes using the full 7-model hivemind for high-confidence swing opportunities (75%+ AI confidence).
-- **Automatic Portfolio Rebalancing:** Every 30 minutes using full 7-model hivemind analysis for optimal sell recommendations.
-- **AI-Powered Strategy Learning:** Every 3 hours, the full 7-model hivemind analyzes recent trading performance (win rate, avg profit, trade count) and intelligently optimizes strategy parameters instead of using rule-based logic. AI continuously learns and improves based on actual performance. Manual regeneration available via dashboard for immediate recalibration.
-- **Trade Journal & Pattern Analysis:** Comprehensive trade lifecycle tracking from entry to exit with automated pattern recognition.
-  - **Complete Trade Recording:** Every trade captures entry price, AI confidence, market conditions (organic/quality scores, liquidity, volume), exit price, profit/loss, hold duration, and exit reason.
-  - **Failure Reason Classification:** Automatic categorization of losses (stop-loss, timeout, AI low confidence, market downturn) to identify recurring mistakes.
-  - **Winning Pattern Identification:** Analyzes characteristics of profitable trades (avg organic/quality scores, liquidity thresholds, volume levels) to refine entry filters.
-  - **AI Integration:** Pattern analysis data feeds directly into strategy regeneration, enabling AI to learn from past failures and focus on proven winning characteristics.
-  - **Performance Optimization:** Database index on buyTxSignature ensures fast journal lookups during sell execution. Journal writes wrapped in try/catch to prevent trade interruption on DB errors.
-  - **API Endpoints:** `/api/ai-bot/trade-journal/:ownerWalletAddress` and `/api/ai-bot/trade-patterns/:ownerWalletAddress` for accessing trade history and analytics.
-- **Hivemind Benefits:** All 7 models (OpenAI, OpenAI #2, DeepSeek, DeepSeek #2, Cerebras, Google Gemini, Groq) run in parallel for ALL decisions, providing superior accuracy through majority voting. When models agree, confidence is averaged. When models disagree, higher-confidence model prevails.
-- **Redundancy & Failover:** Built-in redundancy with 7 models ensures high availability. System continues operating even if some models fail. Graceful fallback to rule-based strategy if AI fails, then to conservative defaults.
+**Smart Hivemind AI Workflow:**
+- **Position Monitoring:** Every 3 minutes using DeepSeek for sell decisions.
+- **Quick Technical Scans:** Every 2 minutes using 4 highest-priority AI models for scalp trades (62-79% AI confidence).
+- **Deep Scans:** Every 15 minutes using the full 10-model hivemind for high-confidence swing opportunities (75%+ AI confidence).
+- **Automatic Portfolio Rebalancing:** Every 30 minutes using full hivemind analysis.
+- **AI-Powered Strategy Learning:** Every 3 hours, the full hivemind analyzes recent trading performance to optimize strategy parameters.
+- **Trade Journal & Pattern Analysis:** Tracks complete trade lifecycle, categorizes losses, identifies winning patterns, and integrates data into strategy regeneration.
+- **10-Model Hivemind System:** DeepSeek, DeepSeek #2, Together AI, OpenRouter, Groq, Cerebras, Google Gemini, ChatAnywhere, OpenAI, OpenAI #2. Models run in parallel with majority voting.
+- **Smart Model Prioritization:** 3-tier priority system (free reliable, free with limits, paid) to optimize cost/performance.
+- **Circuit Breaker Protection:** Disables failing models for 5 minutes after 3 consecutive failures.
+- **Tiered AI Usage:** Quick scans use 4 models; deep scans use the full hivemind.
+- **Redundancy & Failover:** Built-in redundancy with 10 models and graceful fallback to rule-based strategies.
 
-**Dual-Mode Trading Strategy (Profitability Optimized):**
-- **SCALP Mode (62-79% AI confidence):** 3-6% of portfolio, max 30-minute hold, **-8% to -12% stop-loss** (OPTIMIZED for volatile PumpFun tokens), +4-8% profit targets.
-- **SWING Mode (80%+ AI confidence):** 5-9% of portfolio, max 24-hour hold, **-15% to -25% stop-loss**, +15% minimum profit target.
+**Dual-Mode Trading Strategy:**
+- **SCALP Mode (62-79% AI confidence):** 3-6% of portfolio, max 30-minute hold, -8% to -12% stop-loss, +4-8% profit targets.
+- **SWING Mode (80%+ AI confidence):** 5-9% of portfolio, max 24-hour hold, -15% to -25% stop-loss, +15% minimum profit target.
 
-**Sell Decision Framework:**
-- AI continuously monitors positions. Deep scan analysis and automatic portfolio rebalancing provide ongoing evaluation and sell recommendations.
-- **Automatic Stop-Loss Override (OPTIMIZED):** -8% to -12% for SCALP, -15% to -25% for SWING.
-- Exit Criteria: AI confidence drops below 45%, profit target hit, or max hold time reached.
+**Sell Decision Framework:** AI continuously monitors positions, with automatic stop-loss override and exit criteria based on AI confidence, profit target, or max hold time.
 
-**Opportunistic Position Rotation:**
-- Automatically sells weaker positions first to free capital, then buys better opportunities when wallet balance is insufficient.
-- Rotation Criteria: New opportunity must have 10%+ higher AI confidence (lowered from 25% for more flexibility) or cut a loss to capture a good opportunity (70%+ confidence). Prioritizes selling big losses or small profits.
-- Emergency Rotation: When wallet depleted (<0.01 SOL), forces rotation of weakest position regardless of confidence improvement to maintain trading capability.
-- MAX Portfolio Allocation: Maintains 10% liquidity reserve by capping deployment at 90% of total capital to enable continuous trading for capital growth.
-- Dynamic Fee Buffer: Scales with portfolio size (3% for small, 5% for medium, 7.5% for large portfolios) instead of fixed 0.03 SOL.
+**Opportunistic Position Rotation:** Automatically sells weaker positions to free capital for better opportunities based on AI confidence. Includes emergency rotation for depleted wallets and maintains a 10% liquidity reserve.
 
-**Portfolio-Wide Risk Management:**
-- Tracks all-time portfolio peak value, pauses trading at -20% drawdown, resumes at -15% recovery. Includes multi-layer protection.
+**Portfolio-Wide Risk Management:** Tracks all-time portfolio peak value, pauses trading at -20% drawdown, resumes at -15% recovery.
 
-**Automatic Buyback & Burn Mechanism:**
-- Configurable automatic buyback of a specified token (e.g., FQptMsS3tnyPbK68rTZm3n3R4NHBX5r9edshyyvxpump) using a percentage of profits (default 5%) from successful trades.
-- Purchased tokens are immediately burned using SPL Token's burn instruction, reducing circulating supply.
-- Full transparency with on-chain transaction records and configurable via dashboard.
+**Automatic Buyback & Burn Mechanism:** Configurable automatic buyback of specified tokens using a percentage of profits (default 5%) from successful trades, with immediate on-chain burning.
 
-**Memory Management System:**
-- Automated hourly cleanup prevents memory leaks by removing inactive bot states and purging expired cache entries. Optimized activity log handling.
+**Memory Management System:** Automated hourly cleanup of inactive bot states, expired cache entries, and optimized activity log handling.
 
-**System Stability & Error Handling:**
-- Global error handlers for unhandledRejection and uncaughtException, graceful shutdown sequence, and timeout protection.
-- Route error isolation, automatic restart by Replit, resource cleanup, and auto-shutdown when AI bot is disabled.
+**System Stability & Error Handling:** Global error handlers, graceful shutdown, timeout protection, route error isolation, and automatic restart by Replit.
 
-**Performance Optimizations:**
-- Eliminated Jupiter Balances API dependency, improved portfolio calculation with accurate token decimals, reduced error logging, and enhanced position tracking.
-- All broken PumpFun API endpoints replaced with DexScreener alternatives.
-- Speed optimizations for quick scans (2min), position monitoring (1.5min), and strategy updates (3hr).
+**Performance Optimizations:** Eliminated Jupiter Balances API, improved portfolio calculations, reduced error logging, enhanced position tracking, and replaced broken PumpFun API endpoints with DexScreener. Optimized speed for scans and strategy updates.
 
-**Automatic Wallet Synchronization:**
-- Runs every 5 minutes to ensure database positions match actual Solana blockchain holdings.
-- Reconciles wallet holdings with database, removing stale positions, updating token amounts, and preserving precision.
-- Automatic reconciliation on bot initialization ensures a clean starting state.
+**Automatic Wallet Synchronization:** Runs every 5 minutes to reconcile database positions with actual Solana blockchain holdings.
 
-**Automatic Database Cleanup:**
-- Runs daily at 3:00 AM plus on startup to prevent long-term database bloat.
-- Removes expired replay-attack prevention signatures (5-minute TTL).
-- Removes expired hivemind AI strategies (3-hour validity period).
-- Removes old failed transactions (>7 days retention).
-- Removes old completed transactions (>90 days audit trail retention).
-- Error handling ensures cleanup failures don't disrupt other services.
+**Automatic Database Cleanup:** Runs daily at 3:00 AM and on startup to remove expired replay-attack prevention signatures, hivemind AI strategies, and old failed/completed transactions.
 
-**Bundle Activity Detection & Token Blacklist:**
-- Automated detection system analyzes tokens for coordinated pump-and-dump schemes before AI analysis.
-- Analyzes 6 suspicious signals: low organic score (<70%), low quality score (<60%), skewed buy/sell ratio (>65% buys), volume manipulation (ratio >10), new token pumps (<24h old with >100% gain), extreme volatility (>200% in 24h).
-- Scoring system: 0-100 (60-84 = suspicious warning, 85+ = critical auto-blacklist).
-- Auto-blacklists critical tokens (≥85 score) with metadata: bundle score, suspicious wallet count, average time between transactions.
-- Tokens with 60-84 score trigger warnings but still proceed to AI analysis.
-- Dashboard UI for viewing/managing blacklisted tokens with filtering and manual add/remove capabilities.
-- Prevents capital loss by filtering obvious scams before expensive AI analysis.
-- Learning system that remembers problematic tokens across sessions.
+**Bundle Activity Detection & Token Blacklist:** Automated system analyzes tokens for pump-and-dump schemes before AI analysis. It scores tokens based on 6 suspicious signals, auto-blacklisting critical tokens (≥85 score) and providing warnings for suspicious ones (60-84 score).
 
 ### Data Storage
 PostgreSQL via Neon's serverless driver and Drizzle ORM. Uses UUID primary keys, decimal types for balances, and automatic timestamps.
@@ -133,8 +93,11 @@ A 0.5% transaction fee applies after the first 60 free transactions per project,
 ## External Dependencies
 
 **Blockchain Integration:**
-- Solana Web3.js, SPL Token program
-- @solana/wallet-adapter suite, bs58, tweetnacl
+- Solana Web3.js
+- SPL Token program
+- @solana/wallet-adapter suite
+- bs58
+- tweetnacl
 
 **Payment Processing:**
 - Solana-native payments (SOL only) to treasury wallet `jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38`.
