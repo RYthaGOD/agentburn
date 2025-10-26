@@ -1305,13 +1305,16 @@ async function runQuickTechnicalScan() {
               console.log(`[Quick Scan] Reasons: ${bundleResult.reasons.join(', ')}`);
             }
             
-            // Quick DeepSeek-only analysis for high confidence trades
+            // Full hivemind analysis for all trading decisions (7-model consensus)
             const riskTolerance = riskLevel === "aggressive" ? "high" : riskLevel === "conservative" ? "low" : "medium";
-            const quickAnalysis = await analyzeTokenWithDeepSeekOnly(
+            const hiveMindResult = await analyzeTokenWithHiveMind(
               token,
               riskTolerance,
-              budgetPerTrade
+              budgetPerTrade,
+              0.5, // 50% agreement threshold
+              { isPeakHours: false, isHighConfidence: false } // Quick scans use all available models
             );
+            const quickAnalysis = hiveMindResult.analysis;
 
             // DUAL-MODE SYSTEM: SCALP (62%+) or SWING (75%+) thresholds
             const SCALP_THRESHOLD = 0.62; // Mode A: Quick micro-profits
