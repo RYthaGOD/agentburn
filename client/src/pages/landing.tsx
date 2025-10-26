@@ -118,47 +118,149 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Pricing & Access */}
-      <section className="py-12 bg-gradient-to-br from-green-500/10 to-primary/10 border-y border-green-500/20">
-        <div className="container mx-auto px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-6">Simple, Transparent Pricing</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <Card className="bg-background/80 backdrop-blur">
-              <CardContent className="pt-6">
-                <Badge variant="outline" className="mb-3 bg-green-500/10 border-green-500/30 text-green-500">
-                  Always Free
+      {/* Subscription Pricing */}
+      <section className="py-16 bg-gradient-to-br from-primary/10 to-background border-y">
+        <div className="container mx-auto px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4">Simple, Transparent Pricing</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Start free, upgrade when ready. Pay with SOL, no credit card required.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {/* Free Trial Card */}
+            <Card className="border-2 border-green-500/30 bg-gradient-to-br from-green-500/10 to-background relative">
+              <CardHeader className="pb-4">
+                <Badge className="w-fit bg-green-500/20 border-green-500/40 text-green-500 mb-2">
+                  Start Free
                 </Badge>
-                <h3 className="font-semibold mb-2">Token Analyzer</h3>
-                <p className="text-sm text-muted-foreground">
-                  Unlimited AI analysis on any token. No wallet, no signup required.
-                </p>
+                <CardTitle className="text-3xl">10 Free Trades</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="text-4xl font-bold mb-2">
+                    <span className="text-green-500">FREE</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">No payment required</p>
+                </div>
+                
+                <div className="space-y-3 pt-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">10 AI-powered trades</p>
+                      <p className="text-sm text-muted-foreground">Full access to all features</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">10-model hivemind AI</p>
+                      <p className="text-sm text-muted-foreground">Same AI system as paid users</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">1% trading fee applies</p>
+                      <p className="text-sm text-muted-foreground">Standard platform fee</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Link href="/dashboard">
+                  <Button size="lg" className="w-full mt-4" data-testid="button-start-free">
+                    Start Free Trial
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
-            <Card className="bg-background/80 backdrop-blur">
-              <CardContent className="pt-6">
-                <Badge variant="outline" className="mb-3 bg-green-500/10 border-green-500/30 text-green-500">
-                  Always Free
+
+            {/* Subscription Card */}
+            <Card className="border-2 border-primary bg-gradient-to-br from-primary/20 to-background relative">
+              <CardHeader className="pb-4">
+                <Badge className="w-fit bg-primary/30 border-primary text-primary mb-2">
+                  Unlimited Access
                 </Badge>
-                <h3 className="font-semibold mb-2">Live Stats Dashboard</h3>
-                <p className="text-sm text-muted-foreground">
-                  Real-time performance data. See how GigaBrain trades.
-                </p>
+                <CardTitle className="text-3xl">2-Week Subscription</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="text-4xl font-bold mb-2 flex items-baseline gap-2">
+                    <span className="text-primary">0.15 SOL</span>
+                    <span className="text-lg font-normal text-muted-foreground">/ 2 weeks</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Unlimited trades for 14 days</p>
+                </div>
+                
+                <div className="space-y-3 pt-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Unlimited AI trades</p>
+                      <p className="text-sm text-muted-foreground">Trade 24/7 for 2 full weeks</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Full hivemind AI access</p>
+                      <p className="text-sm text-muted-foreground">All 10 AI models working for you</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Auto portfolio rebalancing</p>
+                      <p className="text-sm text-muted-foreground">AI optimizes positions every 30min</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">1% trading fee applies</p>
+                      <p className="text-sm text-muted-foreground">Same low platform fee</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/50 rounded-md p-3 mt-4">
+                  <p className="text-xs text-muted-foreground text-center">
+                    Payment via Solana blockchain • Instant activation
+                  </p>
+                </div>
               </CardContent>
             </Card>
-            <Card className="bg-background/80 backdrop-blur">
-              <CardContent className="pt-6">
-                <Badge variant="outline" className="mb-3 bg-primary/20 border-primary/40 text-primary">
-                  10 Free Trades
-                </Badge>
-                <h3 className="font-semibold mb-2">AI Trading</h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Try 10 trades free. Then 0.15 SOL for 2 weeks unlimited access.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  + 1% fee per trade (always applied)
-                </p>
-              </CardContent>
-            </Card>
+          </div>
+
+          {/* Additional Free Tools */}
+          <div className="mt-12 pt-12 border-t">
+            <h3 className="text-2xl font-bold text-center mb-8">Always Free Tools</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+              <Card className="bg-background/80 backdrop-blur">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Search className="h-6 w-6 text-blue-500" />
+                    <h3 className="font-semibold">Token Analyzer</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Unlimited AI analysis on any token. No wallet, no signup required.
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="bg-background/80 backdrop-blur">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <TrendingUp className="h-6 w-6 text-green-500" />
+                    <h3 className="font-semibold">Live Stats Dashboard</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Real-time performance data. See how GigaBrain trades in real-time.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </section>
@@ -279,7 +381,7 @@ export default function Landing() {
             </Link>
           </div>
           <p className="text-sm text-muted-foreground mt-4">
-            Then just 1% per trade • No monthly fees • No credit card
+            After 10 free trades, continue for 0.15 SOL per 2 weeks • 1% fee per trade
           </p>
         </div>
       </section>
