@@ -1439,14 +1439,19 @@ Respond ONLY with valid JSON:
   "riskLevel": "low" | "medium" | "high"
 }`;
 
-  // DUAL-MODEL CONSENSUS: Run OpenAI + DeepSeek 2 in parallel
-  const primaryModels = [
+  // FULL HIVEMIND CONSENSUS: Run all 7 AI models in parallel for maximum accuracy
+  const allModels = [
     { name: "OpenAI", baseURL: "https://api.openai.com/v1", apiKey: process.env.OPENAI_API_KEY, model: "gpt-4o-mini" },
+    { name: "OpenAI #2", baseURL: "https://api.openai.com/v1", apiKey: process.env.OPENAI_API_KEY_2, model: "gpt-4o-mini" },
+    { name: "DeepSeek", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY, model: "deepseek-chat" },
     { name: "DeepSeek #2", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY_2, model: "deepseek-chat" },
-  ];
+    { name: "Cerebras", baseURL: "https://api.cerebras.ai/v1", apiKey: process.env.CEREBRAS_API_KEY, model: "llama3.1-70b" },
+    { name: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", apiKey: process.env.GOOGLE_AI_KEY, model: "gemini-1.5-flash" },
+    { name: "Groq", baseURL: "https://api.groq.com/openai/v1", apiKey: process.env.GROQ_API_KEY, model: "llama-3.3-70b-versatile" },
+  ].filter(m => m.apiKey); // Only use models with API keys configured
 
   const results = await Promise.allSettled(
-    primaryModels.map(async (provider) => {
+    allModels.map(async (provider) => {
       if (!provider.apiKey) throw new Error(`${provider.name} API key not configured`);
 
       const client = new OpenAI({
@@ -4034,14 +4039,19 @@ Respond ONLY with valid JSON:
   "reasoning": "brief explanation"
 }`;
 
-  // DUAL-MODEL CONSENSUS: Run OpenAI + DeepSeek 2 in parallel
-  const primaryModels = [
+  // FULL HIVEMIND CONSENSUS: Run all 7 AI models in parallel for maximum accuracy
+  const allModels = [
     { name: "OpenAI", baseURL: "https://api.openai.com/v1", apiKey: process.env.OPENAI_API_KEY, model: "gpt-4o-mini" },
+    { name: "OpenAI #2", baseURL: "https://api.openai.com/v1", apiKey: process.env.OPENAI_API_KEY_2, model: "gpt-4o-mini" },
+    { name: "DeepSeek", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY, model: "deepseek-chat" },
     { name: "DeepSeek #2", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY_2, model: "deepseek-chat" },
-  ];
+    { name: "Cerebras", baseURL: "https://api.cerebras.ai/v1", apiKey: process.env.CEREBRAS_API_KEY, model: "llama3.1-70b" },
+    { name: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", apiKey: process.env.GOOGLE_AI_KEY, model: "gemini-1.5-flash" },
+    { name: "Groq", baseURL: "https://api.groq.com/openai/v1", apiKey: process.env.GROQ_API_KEY, model: "llama-3.3-70b-versatile" },
+  ].filter(m => m.apiKey); // Only use models with API keys configured
 
   const results = await Promise.allSettled(
-    primaryModels.map(async (provider) => {
+    allModels.map(async (provider) => {
       if (!provider.apiKey) throw new Error(`${provider.name} API key not configured`);
 
       const client = new OpenAI({
@@ -4076,37 +4086,41 @@ Respond ONLY with valid JSON:
     .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled")
     .map(r => r.value);
 
-  // If we have dual-model consensus, combine them
-  if (successful.length === 2) {
-    const [openai, deepseek] = successful;
+  // FULL HIVEMIND CONSENSUS: Use all successful models for decision
+  if (successful.length >= 2) {
+    console.log(`[Position Monitor] ✅ Hivemind Consensus for ${position.tokenSymbol} (${successful.length} models):`);
     
-    console.log(`[Position Monitor] ✅ Dual-Model Consensus for ${position.tokenSymbol}:`);
-    console.log(`[Position Monitor]    OpenAI: ${openai.analysis.action} (${openai.analysis.confidence}% confidence)`);
-    console.log(`[Position Monitor]    DeepSeek #2: ${deepseek.analysis.action} (${deepseek.analysis.confidence}% confidence)`);
+    // Show all model votes
+    successful.forEach(model => {
+      console.log(`[Position Monitor]    ${model.provider}: ${model.analysis.action} (${model.analysis.confidence}% confidence)`);
+    });
 
-    // Average confidence from both models
-    const avgConfidence = (openai.analysis.confidence + deepseek.analysis.confidence) / 2;
+    // Count SELL votes and calculate average confidence
+    const sellVotes = successful.filter(m => m.analysis.action === "SELL");
+    const avgConfidence = successful.reduce((sum, m) => sum + m.analysis.confidence, 0) / successful.length;
+    const sellPercentage = (sellVotes.length / successful.length) * 100;
     
-    // Both agree on SELL → strong signal
-    const bothAgreeOnSell = openai.analysis.action === "SELL" && deepseek.analysis.action === "SELL";
+    // SELL if majority (>50%) vote SELL with reasonable avg confidence (>=50%)
+    const majorityVotesSell = sellPercentage > 50;
+    const hasReasonableConfidence = avgConfidence >= 50;
     
-    // At least one says SELL with high confidence
-    const oneSaysHighConfidenceSell = 
-      (openai.analysis.action === "SELL" && openai.analysis.confidence >= 70) ||
-      (deepseek.analysis.action === "SELL" && deepseek.analysis.confidence >= 70);
+    // Or SELL if any single model has very high confidence (>=75%) regardless of others
+    const hasHighConfidenceSell = sellVotes.some(m => m.analysis.confidence >= 75);
 
-    if (bothAgreeOnSell && avgConfidence >= 60) {
-      console.log(`[Position Monitor] ✅ Dual consensus: SELL with ${avgConfidence.toFixed(0)}% avg confidence → executing...`);
-      logActivity('position_monitor', 'ai_thought', `🧠 Dual AI: ${position.tokenSymbol} → SELL (${avgConfidence.toFixed(0)}%)`);
-      await executeSellForPosition(config, position, treasuryKeyBase58, `Dual AI Consensus: ${avgConfidence.toFixed(0)}% confidence - OpenAI: ${openai.analysis.reasoning.substring(0, 50)}...`);
-    } else if (oneSaysHighConfidenceSell) {
-      const sellModel = openai.analysis.action === "SELL" && openai.analysis.confidence >= 70 ? openai : deepseek;
-      console.log(`[Position Monitor] ✅ ${sellModel.provider} high-confidence SELL (${sellModel.analysis.confidence}%) → executing...`);
-      logActivity('position_monitor', 'ai_thought', `🧠 ${sellModel.provider}: ${position.tokenSymbol} → SELL (${sellModel.analysis.confidence}%)`);
-      await executeSellForPosition(config, position, treasuryKeyBase58, `${sellModel.provider}: ${sellModel.analysis.reasoning} (${sellModel.analysis.confidence}% confidence)`);
+    if (majorityVotesSell && hasReasonableConfidence) {
+      console.log(`[Position Monitor] ✅ Hivemind consensus: ${sellVotes.length}/${successful.length} models vote SELL (${sellPercentage.toFixed(0)}%), avg confidence ${avgConfidence.toFixed(0)}% → executing...`);
+      logActivity('position_monitor', 'ai_thought', `🧠 Hivemind (${sellVotes.length}/${successful.length}): ${position.tokenSymbol} → SELL (${avgConfidence.toFixed(0)}%)`);
+      const topModels = successful.slice(0, 2).map(m => `${m.provider}: ${m.analysis.reasoning.substring(0, 30)}`).join('; ');
+      await executeSellForPosition(config, position, treasuryKeyBase58, `Hivemind Consensus: ${sellVotes.length}/${successful.length} vote SELL, ${avgConfidence.toFixed(0)}% avg confidence. ${topModels}...`);
+    } else if (hasHighConfidenceSell) {
+      const highConfModel = sellVotes.find(m => m.analysis.confidence >= 75)!;
+      console.log(`[Position Monitor] ✅ ${highConfModel.provider} high-confidence SELL (${highConfModel.analysis.confidence}%) → executing despite mixed votes...`);
+      logActivity('position_monitor', 'ai_thought', `🧠 ${highConfModel.provider}: ${position.tokenSymbol} → SELL (${highConfModel.analysis.confidence}%)`);
+      await executeSellForPosition(config, position, treasuryKeyBase58, `${highConfModel.provider}: ${highConfModel.analysis.reasoning} (${highConfModel.analysis.confidence}% high confidence)`);
     } else {
-      console.log(`[Position Monitor] ⏸️ Models don't agree on strong SELL → HOLDING (OpenAI: ${openai.analysis.action} ${openai.analysis.confidence}%, DeepSeek: ${deepseek.analysis.action} ${deepseek.analysis.confidence}%)`);
-      logActivity('position_monitor', 'ai_thought', `🧠 Dual AI: ${position.tokenSymbol} → HOLD (models disagree or low confidence)`);
+      const actions = successful.map(m => `${m.provider}: ${m.analysis.action} ${m.analysis.confidence}%`).join(', ');
+      console.log(`[Position Monitor] ⏸️ Hivemind: No strong consensus to SELL → HOLDING (${actions})`);
+      logActivity('position_monitor', 'ai_thought', `🧠 Hivemind: ${position.tokenSymbol} → HOLD (${sellVotes.length}/${successful.length} sell votes, ${avgConfidence.toFixed(0)}% avg confidence)`);
     }
     return;
   }
@@ -4127,38 +4141,8 @@ Respond ONLY with valid JSON:
     return;
   }
 
-  // If both primary models failed, try backups
-  console.warn(`[Position Monitor] ⚠️ Primary models failed for ${position.tokenSymbol}, trying backups...`);
-  
-  if (process.env.DEEPSEEK_API_KEY) {
-    try {
-      const deepSeekClient = new OpenAI({
-        baseURL: "https://api.deepseek.com",
-        apiKey: process.env.DEEPSEEK_API_KEY,
-      });
-
-      const response = await deepSeekClient.chat.completions.create({
-        model: "deepseek-chat",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.4,
-        max_tokens: 300,
-      });
-
-      const content = response.choices[0]?.message?.content || "{}";
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : { action: "HOLD", confidence: 0, reasoning: "Parse error" };
-
-      console.log(`[Position Monitor] 🧠 DeepSeek (backup): ${position.tokenSymbol} → ${analysis.action} (${analysis.confidence}% confidence)`);
-
-      if (analysis.action === "SELL" && analysis.confidence >= 60) {
-        console.log(`[Position Monitor] ✅ DeepSeek backup recommends SELL with ${analysis.confidence}% confidence → executing...`);
-        await executeSellForPosition(config, position, treasuryKeyBase58, `DeepSeek: ${analysis.reasoning} (${analysis.confidence}% confidence)`);
-      }
-      return;
-    } catch (error) {
-      console.error(`[Position Monitor] All AI providers failed for ${position.tokenSymbol}:`, error);
-    }
-  }
+  // If all models failed
+  console.error(`[Position Monitor] ⚠️ All ${allModels.length} AI models failed for ${position.tokenSymbol} - cannot make decision without consensus`);
 }
 
 /**
