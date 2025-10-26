@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { WalletButton } from "@/components/wallet-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Sparkles, TrendingUp, Search, Brain, Shield, Zap, BarChart3, CheckCircle2, AlertCircle, Wallet, Flame } from "lucide-react";
+import { Sparkles, TrendingUp, Search, Brain, Shield, Zap, BarChart3, CheckCircle2, AlertCircle, Wallet, Flame, Lock, Users } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 
@@ -391,6 +391,97 @@ export default function Landing() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* Complete Trade Isolation */}
+      <section className="py-16 bg-gradient-to-br from-green-500/10 to-background">
+        <div className="container mx-auto px-6 lg:px-8">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-12">
+              <Badge className="mb-4 bg-green-500/20 border-green-500/40 text-green-500">
+                <Lock className="h-3 w-3 mr-1" />
+                100% Isolated Trading
+              </Badge>
+              <h2 className="text-4xl font-bold mb-4">Your Capital, Your Trades Only</h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Complete isolation between users - other traders never affect your positions or capital
+              </p>
+            </div>
+
+            <Card className="border-2 border-green-500/30 bg-gradient-to-br from-green-500/5 to-background">
+              <CardContent className="pt-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                      <Wallet className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold mb-1">Your SOL, Your Control</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Your wallet balance and token positions are completely separate from all other users. No shared pools, no interference.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                      <Brain className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold mb-1">Independent AI Decisions</h4>
+                      <p className="text-sm text-muted-foreground">
+                        The 10-model hivemind analyzes and executes trades independently for your wallet address. Each decision is tailored to your positions.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                      <TrendingUp className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold mb-1">Separate Performance Tracking</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Your win rate, profit/loss, and trade history are tracked privately. Other users' wins or losses don't affect your stats.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                      <Lock className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold mb-1">Zero Capital Mixing</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Think of it like separate bank accounts - everyone uses the same AI system, but your funds never mix with other users.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-6 border border-green-500/20">
+                  <div className="flex items-start gap-4">
+                    <Users className="h-6 w-6 text-green-500 flex-shrink-0 mt-1" />
+                    <div>
+                      <h4 className="font-bold mb-2">Real-World Example</h4>
+                      <p className="text-sm text-muted-foreground">
+                        If you have 1 SOL and another user has 10 SOL trading at the same time:
+                      </p>
+                      <ul className="text-sm text-muted-foreground mt-2 space-y-1 ml-4">
+                        <li>• You trade with YOUR 1 SOL budget independently</li>
+                        <li>• They trade with THEIR 10 SOL budget independently</li>
+                        <li>• Both can buy the same token - positions are separate</li>
+                        <li>• Your profits and losses are tracked separately</li>
+                        <li>• Their account activity has zero impact on yours</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </section>
 
