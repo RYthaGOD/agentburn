@@ -3,6 +3,55 @@
  * Replaces broken pumpfunapi.org endpoints with DexScreener + on-chain analysis
  */
 
+import { Connection, PublicKey } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+
+const SOLANA_RPC_ENDPOINT = process.env.SOLANA_RPC_ENDPOINT || "https://api.mainnet-beta.solana.com";
+const connection = new Connection(SOLANA_RPC_ENDPOINT, "confirmed");
+
+/**
+ * Fetch actual holder count for a Solana SPL token using RPC
+ * Returns accurate on-chain holder data instead of estimates
+ */
+export async function getActualHolderCount(tokenMint: string): Promise<number | undefined> {
+  try {
+    const mintPubkey = new PublicKey(tokenMint);
+    
+    // Get all token accounts for this mint
+    const tokenAccounts = await connection.getProgramAccounts(
+      TOKEN_PROGRAM_ID,
+      {
+        filters: [
+          {
+            dataSize: 165, // SPL token account size
+          },
+          {
+            memcmp: {
+              offset: 0, // Mint address is at offset 0
+              bytes: mintPubkey.toBase58(),
+            },
+          },
+        ],
+      }
+    );
+    
+    // Count non-zero balance accounts (actual holders)
+    let holderCount = 0;
+    for (const account of tokenAccounts) {
+      // Token amount is at offset 64 (8 bytes, u64)
+      const amount = account.account.data.readBigUInt64LE(64);
+      if (amount > 0n) {
+        holderCount++;
+      }
+    }
+    
+    return holderCount;
+  } catch (error) {
+    console.error(`[Holder Count] Failed to fetch for ${tokenMint}:`, error);
+    return undefined;
+  }
+}
+
 export interface TokenMarketData {
   mint: string;
   name: string;
