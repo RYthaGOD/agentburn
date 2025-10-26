@@ -132,6 +132,7 @@ export const aiBotConfigs = pgTable("ai_bot_configs", {
   
   // STRICT DRAWDOWN PROTECTION: Track portfolio peak for drawdown monitoring
   portfolioPeakSOL: decimal("portfolio_peak_sol", { precision: 18, scale: 9 }).notNull().default("0"),
+  bypassDrawdownProtection: boolean("bypass_drawdown_protection").notNull().default(false), // Allow AI to continue trading even during drawdowns
   
   // Automatic Buyback & Burn Configuration
   buybackEnabled: boolean("buyback_enabled").notNull().default(false), // Enable automatic buyback on profitable trades

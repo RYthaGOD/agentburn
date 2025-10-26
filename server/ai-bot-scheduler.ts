@@ -2719,9 +2719,10 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     addLog(`   Largest Position: ${portfolio.largestPosition.toFixed(1)}% of portfolio`, "info");
     addLog(`   Diversification Score: ${portfolio.diversificationScore.toFixed(0)}/100`, "info");
     
-    // STRICT DRAWDOWN PROTECTION: Pause trading if portfolio drops >20% from peak
+    // DRAWDOWN PROTECTION: Pause trading if portfolio drops >20% from peak (unless bypassed)
     const portfolioPeak = parseFloat(config.portfolioPeakSOL || portfolio.totalValueSOL.toString());
     const currentPortfolioValue = portfolio.totalValueSOL;
+    const bypassDrawdown = config.bypassDrawdownProtection || false;
     
     // Update peak if current value is higher
     if (currentPortfolioValue > portfolioPeak) {
@@ -2739,14 +2740,21 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
     // Drawdown protection flag
     let skipNewTrades = false;
     
-    if (drawdownPercent <= MAX_DRAWDOWN_PERCENT) {
+    if (drawdownPercent <= MAX_DRAWDOWN_PERCENT && !bypassDrawdown) {
       skipNewTrades = true;
       addLog(`🛑 DRAWDOWN PROTECTION ACTIVATED: Portfolio down ${Math.abs(drawdownPercent).toFixed(1)}% from peak (${portfolioPeak.toFixed(4)} SOL → ${currentPortfolioValue.toFixed(4)} SOL)`, "warning");
       addLog(`   Trading PAUSED to prevent further capital erosion. Positions will be monitored but no new trades executed.`, "warning");
       addLog(`   Resume trading when portfolio recovers above ${(portfolioPeak * 0.85).toFixed(4)} SOL (15% from peak)`, "info");
+    } else if (drawdownPercent <= MAX_DRAWDOWN_PERCENT && bypassDrawdown) {
+      // Drawdown detected but bypass is enabled
+      addLog(`⚠️ DRAWDOWN DETECTED: Portfolio down ${Math.abs(drawdownPercent).toFixed(1)}% from peak - but bypass is ENABLED, continuing to trade`, "warning");
+      addLog(`   ⚡ AI is allowed to continue trading despite drawdown (bypass mode active)`, "info");
     } else if (drawdownPercent < -10) {
       // Warning zone (10-20% drawdown)
       addLog(`⚠️ Portfolio drawdown: ${Math.abs(drawdownPercent).toFixed(1)}% from peak - Approaching pause threshold (${MAX_DRAWDOWN_PERCENT}%)`, "warning");
+      if (bypassDrawdown) {
+        addLog(`   ⚡ Drawdown bypass ENABLED - AI will continue trading even if threshold is reached`, "info");
+      }
     }
     
     if (portfolio.holdings.length > 0) {

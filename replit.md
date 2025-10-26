@@ -59,7 +59,7 @@ This bot operates independently, utilizing a "hive mind" system where 7 AI model
 
 **Opportunistic Position Rotation:** Automatically sells weaker positions to free capital for better opportunities based on AI confidence. Includes emergency rotation for depleted wallets and maintains a 10% liquidity reserve.
 
-**Portfolio-Wide Risk Management:** Tracks all-time portfolio peak value, pauses trading at -20% drawdown, resumes at -15% recovery.
+**Portfolio-Wide Risk Management:** Tracks all-time portfolio peak value, pauses trading at -20% drawdown, resumes at -15% recovery. Optional bypass mode (`bypassDrawdownProtection`) allows AI to continue trading through drawdowns.
 
 **Automatic Buyback & Burn Mechanism:** Configurable automatic buyback of specified tokens using a percentage of profits (default 5%) from successful trades, with immediate on-chain burning.
 

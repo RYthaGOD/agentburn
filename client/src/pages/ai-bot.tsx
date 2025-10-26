@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Brain, Loader2, Zap, AlertCircle, Play, Power, TrendingUp, Activity, CheckCircle, XCircle, Key, Eye, EyeOff, Shield, ChevronDown, Sparkles, Flame, Info, RefreshCw } from "lucide-react";
+import { Brain, Loader2, Zap, AlertCircle, Play, Power, TrendingUp, Activity, CheckCircle, XCircle, Key, Eye, EyeOff, Shield, ChevronDown, Sparkles, Flame, Info, RefreshCw, AlertTriangle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -861,6 +861,109 @@ export default function AIBot() {
                     </ul>
                   </div>
                 </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Advanced Risk Settings */}
+      {aiConfig && (
+        <Card className="border-yellow-500/50 bg-gradient-to-r from-background to-yellow-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-yellow-500/10">
+                  <Shield className="h-6 w-6 text-yellow-500" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold">Advanced Risk Settings</div>
+                  <div className="text-sm text-muted-foreground">
+                    Fine-tune risk management and protection systems
+                  </div>
+                </div>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {/* Drawdown Protection Bypass */}
+              <div className="p-4 rounded-lg border bg-background/50">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold">Bypass Drawdown Protection</h3>
+                      <Switch
+                        checked={aiConfig.bypassDrawdownProtection || false}
+                        onCheckedChange={async (checked) => {
+                          try {
+                            await updateConfig({ bypassDrawdownProtection: checked });
+                            if (checked) {
+                              toast({
+                                title: "Drawdown Protection Bypassed",
+                                description: "⚠️ AI will continue trading even during drawdowns (HIGH RISK)",
+                                variant: "destructive",
+                              });
+                            } else {
+                              toast({
+                                title: "Drawdown Protection Enabled",
+                                description: "Trading will pause at -20% drawdown for capital protection",
+                              });
+                            }
+                          } catch (error) {
+                            toast({
+                              title: "Error",
+                              description: "Failed to update drawdown bypass setting",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                        data-testid="switch-bypass-drawdown"
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {aiConfig.bypassDrawdownProtection ? (
+                        <span className="text-yellow-500 font-medium">
+                          ⚠️ AI will continue trading even if portfolio drops {">"} 20% from peak (high-risk mode)
+                        </span>
+                      ) : (
+                        <span>
+                          Trading automatically pauses at -20% drawdown and resumes at -15% recovery
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Warning Box */}
+                {aiConfig.bypassDrawdownProtection && (
+                  <div className="mt-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5 flex-shrink-0" />
+                      <div className="space-y-1 text-xs">
+                        <p className="font-medium text-yellow-500">High-Risk Mode Active</p>
+                        <p className="text-muted-foreground">
+                          The AI will continue making trades even during significant portfolio drawdowns. This may lead to larger losses but could also enable recovery through continued trading. Monitor your portfolio closely.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Info Box for Normal Mode */}
+                {!aiConfig.bypassDrawdownProtection && (
+                  <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div className="space-y-1 text-xs">
+                        <p className="font-medium text-blue-500">Protection Active</p>
+                        <p className="text-muted-foreground">
+                          Trading will automatically pause if your portfolio value drops more than 20% from its all-time peak. This helps prevent catastrophic losses during market downturns.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
