@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Brain, Loader2, Zap, AlertCircle, Play, Power, TrendingUp, Activity, CheckCircle, XCircle, Key, Eye, EyeOff, Shield, ChevronDown, Sparkles, Flame, Info } from "lucide-react";
+import { Brain, Loader2, Zap, AlertCircle, Play, Power, TrendingUp, Activity, CheckCircle, XCircle, Key, Eye, EyeOff, Shield, ChevronDown, Sparkles, Flame, Info, RefreshCw } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -1268,13 +1268,57 @@ export default function AIBot() {
       {hivemindStrategy && (
         <Card className="border-purple-500/30 bg-gradient-to-r from-background to-purple-500/5">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-purple-500" />
-              DeepSeek-First AI Strategy
-            </CardTitle>
-            <CardDescription>
-              7-model hivemind with DeepSeek V3 (FREE tier) as primary - cost-optimized AI (updates every 6 hours)
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-purple-500" />
+                  Full 7-Model AI Hivemind Strategy
+                </CardTitle>
+                <CardDescription>
+                  AI learns from your trading performance and continuously improves the strategy (auto-updates every 3 hours)
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  if (!publicKey) return;
+                  try {
+                    toast({
+                      title: "Regenerating Strategy...",
+                      description: "Full AI hivemind is analyzing your performance and optimizing parameters",
+                    });
+                    
+                    const response = await fetch(`/api/ai-bot/regenerate-strategy/${publicKey.toString()}`, {
+                      method: 'POST',
+                    });
+                    
+                    if (!response.ok) throw new Error("Failed to regenerate strategy");
+                    
+                    const data = await response.json();
+                    
+                    toast({
+                      title: "✅ Strategy Regenerated",
+                      description: `New ${data.strategy.marketSentiment} strategy with ${data.strategy.riskLevel} risk level`,
+                    });
+                    
+                    // Refresh strategy data
+                    queryClient.invalidateQueries({ queryKey: ["/api/ai-bot/hivemind-strategy", publicKey.toString()] });
+                  } catch (error: any) {
+                    toast({
+                      title: "Error",
+                      description: error.message || "Failed to regenerate strategy",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                className="gap-2"
+                data-testid="button-regenerate-strategy"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Regenerate Now
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Primary Strategy Metrics */}

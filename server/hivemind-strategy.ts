@@ -1,9 +1,11 @@
 import { storage } from "./storage";
+import { analyzeTokenWithHiveMind } from "./grok-analysis";
 
 /**
  * Hivemind Strategy Generator
  * 
- * Uses AI consensus to generate tailored trading strategies based on market conditions.
+ * Uses FULL 7-MODEL AI CONSENSUS to generate tailored trading strategies based on market conditions.
+ * AI learns from past performance and adapts strategy parameters intelligently.
  * Strategies are stored and applied dynamically between deep scans.
  */
 
@@ -30,8 +32,8 @@ export interface HivemindStrategy {
 }
 
 /**
- * Generate a new hivemind trading strategy
- * Analyzes recent trading performance to adapt strategy parameters
+ * Generate a new hivemind trading strategy using FULL 7-MODEL AI CONSENSUS
+ * AI analyzes recent trading performance and learns optimal strategy parameters
  */
 export async function generateHivemindStrategy(
   ownerWalletAddress: string,
@@ -39,40 +41,233 @@ export async function generateHivemindStrategy(
     winRate: number; // 0-100
     avgProfit: number; // Average profit %
     totalTrades: number;
+    recentTrades?: Array<{
+      tokenSymbol: string;
+      profit: number;
+      holdTime: number;
+      entryConfidence: number;
+    }>;
   }
 ): Promise<HivemindStrategy> {
-  console.log(`[Hivemind Strategy] Generating new strategy for ${ownerWalletAddress}...`);
+  console.log(`[Hivemind Strategy] 🧠 FULL HIVEMIND: Generating intelligent strategy for ${ownerWalletAddress}...`);
 
-  // Determine market sentiment based on recent performance
+  // If we have performance data, use AI to learn and optimize
+  if (recentPerformance && recentPerformance.totalTrades >= 3) {
+    console.log(`[Hivemind Strategy] Recent performance: ${recentPerformance.winRate.toFixed(1)}% win rate, ${recentPerformance.avgProfit.toFixed(1)}% avg profit over ${recentPerformance.totalTrades} trades`);
+    
+    try {
+      // Use AI hivemind to analyze performance and suggest optimal strategy
+      const aiStrategy = await generateAIStrategy(ownerWalletAddress, recentPerformance);
+      return aiStrategy;
+    } catch (error) {
+      console.error(`[Hivemind Strategy] AI generation failed, falling back to rule-based:`, error);
+      // Fallback to rule-based if AI fails
+      return generateRuleBasedStrategy(recentPerformance);
+    }
+  } else {
+    console.log(`[Hivemind Strategy] Insufficient trading history (${recentPerformance?.totalTrades || 0} trades), using conservative default`);
+    return getDefaultStrategy();
+  }
+}
+
+/**
+ * Use FULL 7-MODEL AI HIVEMIND to intelligently generate strategy
+ * AI learns from performance data and suggests optimal parameters
+ */
+async function generateAIStrategy(
+  ownerWalletAddress: string,
+  recentPerformance: {
+    winRate: number;
+    avgProfit: number;
+    totalTrades: number;
+    recentTrades?: Array<{
+      tokenSymbol: string;
+      profit: number;
+      holdTime: number;
+      entryConfidence: number;
+    }>;
+  }
+): Promise<HivemindStrategy> {
+  console.log(`[Hivemind Strategy] 🤖 Querying full 7-model AI hivemind for strategy optimization...`);
+
+  // Prepare performance analysis prompt for AI
+  const performanceSummary = `
+Recent Trading Performance Analysis:
+- Total Trades: ${recentPerformance.totalTrades}
+- Win Rate: ${recentPerformance.winRate.toFixed(1)}%
+- Average Profit per Trade: ${recentPerformance.avgProfit.toFixed(2)}%
+${recentPerformance.recentTrades ? `
+Recent Trade Details:
+${recentPerformance.recentTrades.slice(0, 10).map((t, i) => 
+  `${i + 1}. ${t.tokenSymbol}: ${t.profit > 0 ? '+' : ''}${t.profit.toFixed(2)}% (held ${Math.round(t.holdTime / 60000)}min, entry confidence ${t.entryConfidence}%)`
+).join('\n')}` : ''}
+
+Current Strategy Parameters (Conservative Baseline):
+- Min Confidence Threshold: 75%
+- Max Daily Trades: 3
+- Budget Per Trade: 0.02 SOL
+- Min Volume: $25,000
+- Min Liquidity: $20,000
+- Min Organic Score: 70%
+- Min Quality Score: 60%
+
+Based on this performance data, what trading strategy adjustments would optimize for:
+1. CAPITAL PRESERVATION (primary goal - minimize drawdowns)
+2. Consistent compounding growth (avoid large losses)
+3. Higher win rate through better quality filters
+
+Respond with a JSON object containing:
+{
+  "marketSentiment": "bullish" | "bearish" | "neutral" | "volatile",
+  "confidence": 0-100,
+  "minConfidenceThreshold": 65-90,
+  "maxDailyTrades": 1-6,
+  "budgetPerTrade": 0.015-0.04,
+  "minVolumeUSD": 15000-80000,
+  "minLiquidityUSD": 15000-40000,
+  "minOrganicScore": 60-80,
+  "minQualityScore": 50-70,
+  "minTransactions24h": 30-100,
+  "minPotentialPercent": 20-50,
+  "profitTargetMultiplier": 0.3-1.5,
+  "riskLevel": "conservative" | "moderate" | "aggressive",
+  "reasoning": "detailed explanation of why these parameters optimize for capital preservation and compounding"
+}
+
+IMPORTANT: Be CONSERVATIVE. Prioritize capital preservation over aggressive growth.`;
+
+  const prompt = performanceSummary;
+
+  try {
+    // Use hivemind consensus to generate strategy
+    const result = await analyzeTokenWithHiveMind({
+      chainId: "solana",
+      pairAddress: ownerWalletAddress, // Use wallet as identifier
+      baseToken: {
+        address: ownerWalletAddress,
+        name: "Strategy Analysis",
+        symbol: "STRATEGY"
+      },
+      quoteToken: {
+        address: "So11111111111111111111111111111111111111112",
+        name: "Solana",
+        symbol: "SOL"
+      },
+      priceNative: "1",
+      priceUsd: "0",
+      txns: {
+        m5: { buys: 0, sells: 0 },
+        h1: { buys: 0, sells: 0 },
+        h6: { buys: 0, sells: 0 },
+        h24: { buys: recentPerformance.totalTrades, sells: recentPerformance.totalTrades }
+      },
+      volume: { h24: 0, h6: 0, h1: 0, m5: 0 },
+      priceChange: { m5: 0, h1: 0, h6: 0, h24: recentPerformance.avgProfit },
+      liquidity: { usd: 0, base: 0, quote: 0 },
+      fdv: 0,
+      marketCap: 0
+    }, prompt, true); // forceInclude = true for full hivemind
+
+    console.log(`[Hivemind Strategy] 🧠 AI Consensus: ${result.decision} (${result.confidence}% confidence)`);
+    console.log(`[Hivemind Strategy] 📊 AI Reasoning: ${result.reasoning.substring(0, 200)}...`);
+
+    // Parse AI response to extract strategy parameters
+    const aiSuggestion = parseAIStrategyResponse(result.reasoning);
+    
+    if (aiSuggestion) {
+      console.log(`[Hivemind Strategy] ✅ Using AI-generated strategy: ${aiSuggestion.marketSentiment} market, ${aiSuggestion.riskLevel} risk`);
+      return {
+        ...aiSuggestion,
+        generatedAt: new Date()
+      };
+    } else {
+      // AI didn't return valid JSON, use confidence and reasoning
+      console.log(`[Hivemind Strategy] ⚠️ AI response not in JSON format, deriving strategy from confidence`);
+      return deriveStrategyFromAIConfidence(result.confidence, result.reasoning, recentPerformance);
+    }
+  } catch (error) {
+    console.error(`[Hivemind Strategy] ❌ AI strategy generation failed:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Parse AI response to extract strategy parameters
+ */
+function parseAIStrategyResponse(reasoning: string): Partial<HivemindStrategy> | null {
+  try {
+    // Try to extract JSON from the reasoning
+    const jsonMatch = reasoning.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    
+    // Validate and return
+    return {
+      marketSentiment: parsed.marketSentiment || "neutral",
+      preferredMarketCap: parsed.preferredMarketCap || "low",
+      minConfidenceThreshold: Math.max(65, Math.min(90, parsed.minConfidenceThreshold || 75)),
+      maxDailyTrades: Math.max(1, Math.min(6, parsed.maxDailyTrades || 3)),
+      profitTargetMultiplier: Math.max(0.3, Math.min(1.5, parsed.profitTargetMultiplier || 0.8)),
+      riskLevel: parsed.riskLevel || "conservative",
+      budgetPerTrade: Math.max(0.015, Math.min(0.04, parsed.budgetPerTrade || 0.02)),
+      minVolumeUSD: Math.max(15000, Math.min(80000, parsed.minVolumeUSD || 25000)),
+      minLiquidityUSD: Math.max(15000, Math.min(40000, parsed.minLiquidityUSD || 20000)),
+      minOrganicScore: Math.max(60, Math.min(80, parsed.minOrganicScore || 70)),
+      minQualityScore: Math.max(50, Math.min(70, parsed.minQualityScore || 60)),
+      minTransactions24h: Math.max(30, Math.min(100, parsed.minTransactions24h || 50)),
+      minPotentialPercent: Math.max(20, Math.min(50, parsed.minPotentialPercent || 30)),
+      reasoning: parsed.reasoning || reasoning.substring(0, 500),
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Derive strategy from AI confidence when JSON parsing fails
+ */
+function deriveStrategyFromAIConfidence(
+  confidence: number,
+  reasoning: string,
+  recentPerformance: any
+): HivemindStrategy {
+  const { winRate, avgProfit } = recentPerformance;
+  
+  let marketSentiment: HivemindStrategy["marketSentiment"] = "neutral";
+  if (confidence >= 75 && winRate > 60) marketSentiment = "bullish";
+  else if (confidence < 50 || winRate < 40) marketSentiment = "bearish";
+  else if (Math.abs(avgProfit) > 30) marketSentiment = "volatile";
+
+  const strategy = generateStrategyFromSentiment(marketSentiment, confidence, []);
+  strategy.reasoning = `AI Analysis (${confidence}% confidence): ${reasoning.substring(0, 300)}. ${strategy.reasoning}`;
+  
+  return strategy;
+}
+
+/**
+ * Rule-based strategy generation (fallback when AI unavailable)
+ */
+function generateRuleBasedStrategy(recentPerformance: any): HivemindStrategy {
+  const { winRate, avgProfit } = recentPerformance;
+  
   let marketSentiment: HivemindStrategy["marketSentiment"] = "neutral";
   let confidence = 60;
 
-  if (recentPerformance && recentPerformance.totalTrades >= 5) {
-    const winRate = recentPerformance.winRate;
-    const avgProfit = recentPerformance.avgProfit;
-
-    if (winRate > 60 && avgProfit > 20) {
-      marketSentiment = "bullish";
-      confidence = 75;
-    } else if (winRate < 40 || avgProfit < 0) {
-      marketSentiment = "bearish";
-      confidence = 70;
-    } else if (Math.abs(avgProfit) > 30) {
-      marketSentiment = "volatile";
-      confidence = 65;
-    } else {
-      marketSentiment = "neutral";
-      confidence = 60;
-    }
-
-    console.log(`[Hivemind Strategy] Recent performance: ${winRate.toFixed(1)}% win rate, ${avgProfit.toFixed(1)}% avg profit`);
-  } else {
-    console.log(`[Hivemind Strategy] Insufficient trading history, using default strategy`);
+  if (winRate > 60 && avgProfit > 20) {
+    marketSentiment = "bullish";
+    confidence = 75;
+  } else if (winRate < 40 || avgProfit < 0) {
+    marketSentiment = "bearish";
+    confidence = 70;
+  } else if (Math.abs(avgProfit) > 30) {
+    marketSentiment = "volatile";
+    confidence = 65;
   }
 
-  // Generate strategy based on market sentiment
   const strategy = generateStrategyFromSentiment(marketSentiment, confidence, []);
-
+  strategy.reasoning = `Rule-based (fallback): ${strategy.reasoning}`;
+  
   console.log(`[Hivemind Strategy] Generated: ${marketSentiment} market, ${strategy.riskLevel} risk`);
   console.log(`[Hivemind Strategy] Min confidence: ${strategy.minConfidenceThreshold}%, Profit multiplier: ${strategy.profitTargetMultiplier}x`);
 

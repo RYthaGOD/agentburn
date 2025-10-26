@@ -825,6 +825,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manually trigger hivemind strategy regeneration with AI learning
+  app.post("/api/ai-bot/regenerate-strategy/:ownerWalletAddress", async (req, res) => {
+    try {
+      const { ownerWalletAddress } = req.params;
+      const { generateHivemindStrategy, saveHivemindStrategy } = await import("./hivemind-strategy");
+      
+      console.log(`[API] Manual strategy regeneration triggered for ${ownerWalletAddress}`);
+      
+      // Get recent trading performance to feed to AI
+      const allPositions = await storage.getAIBotPositions(ownerWalletAddress);
+      // Get closed positions from transaction history (sold positions)
+      const completedPositions = allPositions.filter((p: any) => 
+        p.lastCheckPriceSOL && parseFloat(p.lastCheckPriceSOL.toString()) > 0
+      );
+      const recentTrades = completedPositions.slice(0, 20); // Last 20 trades
+      
+      let recentPerformance: {
+        winRate: number;
+        avgProfit: number;
+        totalTrades: number;
+        recentTrades?: Array<{
+          tokenSymbol: string;
+          profit: number;
+          holdTime: number;
+          entryConfidence: number;
+        }>;
+      } | undefined = undefined;
+      
+      if (recentTrades.length >= 3) {
+        const wins = recentTrades.filter((t: any) => (t.exitPriceSOL || 0) > (t.entryPriceSOL || 0)).length;
+        const winRate = (wins / recentTrades.length) * 100;
+        
+        const profits = recentTrades.map((t: any) => {
+          const entry = t.entryPriceSOL || 0;
+          const exit = t.exitPriceSOL || 0;
+          return entry > 0 ? ((exit - entry) / entry) * 100 : 0;
+        });
+        const avgProfit = profits.reduce((a: number, b: number) => a + b, 0) / profits.length;
+        
+        recentPerformance = {
+          winRate,
+          avgProfit,
+          totalTrades: recentTrades.length,
+          recentTrades: recentTrades.map((t: any) => ({
+            tokenSymbol: t.tokenSymbol || 'UNKNOWN',
+            profit: t.entryPriceSOL && t.exitPriceSOL 
+              ? ((t.exitPriceSOL - t.entryPriceSOL) / t.entryPriceSOL) * 100 
+              : 0,
+            holdTime: t.exitedAt && t.createdAt 
+              ? t.exitedAt.getTime() - t.createdAt.getTime() 
+              : 0,
+            entryConfidence: 75, // Default if not stored
+          })),
+        };
+      }
+      
+      // Generate new strategy using AI
+      const newStrategy = await generateHivemindStrategy(ownerWalletAddress, recentPerformance);
+      
+      // Save to database
+      await saveHivemindStrategy(ownerWalletAddress, newStrategy);
+      
+      console.log(`[API] ✅ New AI-powered strategy generated and saved for ${ownerWalletAddress}`);
+      
+      res.json({
+        success: true,
+        message: "Strategy regenerated successfully using AI hivemind",
+        strategy: newStrategy,
+        performanceData: recentPerformance,
+      });
+    } catch (error: any) {
+      console.error("[API] Error regenerating strategy:", error);
+      res.status(500).json({ 
+        success: false,
+        message: error.message 
+      });
+    }
+  });
+
   // Get scheduler status for dashboard (shows real-time scheduler activity)
   app.get("/api/ai-bot/scheduler-status", async (req, res) => {
     try {
