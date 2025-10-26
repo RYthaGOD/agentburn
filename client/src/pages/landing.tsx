@@ -58,7 +58,7 @@ export default function Landing() {
           <div className="text-center space-y-6">
             <Badge variant="outline" className="mb-4 bg-primary/10 border-primary/20">
               <Sparkles className="h-3 w-3 mr-1" />
-              10-Model AI Hivemind • 100% Autonomous • Non-Custodial
+              11-Model AI Hivemind • 100% Autonomous • Non-Custodial
             </Badge>
             
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight max-w-5xl mx-auto leading-tight">
@@ -70,7 +70,7 @@ export default function Landing() {
             </h1>
             
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
-              GigaBrain uses a 10-model AI consensus system to trade Solana tokens 24/7. Start with 0.1 SOL.
+              GigaBrain uses an 11-model AI consensus system to trade Solana tokens 24/7. Start with 0.1 SOL.
             </p>
 
             {/* Live Stats Preview */}
@@ -204,7 +204,7 @@ export default function Landing() {
                     <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="font-medium">Full hivemind AI access</p>
-                      <p className="text-sm text-muted-foreground">All 10 AI models working for you</p>
+                      <p className="text-sm text-muted-foreground">All 11 AI models working for you</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -429,7 +429,7 @@ export default function Landing() {
                     <div>
                       <h4 className="font-bold mb-1">Independent AI Decisions</h4>
                       <p className="text-sm text-muted-foreground">
-                        The 10-model hivemind analyzes and executes trades independently for your wallet address. Each decision is tailored to your positions.
+                        The 11-model hivemind analyzes and executes trades independently for your wallet address. Each decision is tailored to your positions.
                       </p>
                     </div>
                   </div>
@@ -499,7 +499,7 @@ export default function Landing() {
             </div>
             <div>
               <Brain className="h-8 w-8 text-purple-500 mx-auto mb-2" />
-              <p className="font-semibold">10 AI Models</p>
+              <p className="font-semibold">11 AI Models</p>
               <p className="text-sm text-muted-foreground">Consensus voting</p>
             </div>
             <div>
@@ -528,7 +528,7 @@ export default function Landing() {
                 <CardTitle>GigaBrain AI Trading</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="text-muted-foreground">Autonomous 24/7 trading with 10-model hivemind consensus system</p>
+                <p className="text-muted-foreground">Autonomous 24/7 trading with 11-model hivemind consensus system</p>
                 <ul className="space-y-1 text-sm">
                   <li>✓ Dual-mode strategy (SCALP & SWING)</li>
                   <li>✓ Auto position sizing</li>

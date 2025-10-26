@@ -131,7 +131,7 @@ export default function TokenAnalyzer() {
             <CardContent className="py-12">
               <div className="text-center space-y-4">
                 <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-                <p className="text-muted-foreground">Analyzing token with 10-model AI hivemind...</p>
+                <p className="text-muted-foreground">Analyzing token with 11-model AI hivemind...</p>
               </div>
             </CardContent>
           </Card>

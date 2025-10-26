@@ -145,7 +145,7 @@ export default function HowItWorks() {
                   <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="font-semibold">Deep Analysis</p>
-                    <p className="text-sm text-muted-foreground">Full 10-model scan every 15 minutes</p>
+                    <p className="text-sm text-muted-foreground">Full 11-model scan every 15 minutes</p>
                   </div>
                 </div>
               </CardContent>

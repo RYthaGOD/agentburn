@@ -350,7 +350,7 @@ export default function PublicStats() {
             </div>
             <div className="space-y-2">
               <h3 className="font-semibold flex items-center gap-2">
-                🤖 10-Model AI Hivemind
+                🤖 11-Model AI Hivemind
               </h3>
               <p className="text-sm text-muted-foreground">
                 Multiple AI models vote on every trade with automatic failover. Higher accuracy, lower risk.
