@@ -41,7 +41,7 @@ export default function HowItWorks() {
             How GigaBrain Works
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            A 10-model AI hivemind that trades Solana tokens 24/7, automatically managing your capital with human-level decision making.
+            An 11-model AI hivemind that trades Solana tokens 24/7, automatically managing your capital with human-level decision making.
           </p>
         </div>
 
@@ -50,18 +50,18 @@ export default function HowItWorks() {
           <CardHeader>
             <CardTitle className="text-2xl flex items-center gap-2">
               <Sparkles className="h-6 w-6 text-primary" />
-              The 10-Model Hivemind System
+              The 11-Model Hivemind System
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              Unlike other bots that rely on a single AI model or simple rule-based logic, GigaBrain uses a consensus system with 10 different AI models voting on every trade decision.
+              Unlike other bots that rely on a single AI model or simple rule-based logic, GigaBrain uses a consensus system with 11 different AI models voting on every trade decision.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div className="p-4 rounded-lg bg-muted/50 space-y-2">
                 <h3 className="font-semibold">Multiple AI Models</h3>
                 <p className="text-sm text-muted-foreground">
-                  DeepSeek, Cerebras, Google Gemini, OpenAI, Groq, and 5 more models analyze each token independently
+                  DeepSeek x2, Grok, Cerebras, Google Gemini, OpenAI x2, Groq, Together AI, OpenRouter, and ChatAnywhere analyze each token independently
                 </p>
               </div>
               <div className="p-4 rounded-lg bg-muted/50 space-y-2">

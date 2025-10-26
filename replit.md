@@ -1,7 +1,7 @@
 # BurnBot - Solana Token Buyback & Burn SaaS Platform
 
 ## Overview
-BurnBot is a SaaS platform designed for Solana SPL token creators to automate token buyback and burn operations. It offers a no-code solution with a dashboard, flexible scheduling, and transaction monitoring to enhance tokenomics through automated and verifiable burn mechanisms. The platform also includes a Volume Bot, a Buy Bot, and **GigaBrain** - the standalone AI Trading Bot. GigaBrain ("Black and Gold Never Fold") uses a 10-model AI hivemind consensus system with automatic failover to scan and analyze trending tokens, executing trades based on AI confidence and profit potential. It features autonomous capital management, dynamic position sizing, and intelligent bundle activity detection to avoid pump-and-dump schemes.
+BurnBot is a SaaS platform designed for Solana SPL token creators to automate token buyback and burn operations. It offers a no-code solution with a dashboard, flexible scheduling, and transaction monitoring to enhance tokenomics through automated and verifiable burn mechanisms. The platform also includes a Volume Bot, a Buy Bot, and **GigaBrain** - the standalone AI Trading Bot. GigaBrain ("Black and Gold Never Fold") uses an 11-model AI hivemind consensus system with automatic failover to scan and analyze trending tokens, executing trades based on AI confidence and profit potential. It features autonomous capital management, dynamic position sizing, and intelligent bundle activity detection to avoid pump-and-dump schemes.
 
 ## User Acquisition & Trust-Building Features
 
@@ -11,7 +11,7 @@ BurnBot is a SaaS platform designed for Solana SPL token creators to automate to
 1. **Landing Page** (`/`): Hero section highlighting GigaBrain AI, live stats preview, trust signals, and clear CTAs linking to all features
 2. **Public Stats Dashboard** (`/stats`): Real-time aggregated performance metrics from all GigaBrain users - win rate, ROI, total profit, best trades, SCALP/SWING split, and 24-hour activity
 3. **Token Analyzer** (`/analyze`): Free AI-powered analysis tool for any Solana token - shows organic score, quality score, AI confidence, and BUY/HOLD/AVOID recommendation without requiring wallet connection
-4. **How It Works** (`/learn`): Educational content explaining the 10-model hivemind system, SCALP vs SWING trading modes, safety features, and getting started guide
+4. **How It Works** (`/learn`): Educational content explaining the 11-model hivemind system, SCALP vs SWING trading modes, safety features, and getting started guide
 
 ### Public API Routes (No Authentication)
 - `GET /api/public/stats` - Returns aggregated performance data from all users
@@ -52,7 +52,7 @@ A dedicated scheduler service automates buyback execution using `node-cron`, han
 - **Buy Bot (Limit Orders):** Executes buy orders based on target SOL prices with configurable limits and slippage protection.
 
 #### GigaBrain AI Trading Bot (Standalone)
-**GigaBrain** - "Black and Gold Never Fold" - is the autonomous AI trading bot that operates independently, utilizing a 10-model hivemind system where multiple AI models vote on trades with automatic failover, restricted to whitelisted wallets.
+**GigaBrain** - "Black and Gold Never Fold" - is the autonomous AI trading bot that operates independently, utilizing an 11-model hivemind system where multiple AI models vote on trades with automatic failover, restricted to whitelisted wallets.
 
 **Autonomous Capital Management:**
 - Maintains 10% liquidity reserve.
@@ -69,11 +69,11 @@ A dedicated scheduler service automates buyback execution using `node-cron`, han
 **Smart Hivemind AI Workflow:**
 - **Position Monitoring:** Every 3 minutes using DeepSeek for sell decisions.
 - **Quick Technical Scans:** Every 2 minutes using 4 highest-priority AI models for scalp trades (62-79% AI confidence).
-- **Deep Scans:** Every 15 minutes using the full 10-model hivemind for high-confidence swing opportunities (75%+ AI confidence).
+- **Deep Scans:** Every 15 minutes using the full 11-model hivemind for high-confidence swing opportunities (75%+ AI confidence).
 - **Automatic Portfolio Rebalancing:** Every 30 minutes using full hivemind analysis.
 - **AI-Powered Strategy Learning:** Every 3 hours, the full hivemind analyzes recent trading performance to optimize strategy parameters.
 - **Trade Journal & Pattern Analysis:** Tracks complete trade lifecycle, categorizes losses, identifies winning patterns, and integrates data into strategy regeneration.
-- **10-Model Hivemind System:** DeepSeek, DeepSeek #2, Together AI, OpenRouter, Groq, Cerebras, Google Gemini, ChatAnywhere, OpenAI, OpenAI #2. Models run in parallel with majority voting.
+- **11-Model Hivemind System:** DeepSeek, DeepSeek #2, xAI Grok, Together AI, OpenRouter, Groq, Cerebras, Google Gemini, ChatAnywhere, OpenAI, OpenAI #2. Models run in parallel with majority voting.
 - **Smart Model Prioritization:** 3-tier priority system (free reliable, free with limits, paid) to optimize cost/performance.
 - **Intelligent Circuit Breaker Protection:** 
   - Immediately disables models with 402/401 errors (insufficient credits/auth) for 30 minutes
@@ -81,7 +81,7 @@ A dedicated scheduler service automates buyback execution using `node-cron`, han
   - Automatic rotation to healthy models ensures continuous operation
   - Health scoring prioritizes reliable models over recently failed ones
 - **Tiered AI Usage:** Quick scans use 4 models; deep scans use the full hivemind.
-- **Redundancy & Failover:** Built-in redundancy with 10 models and graceful fallback to rule-based strategies.
+- **Redundancy & Failover:** Built-in redundancy with 11 models and graceful fallback to rule-based strategies.
 
 **Dual-Mode Trading Strategy:**
 - **SCALP Mode (62-79% AI confidence):** 3-6% of portfolio, max 30-minute hold, -8% to -12% stop-loss, +4-8% profit targets.

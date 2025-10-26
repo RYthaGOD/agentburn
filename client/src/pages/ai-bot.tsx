@@ -1724,8 +1724,8 @@ export default function AIBot() {
             
             <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
               <div className="text-sm font-medium text-purple-500">Analysis</div>
-              <div className="text-2xl font-bold mt-1">7-Model AI</div>
-              <div className="text-xs text-muted-foreground mt-1">Including OpenAI</div>
+              <div className="text-2xl font-bold mt-1">11-Model AI</div>
+              <div className="text-xs text-muted-foreground mt-1">Including Grok & OpenAI</div>
             </div>
             
             <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
@@ -1754,7 +1754,7 @@ export default function AIBot() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Brain className="h-5 w-5 text-purple-500" />
-                  Full 7-Model AI Hivemind Strategy
+                  Full 11-Model AI Hivemind Strategy
                 </CardTitle>
                 <CardDescription>
                   AI learns from your trading performance and continuously improves the strategy (auto-updates every 3 hours)
@@ -2038,10 +2038,10 @@ export default function AIBot() {
                   <Brain className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="font-medium flex items-center gap-2">
-                      7-Model Hivemind
+                      11-Model Hivemind
                       <Badge variant="outline" className="text-xs bg-green-500/20 text-green-500">90% FREE</Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground">DeepSeek V3 FREE (primary), Cerebras, Gemini, ChatAnywhere, Groq, OpenAI x2 (paid, high-value only)</div>
+                    <div className="text-xs text-muted-foreground">DeepSeek V3 x2 FREE, Grok, Cerebras, Gemini, ChatAnywhere, Groq, Together AI, OpenRouter, OpenAI x2</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
