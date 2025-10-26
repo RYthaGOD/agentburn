@@ -2491,12 +2491,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/public/analyze-token/:tokenMint", async (req, res) => {
     try {
       const { tokenMint } = req.params;
+      console.log("[Token Analyzer] Analyzing token:", tokenMint);
       
       // Basic validation
       if (!isValidSolanaAddress(tokenMint)) {
+        console.log("[Token Analyzer] Invalid address:", tokenMint);
         return res.status(400).json({ message: "Invalid Solana token address" });
       }
 
+      console.log("[Token Analyzer] Validation passed, returning mock analysis");
       // Mock analysis for now - in production, this would call actual AI analysis
       const mockAnalysis = {
         tokenMint,

@@ -2,6 +2,7 @@
 // This implementation uses REST API calls instead of @solana/web3.js to bypass package installation issues
 
 import { TREASURY_WALLET_ADDRESS, SOLANA_INCINERATOR_ADDRESS } from "@shared/config";
+import { PublicKey } from "@solana/web3.js";
 
 const SOLANA_RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";
 
@@ -320,10 +321,9 @@ export function isValidSolanaAddress(address: string): boolean {
   try {
     // Use Solana's PublicKey to validate the address
     // This ensures the address is a valid base58-encoded 32-byte public key
-    const { PublicKey } = require("@solana/web3.js");
     new PublicKey(address);
     return true;
-  } catch {
+  } catch (error) {
     return false;
   }
 }
