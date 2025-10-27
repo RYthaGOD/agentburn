@@ -2582,7 +2582,7 @@ async function executeQuickTrade(
           treasuryKeyBase58,
           rotationCandidate.position.tokenMint,
           tokenBalanceRaw,
-          3000 // 30% slippage for fast execution
+          800 // 8% emergency slippage for position rotation (reduced from 30%)
         );
         
         if (sellResult.success && sellResult.signature) {
@@ -2724,7 +2724,7 @@ async function executeQuickTrade(
       treasuryKeyBase58,
       token.mint,
       finalTradeAmount,
-      1000 // 10% slippage
+      300 // 3% slippage - optimized for high-quality tokens
     );
     
     if (result.success && result.route) {
@@ -3701,7 +3701,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
               treasuryKeyBase58,
               rotationCandidate.position.tokenMint,
               tokenBalanceRaw,
-              3000 // 30% slippage for fast execution
+              800 // 8% emergency slippage for position rotation (reduced from 30%)
             );
             
             if (sellResult.success && sellResult.signature) {
@@ -3853,7 +3853,7 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
           treasuryKeyBase58,
           token.mint,
           finalTradeAmount,
-          1000 // 10% slippage (1000 bps)
+          300 // 3% slippage - optimized for high-quality tokens (300 bps)
         );
         
         if (result.success && result.route) {
@@ -5380,12 +5380,12 @@ async function executeSellForPosition(
     console.log(`[Position Monitor] 🔄 Executing swap with fallback: ${tokenAmountRaw} raw tokens → SOL`);
     
     // Try Jupiter first, then PumpSwap if it fails
-    // Using 10% slippage to preserve profits (30% was eating all gains!)
+    // 5% slippage optimized for profit preservation (reduced from 30% → 10% → 5%)
     const sellResult = await sellTokenWithFallback(
       treasuryKeyBase58,
       position.tokenMint,
       tokenAmountRaw,
-      1000 // 10% slippage (reduced from 30% to preserve profits)
+      500 // 5% slippage - optimal for high-quality tokens with good liquidity
     );
 
     if (!sellResult.success) {
@@ -5679,7 +5679,7 @@ export async function rebalancePortfolioWithOpenAI() {
                 treasuryKeyBase58,
                 position.tokenMint,
                 tokenBalanceRaw,
-                1000 // 10% slippage for fast execution
+                500 // 5% slippage - optimized for profit preservation
               );
 
               if (sellResult.success) {
