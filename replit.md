@@ -105,6 +105,61 @@ Supports secure encrypted key management, automated PumpFun rewards claiming, ba
 - **Project-Linked Bots:** 0.5% transaction fee after 60 free transactions.
 - **AI Trading Bot:** 1% platform fee on all buy transactions (deducted pre-execution) to treasury wallet `jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38`. Exempt wallet `924yATAEdnrYmncJMX2je7dpiEfVRqCSPmQ2NK3QfoXA` has 0% fees.
 
+## Recent Critical Bug Fixes (Oct 27, 2025)
+
+### Root Cause Analysis
+Comprehensive audit identified 5 critical logic conflicts causing persistent losses despite profit-maximization features. System was trading during extreme drawdowns (-98.5%), approving risky tokens that AI would block (85% loss probability approved at 30% by technical fallback), creating duplicate positions (same token, different strategies), and relying on broken API endpoints.
+
+### Bug Fixes Implemented
+
+1. **Centralized Trading Guard (FIX #1)**
+   - Created `isTradingAllowed()` function enforcing drawdown protection across ALL trading paths (quick scan, deep scan)
+   - Previously: Quick scan bypassed drawdown protection entirely → traded during -98.5% portfolio drawdown
+   - Now: All trades blocked when portfolio drops >20% from peak, preventing cascade losses
+   - Impact: No more trading during extreme drawdowns
+
+2. **Hardened Technical Fallback (FIX #2)**
+   - Increased risk weights to match AI conservativeness when all AI providers fail
+   - Unlocked liquidity: 30 → 50 points (+67% stricter)
+   - Sudden pumps >50%: 25 → 40 points (+60% stricter)
+   - Low liquidity: 20 → 25 points (+25% stricter)
+   - Threshold raised: 40% → 60% loss probability required to block
+   - Previously: Approved LENS at 30% risk (technical fallback) despite AI predicting 85% loss probability
+   - Now: Technical fallback blocks same tokens that AI would block
+   - Impact: Better entries even when AI APIs fail, prevents losses from lenient scoring
+
+3. **Fixed Google Gemini API (FIX #3)**
+   - Corrected model name: `gemini-1.5-flash` → `gemini-2.0-flash-exp`
+   - Previously: 404 errors breaking AI fallback chain at step 2
+   - Now: All 3 loss prediction providers functional (DeepSeek → OpenAI → Google Gemini)
+   - Impact: More reliable loss prediction, fewer fallbacks to technical analysis
+
+4. **Duplicate Position Prevention (FIX #4)**
+   - Added fresh database check before each trade (not relying on stale pre-fetched arrays)
+   - Blocks ANY duplicate position by token mint, regardless of strategy type
+   - Previously: Bought LENS twice in 3 minutes (once as SWING, once as SCALP) = double exposure to risky token
+   - Now: One position per token maximum, prevents concentration risk
+   - Impact: True position limits, proper risk management, no duplicate entries
+
+5. **AI Override Safety System (FIX #5)**
+   - Parallel loss prediction: Queries ALL available AI providers simultaneously (not just first success)
+   - Critical threshold: If ANY AI says >70% loss probability, trade is BLOCKED
+   - Prevents scenarios where one AI says "safe" (30%) but another would say "unsafe" (85%)
+   - Previously: First AI response was final (sequential try-until-success)
+   - Now: All AIs vote, any critical warning (>70%) blocks trade even if others disagree
+   - Impact: Maximum safety - one strong warning is enough to prevent risky trades
+
+### Expected Behavior After Fixes
+- ✅ Trading truly paused during portfolio drawdowns (no bypass)
+- ✅ Technical fallback as conservative as AI (blocks 85% loss probability tokens)
+- ✅ All AI providers functional (no 404 errors)
+- ✅ One position per token (no duplicates across strategies)
+- ✅ Critical warnings respected (any AI >70% loss probability = blocked)
+- ✅ Profit thresholds effective on GOOD entries (2% SCALP, 5% SWING minimums work when entries are sound)
+
+### Design Philosophy
+Fixes enforce "fail-safe" architecture: When in doubt, block the trade. Better to miss opportunities than take bad losses. Profit-hunting features (minimum thresholds, peak tracking, profit protection) only work when paired with excellent entry selection - these fixes ensure every entry meets multiple safety layers.
+
 ## External Dependencies
 
 **Blockchain Integration:**

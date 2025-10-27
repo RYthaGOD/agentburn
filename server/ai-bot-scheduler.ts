@@ -1730,7 +1730,8 @@ Respond ONLY with valid JSON:
   "reasoning": "detailed explanation of risks"
 }`;
 
-  // Try multiple AI providers with fallback
+  // 🔧 FIX #5: Try ALL available AI providers in parallel and block if ANY says >70% loss probability
+  // This prevents risky trades even when majority of AIs disagree
   const providers = [
     {
       name: "DeepSeek",
@@ -1773,34 +1774,77 @@ Respond ONLY with valid JSON:
     }
   ];
 
-  // Try each provider until one succeeds
-  for (const provider of providers) {
-    try {
-      console.log(`[Loss Prediction] Trying ${provider.name} for ${tokenData.symbol}...`);
-      const response = await provider.fn();
-      
-      let content: string;
-      if (provider.name === "Google Gemini") {
-        content = (response as any).response.text();
-      } else {
-        content = (response as any).choices[0]?.message?.content || "{}";
+  // Try ALL providers in parallel (not just first success)
+  console.log(`[Loss Prediction] 🔍 Checking ${providers.length} AI providers for ${tokenData.symbol}...`);
+  const results = await Promise.allSettled(
+    providers.map(async (provider) => {
+      try {
+        const response = await provider.fn();
+        
+        let content: string;
+        if (provider.name === "Google Gemini") {
+          content = (response as any).response.text();
+        } else {
+          content = (response as any).choices[0]?.message?.content || "{}";
+        }
+        
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("Failed to parse JSON response");
+        
+        const result = JSON.parse(jsonMatch[0]);
+        return { provider: provider.name, ...result };
+      } catch (error) {
+        throw new Error(`${provider.name}: ${error instanceof Error ? error.message : error}`);
       }
-      
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Failed to parse JSON response");
-      
-      const result = JSON.parse(jsonMatch[0]);
-      
-      console.log(`[Loss Prediction] ${provider.name} ✅ ${tokenData.symbol}: ${result.safe ? '✅ SAFE' : '⚠️ UNSAFE'} (${result.lossProbability}% loss probability)`);
-      if (result.risks.length > 0) {
-        console.log(`[Loss Prediction] Risks found: ${result.risks.join(', ')}`);
+    })
+  );
+
+  // Extract successful AI responses
+  const successfulAI = results
+    .filter(r => r.status === "fulfilled")
+    .map(r => (r as PromiseFulfilledResult<any>).value);
+
+  if (successfulAI.length === 0) {
+    console.warn(`[Loss Prediction] ⚠️ ALL ${providers.length} AI providers failed for ${tokenData.symbol}`);
+  } else {
+    console.log(`[Loss Prediction] ✅ ${successfulAI.length}/${providers.length} AI providers responded`);
+    
+    // Log each AI's prediction
+    successfulAI.forEach(ai => {
+      console.log(`[Loss Prediction]   ${ai.provider}: ${ai.safe ? '✅ SAFE' : '⚠️ UNSAFE'} (${ai.lossProbability}% loss probability)`);
+      if (ai.risks?.length > 0) {
+        console.log(`[Loss Prediction]     Risks: ${ai.risks.join(', ')}`);
       }
+    });
+    
+    // 🛡️ AI OVERRIDE: Block if ANY AI says >70% loss probability (critical safety threshold)
+    const criticalWarnings = successfulAI.filter(ai => ai.lossProbability > 70);
+    if (criticalWarnings.length > 0) {
+      const worstCase = criticalWarnings.reduce((max, ai) => ai.lossProbability > max.lossProbability ? ai : max);
+      console.log(`[Loss Prediction] 🚨 CRITICAL WARNING from ${worstCase.provider}: ${worstCase.lossProbability}% loss probability`);
+      console.log(`[Loss Prediction] 🛑 TRADE BLOCKED by AI OVERRIDE - Even if other AIs disagree, one critical warning is enough`);
       
-      return result;
-    } catch (error) {
-      console.warn(`[Loss Prediction] ${provider.name} failed for ${tokenData.symbol}:`, error instanceof Error ? error.message : error);
-      continue; // Try next provider
+      return {
+        safe: false,
+        lossProbability: worstCase.lossProbability,
+        risks: worstCase.risks || [],
+        reasoning: `AI OVERRIDE: ${worstCase.provider} detected critical ${worstCase.lossProbability}% loss probability. ${worstCase.reasoning || 'High risk detected'}`
+      };
     }
+    
+    // Calculate average loss probability from all successful AIs
+    const avgLossProbability = successfulAI.reduce((sum, ai) => sum + ai.lossProbability, 0) / successfulAI.length;
+    const allRisks = [...new Set(successfulAI.flatMap(ai => ai.risks || []))];
+    const anySayUnsafe = successfulAI.some(ai => !ai.safe);
+    
+    console.log(`[Loss Prediction] Average loss probability: ${avgLossProbability.toFixed(1)}%`);
+    
+    return {
+      safe: !anySayUnsafe && avgLossProbability < 40,
+      lossProbability: avgLossProbability,
+      risks: allRisks,
+      reasoning: `AI Consensus: ${successfulAI.length} models analyzed. Average ${avgLossProbability.toFixed(0)}% loss probability. ${allRisks.length > 0 ? allRisks.join(', ') : 'No major red flags'}`
+    };
   }
 
   // ALL AI providers failed - use technical analysis fallback

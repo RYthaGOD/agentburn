@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, integer, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, integer, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -182,6 +182,7 @@ export const aiBotConfigs = pgTable("ai_bot_configs", {
 });
 
 // Active AI bot positions (trades that haven't been sold yet)
+// 🔧 FIX #4: Added unique constraint to prevent duplicate positions at database level
 export const aiBotPositions = pgTable("ai_bot_positions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   ownerWalletAddress: text("owner_wallet_address").notNull(),
@@ -203,7 +204,10 @@ export const aiBotPositions = pgTable("ai_bot_positions", {
   rebuyCount: integer("rebuy_count").notNull().default(0), // Track number of times we've added to this position (max 2)
   isSwingTrade: integer("is_swing_trade").notNull().default(0), // 1 = swing trade (high confidence 85%+), 0 = regular trade
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  // Unique constraint to prevent duplicate positions for the same token (atomic safeguard against race conditions)
+  ownerTokenUnique: uniqueIndex("ai_bot_positions_owner_token_unique").on(table.ownerWalletAddress, table.tokenMint),
+}));
 
 // Hivemind strategy recommendations (AI-tailored strategies between deep scans)
 export const hivemindStrategies = pgTable("hivemind_strategies", {
