@@ -20,53 +20,176 @@ const CIRCUIT_BREAKER_THRESHOLD = 3; // Disable after 3 consecutive failures
 const CIRCUIT_BREAKER_COOLDOWN = 5 * 60 * 1000; // Re-enable after 5 minutes
 
 /**
- * Rate Limiting for Cerebras to prevent 429 errors
- * Uses a promise-based queue to serialize concurrent requests
+ * Universal Rate Limiter for All AI Providers
+ * Prevents 429 errors with per-provider request queuing and rate limiting
  */
-const cerebrasRateLimiter = {
-  lastRequestTime: 0,
-  minDelayMs: 2000, // Minimum 2 seconds between Cerebras requests
-  queue: Promise.resolve(), // Promise chain for serialization
-};
+interface RateLimiter {
+  lastRequestTime: number;
+  minDelayMs: number;
+  queue: Promise<void>;
+  requestCount: number;
+  resetTime: number;
+}
+
+const rateLimiters = new Map<string, RateLimiter>();
 
 /**
- * Acquire Cerebras rate limit lock - ensures only one request at a time
- * Returns a promise that resolves when it's safe to make a Cerebras request
+ * Initialize rate limiter for a provider with appropriate delays
  */
-async function acquireCerebrasLock(): Promise<void> {
+function getRateLimiter(provider: string): RateLimiter {
+  if (!rateLimiters.has(provider)) {
+    // Provider-specific rate limits (conservative to avoid 429 errors)
+    let minDelay = 1000; // Default 1 second
+    
+    switch (provider) {
+      case "Cerebras":
+        minDelay = 3000; // 3 seconds (very strict for Cerebras)
+        break;
+      case "Google Gemini":
+        minDelay = 2000; // 2 seconds (generous free tier but can hit limits)
+        break;
+      case "ChatAnywhere":
+        minDelay = 5000; // 5 seconds (200 requests/day limit = ~12 requests/hour)
+        break;
+      case "Groq":
+        minDelay = 1500; // 1.5 seconds (generous limits)
+        break;
+      case "Together AI":
+        minDelay = 1500; // 1.5 seconds
+        break;
+      case "OpenRouter":
+        minDelay = 1000; // 1 second
+        break;
+      case "DeepSeek":
+      case "DeepSeek #2":
+        minDelay = 2000; // 2 seconds
+        break;
+      case "OpenAI":
+      case "OpenAI #2":
+        minDelay = 1000; // 1 second (paid tier)
+        break;
+      case "xAI Grok":
+        minDelay = 2000; // 2 seconds (expensive, use sparingly)
+        break;
+    }
+    
+    rateLimiters.set(provider, {
+      lastRequestTime: 0,
+      minDelayMs: minDelay,
+      queue: Promise.resolve(),
+      requestCount: 0,
+      resetTime: Date.now() + 60000, // Reset counter every minute
+    });
+  }
+  
+  return rateLimiters.get(provider)!;
+}
+
+/**
+ * Acquire rate limit lock for any provider - ensures rate limits are respected
+ * Returns a promise that resolves when it's safe to make a request
+ */
+async function acquireRateLimitLock(provider: string): Promise<void> {
+  const limiter = getRateLimiter(provider);
+  
   // Chain onto the existing queue
-  const currentQueue = cerebrasRateLimiter.queue;
+  const currentQueue = limiter.queue;
   
   // Create a new promise for the next waiter
   let releaseNext: () => void;
-  cerebrasRateLimiter.queue = new Promise(resolve => {
+  limiter.queue = new Promise(resolve => {
     releaseNext = resolve;
   });
   
   // Wait for our turn
   await currentQueue;
   
-  // Calculate wait time based on last request
+  // Reset request count if minute has passed
   const now = Date.now();
-  const timeSinceLastRequest = now - cerebrasRateLimiter.lastRequestTime;
-  const waitTime = Math.max(0, cerebrasRateLimiter.minDelayMs - timeSinceLastRequest);
+  if (now > limiter.resetTime) {
+    limiter.requestCount = 0;
+    limiter.resetTime = now + 60000;
+  }
+  
+  // Calculate wait time based on last request
+  const timeSinceLastRequest = now - limiter.lastRequestTime;
+  const waitTime = Math.max(0, limiter.minDelayMs - timeSinceLastRequest);
   
   if (waitTime > 0) {
+    console.log(`[Rate Limiter] ${provider}: Waiting ${waitTime}ms to respect rate limits`);
     await new Promise(resolve => setTimeout(resolve, waitTime));
   }
   
   // Record this request
-  cerebrasRateLimiter.lastRequestTime = Date.now();
+  limiter.lastRequestTime = Date.now();
+  limiter.requestCount++;
   
   // Release the next waiter
   releaseNext!();
 }
 
 /**
+ * Exponential backoff retry logic for rate limit errors (429)
+ * Retries up to 3 times with increasing delays: 2s, 4s, 8s
+ */
+async function retryWithExponentialBackoff<T>(
+  fn: () => Promise<T>,
+  provider: string,
+  maxRetries: number = 3
+): Promise<T> {
+  let lastError: Error | undefined;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Check if this is a rate limit error (429)
+      const isRateLimit = error?.status === 429 || 
+                         error?.message?.includes('429') ||
+                         error?.message?.includes('rate limit') ||
+                         error?.message?.includes('Too many requests');
+      
+      if (!isRateLimit || attempt === maxRetries - 1) {
+        // Not a rate limit error, or last attempt - throw immediately
+        throw error;
+      }
+      
+      // Exponential backoff: 2s, 4s, 8s
+      const backoffDelay = Math.pow(2, attempt + 1) * 1000;
+      console.warn(`[Retry] ${provider} rate limited (429). Attempt ${attempt + 1}/${maxRetries}. Retrying in ${backoffDelay}ms...`);
+      
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+    }
+  }
+  
+  // Should never reach here, but TypeScript requires it
+  throw lastError || new Error(`${provider} failed after ${maxRetries} retries`);
+}
+
+/**
  * Track AI model failure and implement circuit breaker
- * Immediately disables on 402/401 errors (insufficient credits/auth)
+ * Handles different error types appropriately:
+ * - 402/401 (no credits): Disable for 30 minutes
+ * - 429 (rate limit): Don't count as failure, handled by retry logic
+ * - Other errors: Count toward circuit breaker threshold
  */
 function trackModelFailure(provider: string, error?: Error | string): void {
+  const errorMsg = error instanceof Error ? error.message : String(error || '');
+  
+  // Check if this is a rate limit error (429) - don't circuit break on rate limits
+  const isRateLimit = errorMsg.includes('429') || 
+                     errorMsg.includes('rate limit') ||
+                     errorMsg.includes('Too many requests');
+  
+  if (isRateLimit) {
+    // Rate limit errors are handled by exponential backoff retry logic
+    // Don't count them as failures for circuit breaker
+    console.log(`[Circuit Breaker] ${provider} rate limited (429) - handled by retry logic, not circuit breaking`);
+    return;
+  }
+  
   const health = modelHealthTracker.get(provider) || {
     provider,
     failures: 0,
@@ -78,7 +201,6 @@ function trackModelFailure(provider: string, error?: Error | string): void {
   health.lastFailure = Date.now();
 
   // Check if this is a permanent failure (insufficient credits/balance)
-  const errorMsg = error instanceof Error ? error.message : String(error || '');
   const isPermanentFailure = errorMsg.includes('402') || 
                             errorMsg.includes('Insufficient') || 
                             errorMsg.includes('insufficient') ||
@@ -623,10 +745,8 @@ async function analyzeSingleModel(
   userRiskTolerance: "low" | "medium" | "high",
   budgetPerTrade: number
 ): Promise<TradingAnalysis> {
-  // Cerebras rate limiting: Acquire lock to serialize concurrent requests
-  if (provider === "Cerebras") {
-    await acquireCerebrasLock();
-  }
+  // Universal rate limiting: Acquire lock for ALL providers to prevent 429 errors
+  await acquireRateLimitLock(provider);
   
   // Calculate additional metrics for deeper analysis
   // Add safeguards for zero/near-zero values to prevent Infinity/NaN
@@ -814,22 +934,29 @@ Provide your DETAILED analysis in JSON with these exact fields:
 
 Be thorough, analytical, and CONSERVATIVE. Quality analysis over quick decisions.`;
 
-  const response = await client.chat.completions.create({
-    model: model,
-    messages: [
-      {
-        role: "system",
-        content: "You are an EXPERT cryptocurrency trading analyst specializing in PATTERN-DRIVEN, HIGH-PROBABILITY trades on Solana. You excel at identifying PREDICTABLE TRADING PATTERNS (breakouts, pullbacks, reversals, consolidations) and combining them with comprehensive technical indicators (momentum, volume, buy/sell pressure, liquidity depth). You analyze ALL available indicators across multiple timeframes (5m, 1h, 24h) to find high-confidence setups. You're data-driven, systematic, and pattern-focused - looking for repeatable setups with strong technical confirmation. Always respond with valid JSON containing detailed pattern and indicator analysis.",
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.3, // Lower temperature for more consistent, analytical responses
-    max_tokens: 2000, // Increased for more detailed analysis
-  });
+  // Wrap API call with exponential backoff retry logic for rate limit errors (429)
+  const response = await retryWithExponentialBackoff(
+    async () => {
+      return await client.chat.completions.create({
+        model: model,
+        messages: [
+          {
+            role: "system",
+            content: "You are an EXPERT cryptocurrency trading analyst specializing in PATTERN-DRIVEN, HIGH-PROBABILITY trades on Solana. You excel at identifying PREDICTABLE TRADING PATTERNS (breakouts, pullbacks, reversals, consolidations) and combining them with comprehensive technical indicators (momentum, volume, buy/sell pressure, liquidity depth). You analyze ALL available indicators across multiple timeframes (5m, 1h, 24h) to find high-confidence setups. You're data-driven, systematic, and pattern-focused - looking for repeatable setups with strong technical confirmation. Always respond with valid JSON containing detailed pattern and indicator analysis.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3, // Lower temperature for more consistent, analytical responses
+        max_tokens: 2000, // Increased for more detailed analysis
+      });
+    },
+    provider,
+    3 // Max 3 retries with exponential backoff (2s, 4s, 8s)
+  );
 
   const analysisText = response.choices[0].message.content;
   if (!analysisText) {
