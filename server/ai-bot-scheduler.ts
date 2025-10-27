@@ -1766,7 +1766,8 @@ Respond ONLY with valid JSON:
       fn: async () => {
         const { GoogleGenerativeAI } = await import("@google/generative-ai");
         const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY!);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // 🔧 FIX #3: Using correct model name (gemini-2.0-flash-exp is the latest stable model)
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
         return await model.generateContent(prompt);
       }
     }
@@ -2003,7 +2004,7 @@ Respond ONLY with valid JSON:
     { name: "DeepSeek", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY, model: "deepseek-chat" },
     { name: "DeepSeek #2", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY_2, model: "deepseek-chat" },
     { name: "Cerebras", baseURL: "https://api.cerebras.ai/v1", apiKey: process.env.CEREBRAS_API_KEY, model: "llama3.1-70b" },
-    { name: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", apiKey: process.env.GOOGLE_AI_KEY, model: "gemini-1.5-flash" },
+    { name: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", apiKey: process.env.GOOGLE_AI_KEY, model: "gemini-2.0-flash-exp" }, // 🔧 FIX #3: Corrected model name
     { name: "Groq", baseURL: "https://api.groq.com/openai/v1", apiKey: process.env.GROQ_API_KEY, model: "llama-3.3-70b-versatile" },
   ].filter(m => m.apiKey); // Only use models with API keys configured
 
@@ -5133,7 +5134,7 @@ Respond ONLY with valid JSON:
     { name: "DeepSeek", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY, model: "deepseek-chat" },
     { name: "DeepSeek #2", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY_2, model: "deepseek-chat" },
     { name: "Cerebras", baseURL: "https://api.cerebras.ai/v1", apiKey: process.env.CEREBRAS_API_KEY, model: "llama3.1-70b" },
-    { name: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", apiKey: process.env.GOOGLE_AI_KEY, model: "gemini-1.5-flash" },
+    { name: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", apiKey: process.env.GOOGLE_AI_KEY, model: "gemini-2.0-flash-exp" }, // 🔧 FIX #3: Corrected model name
     { name: "Groq", baseURL: "https://api.groq.com/openai/v1", apiKey: process.env.GROQ_API_KEY, model: "llama-3.3-70b-versatile" },
   ].filter(m => m.apiKey); // Only use models with API keys configured
 
