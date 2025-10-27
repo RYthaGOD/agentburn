@@ -4416,7 +4416,8 @@ async function monitorPositionsWithDeepSeek() {
 
             // 🛡️ TRAILING STOP-LOSS: Lock in profits as position grows
             const isSwingTrade = position.isSwingTrade === 1;
-            let stopLossThreshold = isSwingTrade ? -25 : -8;
+            // Tightened stop-loss: -15% SWING (was -25%), -8% SCALP to limit losses
+            let stopLossThreshold = isSwingTrade ? -15 : -8;
             
             // Upgrade stop-loss based on profit level
             if (profitPercent >= 200) {
@@ -4548,7 +4549,7 @@ async function analyzePositionWithAI(
 
   // 🎯 PROFIT TARGET GATING: Only allow AI sells if we've hit profit targets OR approaching stop-loss
   const profitTarget = isSwingTrade ? 15 : 4; // SWING: +15%, SCALP: +4%
-  const stopLossThreshold = isSwingTrade ? -20 : -8; // SWING: -20%, SCALP: -8%
+  const stopLossThreshold = isSwingTrade ? -15 : -8; // SWING: -15% (tightened from -20%), SCALP: -8%
   
   // If we haven't hit profit target AND we're not near stop-loss, HOLD (don't even ask AI)
   if (profitPercent < profitTarget && profitPercent > stopLossThreshold) {
