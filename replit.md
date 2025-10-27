@@ -31,8 +31,9 @@ A `node-cron` service automates hourly checks for buyback execution, including p
 -   **Smart Hivemind AI Workflow:** Features position monitoring, quick and deep technical scans (full 11-model hivemind), and automatic portfolio rebalancing. The 11-Model Hivemind System uses various AI providers (e.g., DeepSeek, xAI Grok, Google Gemini, OpenAI) with weighted confidence voting and smart model prioritization.
 -   **Intelligent Circuit Breaker Protection:** Disables and rotates failing AI models, prioritizing reliable ones based on health scoring.
 -   **Advanced AI Rate Limiting & Retry System:** Implements universal and provider-specific rate limiting, exponential backoff for retries, and a smart circuit breaker to distinguish between rate limits and permanent failures.
--   **Dual-Mode Trading Strategy (CAPITAL EFFICIENCY OPTIMIZED):** Supports SCALP and SWING modes with graduated position sizing, tightened stop-losses, enforced hold times, and raised quality filters:
-    -   **SCALP Mode:** 65-79% confidence, +4-8% profit targets, 3-6% graduated position sizing, -8% stop-loss, 30-minute enforced max hold (auto-exits underperforming positions for capital recycling)
+-   **Tri-Mode Trading Strategy (CAPITAL EFFICIENCY OPTIMIZED):** Supports SCALP, QUICK_2X, and SWING modes with graduated position sizing, tightened stop-losses, enforced hold times, and raised quality filters:
+    -   **SCALP Mode:** 65-69% confidence, +4-6% profit targets, 3-5% graduated position sizing, -8% to -10% stop-loss, 30-minute enforced max hold (auto-exits underperforming positions for capital recycling)
+    -   **QUICK_2X Mode:** 70-79% confidence, +100% (2x) profit targets, 2-4% graduated position sizing, -12% stop-loss, 60-minute enforced max hold (targets fast doubling opportunities with strong momentum)
     -   **SWING Mode:** 82%+ confidence (raised from 80%), +15% profit targets, 5-9% graduated position sizing, -10% stop-loss (tightened from -15% for faster capital recycling)
     -   **Graduated Position Sizing:** Position size scales continuously with confidence instead of fixed tiers - maximizes capital allocation to highest-conviction trades
     -   **Dynamic Trailing Stop-Loss (4 Tiers):** Locks in gains as positions become profitable - Tier 1: +5% (protect at -2%), Tier 2: +10% (lock +2%), Tier 3: +20% (lock +10%), Tier 4: +50% (lock +30%)
