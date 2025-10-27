@@ -98,29 +98,34 @@ A dedicated `node-cron` service automates hourly checks for buyback execution, i
 - **Current Benefit:** Reduced slippage preserves profits - now only need ~8% gain for break-even (vs previous 20-40%)
 
 **Multi-Strategy Trading System (Oct 27, 2025):**
-Complementary strategies run alongside AI-driven SCALP/SWING to capture different market conditions:
+Complementary strategies run alongside AI-driven SCALP/SWING to capture different market conditions. **Enhanced with "Buy Low, Sell High" discipline** to maximize profitability:
 
-- **Strategy 1: Mean Reversion** - Buy when RSI is oversold (<30), sell when overbought (>70)
+- **Strategy 1: Mean Reversion (Enhanced with Bollinger Bands)** - Buy oversold at SUPPORT, sell overbought at RESISTANCE
   - Position Size: 5% of portfolio (default)
   - Profit Target: +10% (default)
   - Stop Loss: -8% (default)
+  - Entry: RSI <30 (oversold) + near lower Bollinger Band (support = LOW price)
+  - Exit: RSI >70 (overbought) + near upper Bollinger Band (resistance = HIGH price)
   - Best For: Volatile tokens that bounce back from extremes
-  - Logic: Capitalizes on price extremes, expecting reversion to mean
+  - Logic: Buys at SUPPORT (LOW), sells at RESISTANCE (HIGH), maximizes profit from mean reversion
 
-- **Strategy 2: Momentum Breakout** - Catch explosive price + volume moves early
+- **Strategy 2: Momentum Breakout (Enhanced with "Buy the Dip" filter)** - Catch recoveries AFTER dips, not pump peaks
   - Position Size: 7% of portfolio (default)
   - Profit Target: +20% (default)
   - Stop Loss: -10% (default)
-  - Entry Trigger: >15% price spike in 1h + high volume (default)
-  - Best For: Catching pumps before they become obvious
-  - Logic: Rides strong momentum, exits on reversal
+  - Entry: +15% price spike in 1h + high volume + token previously dipped (24h < 1h) + not already up >30% in 24h
+  - Exit: Hit profit target OR peaked at +15% but now down to half (trailing stop) OR momentum reversed (-5% in 1h)
+  - Best For: Catching early recovery momentum after dips (buying LOW before pump)
+  - Logic: Only buys if token dipped first (buy LOW), exits at profit peaks with trailing stop (sell HIGH)
 
 - **Strategy 3: Grid Trading** - Multiple entry/exit levels for ranging markets
   - Position Size: 2% per grid level (default)
   - Grid Levels: 5 levels (default)
   - Price Gap: 5% between levels (default)
+  - Entry: Price dipped -2% to -8% in ranging market (LOW price zones)
+  - Exit: Price rose to +5% profit target (HIGH price zones)
   - Best For: Sideways/ranging markets with low volatility
-  - Logic: Buys dips, sells rips in defined price zones
+  - Logic: Buys dips (LOW), sells rips (HIGH) in defined price zones
   
 **Strategy Integration:**
 - Strategies evaluate up to 10 tokens per scan (vs AI's top 5)

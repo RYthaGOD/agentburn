@@ -40,9 +40,12 @@ export interface StrategyConfig {
 }
 
 /**
- * Strategy 1: Mean Reversion
- * Buy when RSI is oversold (<30), sell when overbought (>70)
+ * Strategy 1: Mean Reversion (Enhanced with Bollinger Band filter)
+ * Buy when RSI is oversold (<30) AND near lower Bollinger Band (support)
+ * Sell when RSI is overbought (>70) AND near upper Bollinger Band (resistance)
  * Works well for volatile tokens that bounce back from extremes
+ * 
+ * Key Enhancement: Bollinger Bands ensure we buy at SUPPORT (LOW) and sell at RESISTANCE (HIGH)
  */
 export function evaluateMeanReversion(
   token: TokenMarketData,
@@ -52,33 +55,79 @@ export function evaluateMeanReversion(
   if (!config.meanReversionEnabled) return null;
   
   const rsi = token.rsi ?? 50; // Default to neutral if RSI not available
+  const currentPrice = token.priceSOL ?? 0;
+  const bollingerLower = token.bollingerLower ?? 0;
+  const bollingerUpper = token.bollingerUpper ?? 0;
   
-  // BUY Signal: RSI is oversold
+  // 🔥 BOLLINGER BAND FILTER: ENFORCE buying at SUPPORT (LOW) and selling at RESISTANCE (HIGH)
+  // Price must be within ±15% window around lower/upper Bollinger Band (safe for microprice tokens)
+  // If Bollinger data unavailable/invalid, fall back to RSI-only (maintain backward compatibility)
+  const BOLLINGER_TOLERANCE = 0.15; // 15% tolerance from band (configurable)
+  const MIN_VALID_PRICE = 1e-9; // Minimum valid price to avoid division-by-zero (protects against microprice edge cases)
+  
+  // Check if Bollinger data is valid and usable
+  const hasBollingerData = bollingerLower >= MIN_VALID_PRICE && 
+                           bollingerUpper >= MIN_VALID_PRICE && 
+                           currentPrice >= MIN_VALID_PRICE &&
+                           bollingerUpper > bollingerLower; // Upper must be > Lower
+  
+  // TRUE PROXIMITY CHECK: Price must be within ±15% window around band
+  // Example: Lower band $1.00, tolerance 15% → Accept $0.85-$1.15 range
+  // Uses multiplicative bounds to avoid division-by-zero for microprice tokens
+  const lowerBandMin = bollingerLower * (1 - BOLLINGER_TOLERANCE); // $0.85 for $1.00 band
+  const lowerBandMax = bollingerLower * (1 + BOLLINGER_TOLERANCE); // $1.15 for $1.00 band
+  const upperBandMin = bollingerUpper * (1 - BOLLINGER_TOLERANCE); // $0.85 for $1.00 band
+  const upperBandMax = bollingerUpper * (1 + BOLLINGER_TOLERANCE); // $1.15 for $1.00 band
+  
+  const nearLowerBand = hasBollingerData && currentPrice >= lowerBandMin && currentPrice <= lowerBandMax;
+  const nearUpperBand = hasBollingerData && currentPrice >= upperBandMin && currentPrice <= upperBandMax;
+  
+  // BUY Signal: RSI oversold + REQUIRED near lower Bollinger Band (buying at SUPPORT = LOW)
+  // Falls back to RSI-only if Bollinger data unavailable
   if (rsi < config.meanReversionRSIOversold && !currentPosition) {
+    // ENFORCEMENT: If Bollinger data exists, MUST be near lower band (support)
+    if (hasBollingerData && !nearLowerBand) {
+      return null; // 🚨 BLOCKED: RSI oversold but NOT at support - wait for better entry
+    }
+    
     const oversoldSeverity = (config.meanReversionRSIOversold - rsi) / config.meanReversionRSIOversold;
-    const confidence = Math.min(95, 60 + (oversoldSeverity * 35)); // 60-95% confidence based on how oversold
+    const atSupportBonus = nearLowerBand ? 10 : 0; // Extra confidence if at support
+    const confidence = Math.min(95, 60 + (oversoldSeverity * 35) + atSupportBonus); // 60-95% confidence
+    
+    const supportInfo = nearLowerBand ? ' at support (lower BB)' : '';
+    const fallbackInfo = !hasBollingerData ? ' (BB unavailable, RSI-only)' : '';
     
     return {
       strategy: "MEAN_REVERSION",
       action: "BUY",
       confidence,
-      reasoning: `RSI ${rsi.toFixed(1)} is oversold (< ${config.meanReversionRSIOversold}) - expecting bounce`,
+      reasoning: `RSI ${rsi.toFixed(1)} oversold${supportInfo}${fallbackInfo} - buying LOW, expecting bounce`,
       positionSizePercent: config.meanReversionPositionSizePercent,
       profitTarget: config.meanReversionProfitTargetPercent,
       stopLoss: config.meanReversionStopLossPercent,
     };
   }
   
-  // SELL Signal: RSI is overbought (and we have a position)
+  // SELL Signal: RSI overbought + REQUIRED near upper Bollinger Band (selling at RESISTANCE = HIGH)
+  // Falls back to RSI-only if Bollinger data unavailable
   if (rsi > config.meanReversionRSIOverbought && currentPosition) {
+    // ENFORCEMENT: If Bollinger data exists, MUST be near upper band (resistance)
+    if (hasBollingerData && !nearUpperBand) {
+      return null; // 🚨 BLOCKED: RSI overbought but NOT at resistance - wait for better exit
+    }
+    
     const overboughtSeverity = (rsi - config.meanReversionRSIOverbought) / (100 - config.meanReversionRSIOverbought);
-    const confidence = Math.min(95, 65 + (overboughtSeverity * 30)); // 65-95% confidence
+    const atResistanceBonus = nearUpperBand ? 10 : 0; // Extra confidence if at resistance
+    const confidence = Math.min(95, 65 + (overboughtSeverity * 30) + atResistanceBonus); // 65-95% confidence
+    
+    const resistanceInfo = nearUpperBand ? ' at resistance (upper BB)' : '';
+    const fallbackInfo = !hasBollingerData ? ' (BB unavailable, RSI-only)' : '';
     
     return {
       strategy: "MEAN_REVERSION",
       action: "SELL",
       confidence,
-      reasoning: `RSI ${rsi.toFixed(1)} is overbought (> ${config.meanReversionRSIOverbought}) - taking profit`,
+      reasoning: `RSI ${rsi.toFixed(1)} overbought${resistanceInfo}${fallbackInfo} - selling HIGH, taking profit`,
       positionSizePercent: 100, // Sell entire position
       profitTarget: 0,
       stopLoss: 0,
@@ -89,9 +138,12 @@ export function evaluateMeanReversion(
 }
 
 /**
- * Strategy 2: Momentum Breakout
- * Detect explosive price + volume moves early
- * Catches pumps before they become obvious
+ * Strategy 2: Momentum Breakout (Enhanced with "Buy the Dip" filter)
+ * Detect explosive price + volume moves early AFTER a dip
+ * Catches pumps at the START, not after they're already pumped
+ * 
+ * Key Enhancement: Only buys momentum if token previously dipped
+ * This ensures we're buying LOW before the pump, not HIGH during the pump
  */
 export function evaluateMomentumBreakout(
   token: TokenMarketData,
@@ -110,36 +162,79 @@ export function evaluateMomentumBreakout(
   const volumeThreshold = baseVolume * config.momentumBreakoutVolumeMultiplier;
   const volumeIsHigh = volume24h >= volumeThreshold;
   
-  // BUY Signal: Strong 1h price movement + good volume
+  // 🔥 BUY THE DIP FILTER: Ensure we're buying LOW, not HIGH
+  // Only buy momentum if:
+  // 1. Strong 1h momentum (+15%)
+  // 2. Token previously dipped (24h change is negative OR less than 1h change)
+  // 3. Not buying at peak (24h change < +30%)
+  //
+  // This ensures we catch the RECOVERY after a dip, not the PEAK of a pump
+  const hadPreviousDip = priceChange24h < priceChange1h; // Token dipped before recovering
+  const notAtPeak = priceChange24h < 30; // Not already massively pumped in 24h
+  
+  // BUY Signal: Strong 1h price movement + good volume + buying after dip (LOW)
   if (
     priceChange1h >= config.momentumBreakoutPriceChangePercent &&
     volumeIsHigh &&
+    hadPreviousDip && // 🚨 NEW: Only buy if token dipped first
+    notAtPeak && // 🚨 NEW: Don't buy if already up 30%+ in 24h
     !currentPosition
   ) {
-    // Confidence based on strength of move
+    // Confidence based on strength of move AND dip recovery
     const momentumStrength = priceChange1h / config.momentumBreakoutPriceChangePercent;
-    const confidence = Math.min(95, 70 + (momentumStrength * 15)); // 70-95% confidence
+    const dipRecoveryBonus = hadPreviousDip ? 5 : 0; // Extra confidence if buying the dip
+    const confidence = Math.min(95, 65 + (momentumStrength * 15) + dipRecoveryBonus); // 65-95% confidence
     
     return {
       strategy: "MOMENTUM_BREAKOUT",
       action: "BUY",
       confidence,
-      reasoning: `Strong momentum: +${priceChange1h.toFixed(1)}% in 1h with $${(volume24h / 1000).toFixed(1)}k volume`,
+      reasoning: `Momentum after dip: +${priceChange1h.toFixed(1)}% in 1h (24h: ${priceChange24h.toFixed(1)}%) with $${(volume24h / 1000).toFixed(1)}k volume - buying recovery LOW`,
       positionSizePercent: config.momentumBreakoutPositionSizePercent,
       profitTarget: config.momentumBreakoutProfitTargetPercent,
       stopLoss: config.momentumBreakoutStopLossPercent,
     };
   }
   
-  // SELL Signal: Momentum fading (price dropping or stalling)
+  // 🔥 SELL Signal: Trailing stop to capture peak profits (sell HIGH)
   if (currentPosition && currentPosition.strategyType === "MOMENTUM_BREAKOUT") {
-    // If momentum is reversing (1h price change is negative), exit
+    const peakProfit = currentPosition.peakProfitPercent ?? 0;
+    const currentProfit = currentPosition.lastCheckProfitPercent ?? 0;
+    
+    // ENHANCED SELL LOGIC: Multiple profit protection levels
+    // 1. If we hit +20% profit target, take profit at HIGH
+    if (currentProfit >= config.momentumBreakoutProfitTargetPercent) {
+      return {
+        strategy: "MOMENTUM_BREAKOUT",
+        action: "SELL",
+        confidence: 95,
+        reasoning: `Momentum profit target HIT: ${currentProfit.toFixed(1)}% - selling at HIGH`,
+        positionSizePercent: 100,
+        profitTarget: 0,
+        stopLoss: 0,
+      };
+    }
+    
+    // 2. Trailing stop: If we peaked at +15% but now down to +5%, sell (don't be greedy)
+    if (peakProfit >= 15 && currentProfit < peakProfit * 0.5) {
+      return {
+        strategy: "MOMENTUM_BREAKOUT",
+        action: "SELL",
+        confidence: 90,
+        reasoning: `Momentum fading: Peaked at ${peakProfit.toFixed(1)}%, now ${currentProfit.toFixed(1)}% - selling before reversal`,
+        positionSizePercent: 100,
+        profitTarget: 0,
+        stopLoss: 0,
+      };
+    }
+    
+    // 3. If momentum is reversing (1h price change is negative), exit
     if (priceChange1h < -5) {
       return {
         strategy: "MOMENTUM_BREAKOUT",
         action: "SELL",
         confidence: 85,
-        reasoning: `Momentum reversed: ${priceChange1h.toFixed(1)}% in 1h - exiting before loss`,
+        reasoning: `Momentum reversed: ${priceChange1h.toFixed(1)}% in 1h - exiting before bigger loss`,
         positionSizePercent: 100,
         profitTarget: 0,
         stopLoss: 0,
