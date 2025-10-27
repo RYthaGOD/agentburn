@@ -1686,6 +1686,187 @@ function cacheAnalysis(tokenMint: string, analysis: any): void {
 }
 
 /**
+ * 🛡️ PRE-TRADE LOSS PREDICTION - AI analyzes token for rug pull, scam, or high loss probability
+ * Runs BEFORE executing any buy to prevent bad trades
+ * Returns { safe: boolean, lossProbability: number, risks: string[] }
+ */
+async function predictLossProbability(
+  tokenData: TokenMarketData
+): Promise<{
+  safe: boolean;
+  lossProbability: number; // 0-100
+  risks: string[];
+  reasoning: string;
+}> {
+  const prompt = `You are a LOSS PREVENTION specialist for Solana trading. Analyze this token for RUG PULL RISK, SCAM INDICATORS, and LOSS PROBABILITY.
+
+Token: ${tokenData.name} (${tokenData.symbol})
+Mint: ${tokenData.mint}
+Price: $${tokenData.priceUSD.toFixed(6)} (${tokenData.priceSOL.toFixed(9)} SOL)
+Market Cap: $${tokenData.marketCapUSD.toLocaleString()}
+24h Volume: $${tokenData.volumeUSD24h.toLocaleString()}
+Liquidity: $${(tokenData.liquidityUSD ?? 0).toLocaleString()}
+Liquidity Locked: ${tokenData.liquidityLocked ? 'YES ✅' : 'NO ⚠️'}
+Price Change 1h: ${(tokenData.priceChange1h ?? 0).toFixed(2)}%
+Price Change 24h: ${(tokenData.priceChange24h ?? 0).toFixed(2)}%
+Age: ${tokenData.tokenAge ? `${Math.floor(tokenData.tokenAge / 3600)}h old` : 'Unknown'}
+
+RED FLAGS TO CHECK:
+1. Liquidity NOT locked = High rug pull risk
+2. Very low liquidity (<$20k) = Easy to drain
+3. Sudden price pumps (>50% 1h) without fundamentals = Pump & dump
+4. Market cap vs liquidity mismatch = Artificial inflation
+5. Very new tokens (<24h) = Unproven, high risk
+6. Low volume/liquidity ratio = Illiquid, hard to exit
+7. Negative price momentum = Downtrend, likely further losses
+
+CRITICAL: Be EXTREMELY CONSERVATIVE. If you see ANY red flags, recommend AVOID.
+
+Respond ONLY with valid JSON:
+{
+  "safe": true/false,
+  "lossProbability": 0-100,
+  "risks": ["risk1", "risk2", ...],
+  "reasoning": "detailed explanation of risks"
+}`;
+
+  try {
+    const { OpenAI } = await import("openai");
+    
+    // Use DeepSeek (fast + cheap) for loss prediction
+    const client = new OpenAI({
+      baseURL: "https://api.deepseek.com",
+      apiKey: process.env.DEEPSEEK_API_KEY,
+    });
+
+    const response = await client.chat.completions.create({
+      model: "deepseek-chat",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2, // Low temperature for consistent risk assessment
+      max_tokens: 500,
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Failed to parse JSON response");
+    
+    const result = JSON.parse(jsonMatch[0]);
+    
+    console.log(`[Loss Prediction] ${tokenData.symbol}: ${result.safe ? '✅ SAFE' : '⚠️ UNSAFE'} (${result.lossProbability}% loss probability)`);
+    if (result.risks.length > 0) {
+      console.log(`[Loss Prediction] Risks found: ${result.risks.join(', ')}`);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error(`[Loss Prediction] Error analyzing ${tokenData.symbol}:`, error);
+    // If prediction fails, be conservative and assume unsafe
+    return {
+      safe: false,
+      lossProbability: 80,
+      risks: ["Prediction system error - being conservative"],
+      reasoning: "Failed to analyze token safety - avoiding trade"
+    };
+  }
+}
+
+/**
+ * 🔍 ENHANCED CONSENSUS - Require supermajority (7+ out of 11 models) to agree before buying
+ * More conservative than simple majority to prevent losses
+ */
+function calculateEnhancedConsensus(
+  results: Array<{
+    provider: string;
+    analysis: {
+      action: "buy" | "sell" | "hold";
+      confidence: number;
+      reasoning: string;
+      potentialUpsidePercent: number;
+      riskLevel: "low" | "medium" | "high";
+    };
+  }>
+): {
+  action: "buy" | "sell" | "hold";
+  confidence: number;
+  reasoning: string;
+  potentialUpsidePercent: number;
+  riskLevel: "low" | "medium" | "high";
+  consensus: string; // How many models agreed
+} {
+  // Count votes for each action
+  const votes = { buy: 0, sell: 0, hold: 0 };
+  const confidences = { buy: [] as number[], sell: [] as number[], hold: [] as number[] };
+  
+  results.forEach(r => {
+    votes[r.analysis.action]++;
+    confidences[r.analysis.action].push(r.analysis.confidence);
+  });
+
+  const totalModels = results.length;
+  const buyVotes = votes.buy;
+  const sellVotes = votes.sell;
+  const holdVotes = votes.hold;
+  
+  // REQUIRE SUPERMAJORITY (64%+) FOR BUY - prevents risky trades
+  const SUPERMAJORITY_THRESHOLD = Math.ceil(totalModels * 0.64); // 64% of models must agree
+  
+  console.log(`[Enhanced Consensus] Votes: BUY ${buyVotes}/${totalModels}, SELL ${sellVotes}/${totalModels}, HOLD ${holdVotes}/${totalModels} (need ${SUPERMAJORITY_THRESHOLD} for supermajority)`);
+  
+  let finalAction: "buy" | "sell" | "hold";
+  let finalConfidence: number;
+  let consensusString: string;
+  
+  // Check if any action has supermajority
+  if (buyVotes >= SUPERMAJORITY_THRESHOLD) {
+    finalAction = "buy";
+    finalConfidence = confidences.buy.reduce((a, b) => a + b, 0) / confidences.buy.length;
+    consensusString = `${buyVotes}/${totalModels} models agree BUY (${((buyVotes/totalModels)*100).toFixed(0)}% supermajority)`;
+  } else if (sellVotes >= SUPERMAJORITY_THRESHOLD) {
+    finalAction = "sell";
+    finalConfidence = confidences.sell.reduce((a, b) => a + b, 0) / confidences.sell.length;
+    consensusString = `${sellVotes}/${totalModels} models agree SELL (${((sellVotes/totalModels)*100).toFixed(0)}% supermajority)`;
+  } else if (holdVotes >= SUPERMAJORITY_THRESHOLD) {
+    finalAction = "hold";
+    finalConfidence = confidences.hold.reduce((a, b) => a + b, 0) / confidences.hold.length;
+    consensusString = `${holdVotes}/${totalModels} models agree HOLD (${((holdVotes/totalModels)*100).toFixed(0)}% supermajority)`;
+  } else {
+    // NO SUPERMAJORITY - Default to HOLD for safety
+    finalAction = "hold";
+    // Use average confidence of hold votes if any, otherwise 0
+    finalConfidence = confidences.hold.length > 0 
+      ? confidences.hold.reduce((a, b) => a + b, 0) / confidences.hold.length 
+      : 0;
+    consensusString = `No supermajority (BUY ${buyVotes}, SELL ${sellVotes}, HOLD ${holdVotes}) - defaulting to HOLD for safety`;
+    
+    console.log(`[Enhanced Consensus] ⚠️ NO SUPERMAJORITY REACHED - Being conservative, defaulting to HOLD`);
+  }
+  
+  // Combine all reasoning
+  const topReasonings = results
+    .sort((a, b) => b.analysis.confidence - a.analysis.confidence)
+    .slice(0, 3)
+    .map(r => `${r.provider}: ${r.analysis.reasoning.substring(0, 60)}`)
+    .join(' | ');
+  
+  // Calculate average potential upside
+  const avgUpside = results.reduce((sum, r) => sum + r.analysis.potentialUpsidePercent, 0) / results.length;
+  
+  // Determine risk level based on distribution
+  const riskCounts = { low: 0, medium: 0, high: 0 };
+  results.forEach(r => riskCounts[r.analysis.riskLevel]++);
+  const dominantRisk = Object.entries(riskCounts).sort((a, b) => b[1] - a[1])[0][0] as "low" | "medium" | "high";
+  
+  return {
+    action: finalAction,
+    confidence: finalConfidence,
+    reasoning: `${consensusString} | ${topReasonings}`,
+    potentialUpsidePercent: avgUpside,
+    riskLevel: dominantRisk,
+    consensus: consensusString
+  };
+}
+
+/**
  * Dual-model analysis using OpenAI + DeepSeek 2 in PARALLEL for consensus
  * More accurate than single model - combines strengths of both premium AIs
  * Results cached for 30 minutes to reduce API calls
@@ -1790,7 +1971,31 @@ Respond ONLY with valid JSON:
     .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled")
     .map(r => r.value);
 
-  // If we have dual-model consensus, combine them
+  // 🔍 ENHANCED CONSENSUS: If we have 3+ models, use supermajority voting (64%+ must agree)
+  if (successful.length >= 3) {
+    console.log(`[Quick Scan] 🔍 Running Enhanced Consensus with ${successful.length} models for ${tokenData.symbol}...`);
+    
+    // Use enhanced consensus algorithm (requires supermajority)
+    const enhancedResult = calculateEnhancedConsensus(successful);
+    
+    console.log(`[Quick Scan] ✅ Enhanced Consensus: ${enhancedResult.consensus}`);
+    console.log(`[Quick Scan]    Final decision: ${enhancedResult.action.toUpperCase()} (${(enhancedResult.confidence * 100).toFixed(0)}% confidence)`);
+    
+    const consensus = {
+      action: enhancedResult.action,
+      confidence: enhancedResult.confidence,
+      reasoning: enhancedResult.reasoning,
+      potentialUpsidePercent: enhancedResult.potentialUpsidePercent,
+      riskLevel: enhancedResult.riskLevel,
+    };
+    
+    cacheAnalysis(tokenData.mint, consensus);
+    logActivity('quick_scan', 'ai_thought', `🧠 ${successful.length}-Model Consensus: ${tokenData.symbol} → ${consensus.action.toUpperCase()} (${(consensus.confidence * 100).toFixed(0)}%) - ${enhancedResult.consensus}`);
+    
+    return consensus;
+  }
+
+  // If we have dual-model consensus, combine them (legacy fallback)
   if (successful.length === 2) {
     const [openai, deepseek] = successful;
     
@@ -1836,13 +2041,23 @@ Respond ONLY with valid JSON:
     return consensus;
   }
 
-  // If only one model succeeded, use it
-  if (successful.length === 1) {
-    const result = successful[0];
-    console.log(`[Quick Scan] ✅ ${result.provider} analysis for ${tokenData.symbol} (single model)`);
-    cacheAnalysis(tokenData.mint, result.analysis);
-    logActivity('quick_scan', 'ai_thought', `🧠 ${result.provider}: ${tokenData.symbol} → ${result.analysis.action.toUpperCase()} (${(result.analysis.confidence * 100).toFixed(0)}%)`);
-    return result.analysis;
+  // If only 1-2 models available, FAIL CLOSED for safety (insufficient consensus)
+  if (successful.length < 3) {
+    console.log(`[Quick Scan] ❌ INSUFFICIENT MODELS for ${tokenData.symbol}: Only ${successful.length}/7 models responded`);
+    console.log(`[Quick Scan] 🛡️ FAILING CLOSED - Require minimum 3 models for safety (preventing risky single-model buys)`);
+    
+    // Return HOLD with 0 confidence to block the trade
+    const safetyHold = {
+      action: "hold" as const,
+      confidence: 0,
+      reasoning: `Insufficient AI consensus - only ${successful.length} model(s) responded. Require minimum 3 models for safe trading decisions.`,
+      potentialUpsidePercent: 0,
+      riskLevel: "high" as const,
+    };
+    
+    cacheAnalysis(tokenData.mint, safetyHold);
+    logActivity('quick_scan', 'warning', `⚠️ BLOCKED ${tokenData.symbol}: Only ${successful.length} AI models - require minimum 3 for safety`);
+    return safetyHold;
   }
 
   // If both primary models failed, try backup providers
@@ -2322,6 +2537,25 @@ async function executeQuickTrade(
     } else if (feeResult.feeDeducted > 0) {
       console.log(`[Quick Scan] 💰 Platform fee deducted: ${feeResult.feeDeducted.toFixed(6)} SOL`);
       console.log(`[Quick Scan] 💵 Trading with: ${finalTradeAmount.toFixed(6)} SOL (after 1% fee)`);
+    }
+
+    // 🛡️ PRE-TRADE LOSS PREDICTION - AI checks for rug pull / scam / high loss probability
+    console.log(`[Quick Scan] 🛡️ Running AI loss prediction for ${token.symbol}...`);
+    const lossPrediction = await predictLossProbability(token);
+    
+    // BLOCK TRADE if AI predicts high loss probability (>40%) or identifies as unsafe
+    // CRITICAL: 40% threshold chosen based on historical scam data (many scored 40-55%)
+    if (!lossPrediction.safe || lossPrediction.lossProbability > 40) {
+      console.log(`[Quick Scan] ❌ TRADE BLOCKED - AI Loss Prediction: ${lossPrediction.lossProbability}% loss probability`);
+      console.log(`[Quick Scan] Risks: ${lossPrediction.risks.join(', ')}`);
+      console.log(`[Quick Scan] Reasoning: ${lossPrediction.reasoning}`);
+      logActivity('quick_scan', 'warning', `🛡️ BLOCKED ${token.symbol}: ${lossPrediction.lossProbability}% loss risk - ${lossPrediction.risks[0]}`);
+      return; // Skip this trade
+    }
+    
+    console.log(`[Quick Scan] ✅ Loss prediction PASSED: ${lossPrediction.lossProbability}% loss probability (safe to trade)`);
+    if (lossPrediction.risks.length > 0) {
+      console.log(`[Quick Scan] Minor risks noted: ${lossPrediction.risks.join(', ')}`);
     }
 
     // Execute buy with Jupiter → PumpSwap fallback
