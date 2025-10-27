@@ -2352,6 +2352,37 @@ async function findPositionToRotate(
 }
 
 /**
+ * 🛡️ CENTRALIZED TRADING GUARD - Checks if trading is allowed
+ * Enforces drawdown protection, circuit breakers, and other safety checks
+ * MUST be called before ANY trade execution (quick scan, deep scan, position rotation)
+ */
+async function isTradingAllowed(
+  ownerWalletAddress: string,
+  portfolioValueSOL: number,
+  config: any
+): Promise<{ allowed: boolean; reason?: string }> {
+  // DRAWDOWN PROTECTION: Check if portfolio has dropped >20% from peak
+  const MAX_DRAWDOWN_PERCENT = -20;
+  const portfolioPeak = parseFloat(config.portfolioPeakSOL || portfolioValueSOL.toString());
+  const bypassDrawdown = config.bypassDrawdownProtection || false;
+  
+  if (portfolioPeak > 0) {
+    const drawdownPercent = ((portfolioValueSOL - portfolioPeak) / portfolioPeak) * 100;
+    
+    if (drawdownPercent <= MAX_DRAWDOWN_PERCENT && !bypassDrawdown) {
+      return {
+        allowed: false,
+        reason: `Drawdown protection active: Portfolio down ${Math.abs(drawdownPercent).toFixed(1)}% from peak (${portfolioPeak.toFixed(4)} SOL → ${portfolioValueSOL.toFixed(4)} SOL). Trading paused to prevent further losses.`
+      };
+    }
+  }
+  
+  // Add more safety checks here in the future (e.g., daily loss limits, circuit breakers)
+  
+  return { allowed: true };
+}
+
+/**
  * Execute a quick trade from the quick scan
  */
 async function executeQuickTrade(
@@ -2389,6 +2420,14 @@ async function executeQuickTrade(
     const portfolio = await analyzePortfolio(treasuryPublicKey, actualBalance);
     
     console.log(`[Quick Scan] 💼 Portfolio: ${portfolio.totalValueSOL.toFixed(4)} SOL total, ${portfolio.holdingCount} positions, largest ${portfolio.largestPosition.toFixed(1)}%`);
+    
+    // 🛡️ CRITICAL: Check if trading is allowed (drawdown protection, circuit breakers)
+    const tradingCheck = await isTradingAllowed(config.ownerWalletAddress, portfolio.totalValueSOL, config);
+    if (!tradingCheck.allowed) {
+      console.log(`[Quick Scan] 🛑 SKIP ${token.symbol}: ${tradingCheck.reason}`);
+      logActivity('quick_scan', 'warning', `🛑 BLOCKED ${token.symbol}: ${tradingCheck.reason}`);
+      return;
+    }
     
     // DYNAMIC FEE BUFFER: Scale with portfolio size for better liquidity management
     // - Small portfolios (<0.5 SOL): Keep 0.03 SOL
