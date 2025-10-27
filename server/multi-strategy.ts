@@ -104,9 +104,10 @@ export function evaluateMomentumBreakout(
   const volume24h = token.volume24h ?? 0;
   const priceChange24h = token.priceChange24h ?? 0;
   
-  // Calculate if volume is spiking (current volume vs 24h average)
-  // If volume is high and price is moving fast, that's a momentum signal
-  const volumeIsHigh = volume24h > 50000; // At least $50k volume
+  // Calculate volume threshold based on config multiplier
+  // Minimum base volume requirement
+  const minBaseVolume = 50000; // At least $50k volume baseline
+  const volumeIsHigh = volume24h >= minBaseVolume;
   
   // BUY Signal: Strong 1h price movement + good volume
   if (

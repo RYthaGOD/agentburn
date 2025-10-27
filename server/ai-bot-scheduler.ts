@@ -1641,6 +1641,68 @@ async function runQuickTechnicalScan() {
             }
           }
         }
+        
+        // MULTI-STRATEGY SYSTEM: Evaluate all tokens with complementary strategies
+        // Runs independently of AI-driven SCALP/SWING to capture different market conditions
+        const { evaluateAllStrategies } = await import('./multi-strategy');
+        const { executeStrategyTrade } = await import('./strategy-trade-executor');
+        const strategyConfig = {
+          meanReversionEnabled: config.meanReversionEnabled ?? false,
+          meanReversionRSIOversold: config.meanReversionRSIOversold ?? 30,
+          meanReversionRSIOverbought: config.meanReversionRSIOverbought ?? 70,
+          meanReversionPositionSizePercent: config.meanReversionPositionSizePercent ?? 5,
+          meanReversionProfitTargetPercent: config.meanReversionProfitTargetPercent ?? 10,
+          meanReversionStopLossPercent: config.meanReversionStopLossPercent ?? 8,
+          momentumBreakoutEnabled: config.momentumBreakoutEnabled ?? false,
+          momentumBreakoutPriceChangePercent: config.momentumBreakoutPriceChangePercent ?? 15,
+          momentumBreakoutVolumeMultiplier: parseFloat(config.momentumBreakoutVolumeMultiplier ?? "2.0"),
+          momentumBreakoutPositionSizePercent: config.momentumBreakoutPositionSizePercent ?? 7,
+          momentumBreakoutProfitTargetPercent: config.momentumBreakoutProfitTargetPercent ?? 20,
+          momentumBreakoutStopLossPercent: config.momentumBreakoutStopLossPercent ?? 10,
+          gridTradingEnabled: config.gridTradingEnabled ?? false,
+          gridTradingLevels: config.gridTradingLevels ?? 5,
+          gridTradingPriceGapPercent: config.gridTradingPriceGapPercent ?? 5,
+          gridTradingPerLevelSizePercent: config.gridTradingPerLevelSizePercent ?? 2,
+        };
+        
+        // Only run multi-strategy if at least one strategy is enabled
+        const anyStrategyEnabled = strategyConfig.meanReversionEnabled || 
+                                   strategyConfig.momentumBreakoutEnabled || 
+                                   strategyConfig.gridTradingEnabled;
+        
+        if (anyStrategyEnabled && opportunities.length > 0) {
+          console.log(`[Multi-Strategy] Evaluating ${opportunities.length} tokens with enabled strategies...`);
+          
+          // Check up to 10 tokens with multi-strategy (broader coverage than AI's top 5)
+          const strategyOpportunities = opportunities.slice(0, 10);
+          
+          for (const token of strategyOpportunities) {
+            try {
+              // Check if we already have a position in this token
+              const existingPosition = existingPositions.find((p: any) => p.tokenMint === token.mint);
+              
+              // Evaluate with all enabled strategies
+              const strategySignal = evaluateAllStrategies(token, strategyConfig, existingPosition);
+              
+              if (strategySignal && strategySignal.action === "BUY" && !existingPosition) {
+                console.log(`[Multi-Strategy] ${strategySignal.strategy}: ${token.symbol} - ${strategySignal.confidence}% confidence`);
+                console.log(`[Multi-Strategy] Reason: ${strategySignal.reasoning}`);
+                console.log(`[Multi-Strategy] Target: ${strategySignal.positionSizePercent}% position, +${strategySignal.profitTarget}% profit, -${strategySignal.stopLoss}% stop`);
+                
+                // Execute strategy trade with strategy-specific parameters
+                await executeStrategyTrade(
+                  config,
+                  token,
+                  strategySignal,
+                  botState,
+                  existingPositions
+                );
+              }
+            } catch (error) {
+              console.error(`[Multi-Strategy] Error evaluating ${token.symbol}:`, error);
+            }
+          }
+        }
       } catch (error) {
         console.error(`[Quick Scan] Error for ${config.ownerWalletAddress}:`, error);
       }

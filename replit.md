@@ -97,6 +97,39 @@ A dedicated `node-cron` service automates hourly checks for buyback execution, i
 - **Previous Issue:** Slippage was set to 10-30%, requiring +25-40% gains just to break even on round-trip trades
 - **Current Benefit:** Reduced slippage preserves profits - now only need ~8% gain for break-even (vs previous 20-40%)
 
+**Multi-Strategy Trading System (Oct 27, 2025):**
+Complementary strategies run alongside AI-driven SCALP/SWING to capture different market conditions:
+
+- **Strategy 1: Mean Reversion** - Buy when RSI is oversold (<30), sell when overbought (>70)
+  - Position Size: 5% of portfolio (default)
+  - Profit Target: +10% (default)
+  - Stop Loss: -8% (default)
+  - Best For: Volatile tokens that bounce back from extremes
+  - Logic: Capitalizes on price extremes, expecting reversion to mean
+
+- **Strategy 2: Momentum Breakout** - Catch explosive price + volume moves early
+  - Position Size: 7% of portfolio (default)
+  - Profit Target: +20% (default)
+  - Stop Loss: -10% (default)
+  - Entry Trigger: >15% price spike in 1h + high volume (default)
+  - Best For: Catching pumps before they become obvious
+  - Logic: Rides strong momentum, exits on reversal
+
+- **Strategy 3: Grid Trading** - Multiple entry/exit levels for ranging markets
+  - Position Size: 2% per grid level (default)
+  - Grid Levels: 5 levels (default)
+  - Price Gap: 5% between levels (default)
+  - Best For: Sideways/ranging markets with low volatility
+  - Logic: Buys dips, sells rips in defined price zones
+  
+**Strategy Integration:**
+- Strategies evaluate up to 10 tokens per scan (vs AI's top 5)
+- Run independently after AI analysis completes
+- Each position tracks strategy type, profit target, and stop loss
+- Strategies disabled by default - must be explicitly enabled
+- All strategies respect drawdown protection and trading guards
+- 1% platform fee applies to all strategy trades
+
 ### Data Storage
 PostgreSQL via Neon's serverless driver and Drizzle ORM, using UUID primary keys, decimal types, and automatic timestamps.
 
