@@ -89,6 +89,13 @@ A dedicated `node-cron` service automates hourly checks for buyback execution, i
 - **Smart Exit Logic:** Allows early exits only when in actual loss, protecting profitable positions.
 - **Profit-Hunting Strategy:** Includes peak profit tracking, smart stop-loss based on actual losses, buy-the-dip detection, and intelligent profit gating.
 
+**Optimized Slippage Strategy (Oct 27, 2025):**
+- **BUY Operations:** 3% slippage (300 bps) - Optimized for high-quality tokens with good liquidity
+- **SELL Operations (Normal):** 5% slippage (500 bps) - Slightly higher for exits while preserving profits
+- **SELL Operations (Emergency Rotation):** 8% slippage (800 bps) - Only when rotating weaker positions
+- **Previous Issue:** Slippage was set to 10-30%, requiring +25-40% gains just to break even on round-trip trades
+- **Current Benefit:** Reduced slippage preserves profits - now only need ~8% gain for break-even (vs previous 20-40%)
+
 ### Data Storage
 PostgreSQL via Neon's serverless driver and Drizzle ORM, using UUID primary keys, decimal types, and automatic timestamps.
 
