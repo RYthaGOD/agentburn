@@ -1806,32 +1806,35 @@ Respond ONLY with valid JSON:
   console.warn(`[Loss Prediction] ⚠️ ALL AI providers failed for ${tokenData.symbol} - using TECHNICAL FALLBACK`);
   
   // Calculate risk based on technical indicators
+  // 🔧 FIX #2: INCREASED WEIGHTS to match AI conservativeness (previously approved risky tokens)
   const risks: string[] = [];
   let lossProbability = 0;
   
-  // Check critical red flags
+  // Check critical red flags with STRICTER SCORING
   if (!(tokenData as any).liquidityLocked) {
     risks.push("Unlocked liquidity");
-    lossProbability += 30;
+    lossProbability += 50; // ⬆️ INCREASED from 30 → 50 (critical rug pull risk)
   }
   if ((tokenData.liquidityUSD ?? 0) < 20000) {
     risks.push("Low liquidity <$20k");
-    lossProbability += 20;
+    lossProbability += 25; // ⬆️ INCREASED from 20 → 25 (easy to drain)
   }
   if ((tokenData.priceChange1h ?? 0) > 50) {
     risks.push(`Sudden pump +${tokenData.priceChange1h?.toFixed(0)}% 1h`);
-    lossProbability += 25;
+    lossProbability += 40; // ⬆️ INCREASED from 25 → 40 (pump & dump indicator)
   }
   if ((tokenData as any).tokenAge && (tokenData as any).tokenAge < 86400) {
     risks.push("Very new token <24h");
-    lossProbability += 15;
+    lossProbability += 20; // ⬆️ INCREASED from 15 → 20 (unproven risk)
   }
   if ((tokenData.priceChange24h ?? 0) < -20) {
     risks.push("Negative momentum");
-    lossProbability += 10;
+    lossProbability += 15; // ⬆️ INCREASED from 10 → 15 (downtrend risk)
   }
   
-  const safe = lossProbability < 40;
+  // ⬆️ INCREASED THRESHOLD from 40% → 60% to match AI conservativeness
+  // Now technical fallback will block tokens that AI would also block
+  const safe = lossProbability < 60;
   
   return {
     safe,
