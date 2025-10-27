@@ -340,20 +340,34 @@ interface TokenCache {
 }
 
 const tokenDataCache: Map<string, TokenCache> = new Map();
-const CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const CACHE_DURATION_MS = 45 * 60 * 1000; // 45 minutes (EXTENDED: reduces API calls by 66%)
 
 /**
  * Cache for AI analysis results to avoid re-analyzing same tokens
- * Cached for 30 minutes - market conditions don't change that fast
+ * EXTENDED TTL to reduce API usage by 75%+ while maintaining accuracy
  */
 interface AnalysisCache {
   analysis: any;
   timestamp: number;
   expiresAt: number;
+  priceAtAnalysis?: number; // Track price to detect significant changes
 }
 
 const analysisCache: Map<string, AnalysisCache> = new Map();
-const ANALYSIS_CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+const ANALYSIS_CACHE_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours (EXTENDED: massive API savings)
+
+/**
+ * Position fingerprint cache - skip re-analyzing positions that haven't changed
+ * Fingerprint = mint + currentPrice + profitPercent
+ */
+interface PositionFingerprint {
+  mint: string;
+  lastPrice: number;
+  lastProfit: number;
+  lastAnalyzedAt: number;
+}
+
+const positionFingerprints: Map<string, PositionFingerprint> = new Map();
 
 /**
  * Get cached token data or fetch fresh data if cache expired
@@ -4608,11 +4622,67 @@ async function batchAnalyzePositionsWithHivemind(
     return results;
   }
 
-  // Build consolidated prompt for ALL positions
-  const portfolioPrompt = `You are analyzing a PORTFOLIO of ${validPositions.length} cryptocurrency positions. Provide recommendations for EACH position.
+  // 💡 SMART API OPTIMIZATION: Skip positions that haven't changed significantly
+  const positionsNeedingAnalysis: typeof validPositions = [];
+  const now = Date.now();
+  const POSITION_CHANGE_THRESHOLD = 3; // Only re-analyze if price changed >3%
+  const MIN_REANALYSIS_INTERVAL_MS = 20 * 60 * 1000; // Minimum 20 minutes between analyses
+
+  for (const pos of validPositions) {
+    const fingerprint = positionFingerprints.get(pos.mint);
+    
+    // Check if we can skip re-analysis
+    if (fingerprint) {
+      const timeSinceLastAnalysis = now - fingerprint.lastAnalyzedAt;
+      const priceChangePercent = Math.abs(((pos.currentPriceSOL - fingerprint.lastPrice) / fingerprint.lastPrice) * 100);
+      const profitChangePercent = Math.abs(pos.profitPercent - fingerprint.lastProfit);
+      
+      // Skip if: recently analyzed AND price/profit hasn't changed much
+      if (
+        timeSinceLastAnalysis < MIN_REANALYSIS_INTERVAL_MS &&
+        priceChangePercent < POSITION_CHANGE_THRESHOLD &&
+        profitChangePercent < POSITION_CHANGE_THRESHOLD
+      ) {
+        console.log(`[API Saver] ⏭️  Skipping ${pos.symbol} - no significant change (price: ${priceChangePercent.toFixed(1)}%, profit: ${profitChangePercent.toFixed(1)}%)`);
+        
+        // Use last analysis result from cache
+        const cachedAnalysis = analysisCache.get(pos.mint);
+        if (cachedAnalysis) {
+          results.set(pos.mint, {
+            confidence: cachedAnalysis.analysis.confidence || 50,
+            recommendation: cachedAnalysis.analysis.recommendation || "HOLD",
+            reasoning: `Cached (no change) - ${cachedAnalysis.analysis.reasoning}`,
+            errored: false
+          });
+        }
+        continue;
+      }
+    }
+    
+    // Position needs fresh analysis
+    positionsNeedingAnalysis.push(pos);
+    
+    // Update fingerprint
+    positionFingerprints.set(pos.mint, {
+      mint: pos.mint,
+      lastPrice: pos.currentPriceSOL,
+      lastProfit: pos.profitPercent,
+      lastAnalyzedAt: now
+    });
+  }
+
+  if (positionsNeedingAnalysis.length === 0) {
+    console.log(`[API Saver] ✅ All ${validPositions.length} positions cached - ZERO API calls needed!`);
+    return results;
+  }
+
+  console.log(`[API Saver] 📊 Analyzing ${positionsNeedingAnalysis.length}/${validPositions.length} positions (saved ${validPositions.length - positionsNeedingAnalysis.length} API calls)`);
+
+  // Build consolidated prompt for positions that need analysis
+  const portfolioPrompt = `You are analyzing a PORTFOLIO of ${positionsNeedingAnalysis.length} cryptocurrency positions. Provide recommendations for EACH position.
 
 POSITIONS:
-${validPositions.map((p, i) => `
+${positionsNeedingAnalysis.map((p, i) => `
 ${i + 1}. ${p.symbol} (Profit: ${p.profitPercent > 0 ? '+' : ''}${p.profitPercent.toFixed(2)}%)
    - Price: ${p.currentPriceSOL.toFixed(9)} SOL
    - Volume 24h: $${p.volumeUSD24h.toLocaleString()}
@@ -4644,26 +4714,45 @@ Respond with JSON array:
     console.log(`[Batch Analysis] 🧠 Using FULL 11-MODEL HIVEMIND for maximum accuracy...`);
     
     const aiProviders = [
-      { name: "DeepSeek", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY, model: "deepseek-chat", weight: 1.2 },
-      { name: "DeepSeek #2", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY_2, model: "deepseek-chat", weight: 1.2 },
-      { name: "Together AI", baseURL: "https://api.together.xyz/v1", apiKey: process.env.TOGETHER_API_KEY, model: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", weight: 1.1 },
-      { name: "ChatAnywhere", baseURL: "https://api.chatanywhere.tech/v1", apiKey: process.env.OPENAI_API_KEY, model: "gpt-4o-mini", weight: 1.0 },
-      { name: "Cerebras", baseURL: "https://api.cerebras.ai/v1", apiKey: process.env.CEREBRAS_API_KEY, model: "llama3.3-70b", weight: 1.0 },
-      { name: "Groq", baseURL: "https://api.groq.com/openai/v1", apiKey: process.env.GROQ_API_KEY, model: "llama-3.3-70b-versatile", weight: 1.0 },
-      { name: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", apiKey: process.env.GOOGLE_AI_KEY, model: "gemini-2.0-flash-exp", weight: 1.0 },
-      { name: "OpenRouter", baseURL: "https://openrouter.ai/api/v1", apiKey: process.env.OPENROUTER_API_KEY, model: "anthropic/claude-3.5-sonnet", weight: 1.1 },
-      { name: "xAI Grok", baseURL: "https://api.x.ai/v1", apiKey: process.env.XAI_API_KEY, model: "grok-2-latest", weight: 1.0 },
-      { name: "OpenAI", baseURL: "https://api.openai.com/v1", apiKey: process.env.OPENAI_API_KEY, model: "gpt-4o-mini", weight: 1.3 },
-      { name: "OpenAI #2", baseURL: "https://api.openai.com/v1", apiKey: process.env.OPENAI_API_KEY_2, model: "gpt-4o-mini", weight: 1.3 },
+      // ⭐ FREE MODELS (prioritized to last longer)
+      { name: "DeepSeek", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY, model: "deepseek-chat", weight: 1.2, priority: 1, free: true },
+      { name: "DeepSeek #2", baseURL: "https://api.deepseek.com", apiKey: process.env.DEEPSEEK_API_KEY_2, model: "deepseek-chat", weight: 1.2, priority: 1, free: true },
+      { name: "Cerebras", baseURL: "https://api.cerebras.ai/v1", apiKey: process.env.CEREBRAS_API_KEY, model: "llama3.3-70b", weight: 1.0, priority: 1, free: true },
+      { name: "Groq", baseURL: "https://api.groq.com/openai/v1", apiKey: process.env.GROQ_API_KEY, model: "llama-3.3-70b-versatile", weight: 1.0, priority: 1, free: true },
+      { name: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", apiKey: process.env.GOOGLE_AI_KEY, model: "gemini-2.0-flash-exp", weight: 1.0, priority: 1, free: true },
+      
+      // 💰 PAID MODELS (use sparingly to preserve credits)
+      { name: "Together AI", baseURL: "https://api.together.xyz/v1", apiKey: process.env.TOGETHER_API_KEY, model: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", weight: 1.1, priority: 2, free: false },
+      { name: "ChatAnywhere", baseURL: "https://api.chatanywhere.tech/v1", apiKey: process.env.OPENAI_API_KEY, model: "gpt-4o-mini", weight: 1.0, priority: 2, free: false },
+      { name: "OpenRouter", baseURL: "https://openrouter.ai/api/v1", apiKey: process.env.OPENROUTER_API_KEY, model: "anthropic/claude-3.5-sonnet", weight: 1.1, priority: 3, free: false },
+      { name: "xAI Grok", baseURL: "https://api.x.ai/v1", apiKey: process.env.XAI_API_KEY, model: "grok-2-latest", weight: 1.0, priority: 3, free: false },
+      { name: "OpenAI", baseURL: "https://api.openai.com/v1", apiKey: process.env.OPENAI_API_KEY, model: "gpt-4o-mini", weight: 1.3, priority: 3, free: false },
+      { name: "OpenAI #2", baseURL: "https://api.openai.com/v1", apiKey: process.env.OPENAI_API_KEY_2, model: "gpt-4o-mini", weight: 1.3, priority: 3, free: false },
     ];
 
     // Filter to only healthy, available providers
-    const availableProviders = aiProviders.filter(p => {
+    let availableProviders = aiProviders.filter(p => {
       if (!p.apiKey) return false;
       const health = providerHealthScores.get(p.name) || 100;
       const disabled = disabledProviders.has(p.name);
       return health >= 30 && !disabled;
     });
+
+    // 💡 SMART MODEL SELECTION: Prioritize FREE models to save paid credits
+    // Use 6-8 models max (down from all 11) to reduce API usage
+    const freeModels = availableProviders.filter(p => p.free);
+    const paidModels = availableProviders.filter(p => !p.free);
+    
+    // Prefer free models, supplement with paid only if needed
+    const MAX_MODELS = 7; // Reduced from 11 to save API calls
+    if (freeModels.length >= MAX_MODELS) {
+      availableProviders = freeModels.slice(0, MAX_MODELS);
+      console.log(`[API Saver] 💰 Using ${MAX_MODELS} FREE models only - preserving paid credits`);
+    } else {
+      const neededPaidModels = Math.min(MAX_MODELS - freeModels.length, paidModels.length);
+      availableProviders = [...freeModels, ...paidModels.slice(0, neededPaidModels)];
+      console.log(`[API Saver] Using ${freeModels.length} free + ${neededPaidModels} paid models (total: ${availableProviders.length})`);
+    }
 
     if (availableProviders.length === 0) {
       console.error(`[Batch Analysis] ❌ No AI providers available - all are disabled or unhealthy`);
@@ -4798,15 +4887,25 @@ Respond with JSON array:
       };
     });
 
-    // Map results back to positions
+    // Map results back to positions AND cache them
     for (const rec of recommendations) {
-      const position = validPositions.find(p => p.symbol === rec.symbol);
+      const position = positionsNeedingAnalysis.find(p => p.symbol === rec.symbol);
       if (position) {
-        results.set(position.mint, {
+        const analysisResult = {
           confidence: rec.confidence || 50,
           recommendation: rec.recommendation || "HOLD",
           reasoning: rec.reasoning || "No specific reasoning provided",
           errored: false
+        };
+        
+        results.set(position.mint, analysisResult);
+        
+        // 💾 CACHE this analysis for 2 hours to reduce future API calls
+        analysisCache.set(position.mint, {
+          analysis: analysisResult,
+          timestamp: Date.now(),
+          expiresAt: Date.now() + ANALYSIS_CACHE_DURATION_MS,
+          priceAtAnalysis: position.currentPriceSOL
         });
       }
     }
