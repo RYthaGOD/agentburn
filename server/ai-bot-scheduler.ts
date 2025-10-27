@@ -5152,16 +5152,57 @@ Respond ONLY with valid JSON:
     // Or SELL if any single model has very high confidence (>=75%) regardless of others
     const hasHighConfidenceSell = sellVotes.some(m => m.analysis.confidence >= 75);
 
+    // 🎯 PROFIT THRESHOLD CHECK - Prevent selling winners too early
+    const currentProfitPercent = parseFloat(position.profitPercent || "0");
+    const isInProfit = currentProfitPercent > 0;
+    const isInLoss = currentProfitPercent < 0;
+    
+    // Determine minimum profit threshold based on strategy type
+    // SCALP (62-79% confidence): 2% minimum | SWING (80%+): 5% minimum
+    const isSwingPosition = (position.strategyType === "SWING");
+    const MIN_PROFIT_SCALP = 2.0; // Don't sell SCALP for less than +2%
+    const MIN_PROFIT_SWING = 5.0; // Don't sell SWING for less than +5%
+    const minProfitThreshold = isSwingPosition ? MIN_PROFIT_SWING : MIN_PROFIT_SCALP;
+
     if (majorityVotesSell && hasReasonableConfidence) {
-      console.log(`[Position Monitor] ✅ Hivemind consensus: ${sellVotes.length}/${successful.length} models vote SELL (${sellPercentage.toFixed(0)}%), avg confidence ${avgConfidence.toFixed(0)}% → executing...`);
-      logActivity('position_monitor', 'ai_thought', `🧠 Hivemind (${sellVotes.length}/${successful.length}): ${position.tokenSymbol} → SELL (${avgConfidence.toFixed(0)}%)`);
-      const topModels = successful.slice(0, 2).map(m => `${m.provider}: ${m.analysis.reasoning.substring(0, 30)}`).join('; ');
-      await executeSellForPosition(config, position, treasuryKeyBase58, `Hivemind Consensus: ${sellVotes.length}/${successful.length} vote SELL, ${avgConfidence.toFixed(0)}% avg confidence. ${topModels}...`);
+      console.log(`[Position Monitor] ✅ Hivemind consensus: ${sellVotes.length}/${successful.length} models vote SELL (${sellPercentage.toFixed(0)}%), avg confidence ${avgConfidence.toFixed(0)}%`);
+      
+      // ✅ ALLOW SELL if in profit AND meets minimum threshold
+      if (isInProfit && currentProfitPercent >= minProfitThreshold) {
+        console.log(`[Position Monitor] ✅ SELL APPROVED: ${currentProfitPercent.toFixed(2)}% profit exceeds ${minProfitThreshold}% minimum → executing...`);
+        logActivity('position_monitor', 'ai_thought', `🧠 Hivemind (${sellVotes.length}/${successful.length}): ${position.tokenSymbol} → SELL (${avgConfidence.toFixed(0)}%)`);
+        const topModels = successful.slice(0, 2).map(m => `${m.provider}: ${m.analysis.reasoning.substring(0, 30)}`).join('; ');
+        await executeSellForPosition(config, position, treasuryKeyBase58, `Hivemind Consensus: ${sellVotes.length}/${successful.length} vote SELL, ${avgConfidence.toFixed(0)}% avg confidence. ${topModels}...`);
+      }
+      // ✅ ALLOW SELL if in loss (stop-loss protection - AI says cut)
+      else if (isInLoss) {
+        console.log(`[Position Monitor] ✅ SELL APPROVED: Position in loss (${currentProfitPercent.toFixed(2)}%) - AI stop-loss → executing...`);
+        logActivity('position_monitor', 'ai_thought', `🧠 Hivemind (${sellVotes.length}/${successful.length}): ${position.tokenSymbol} → SELL LOSS (${currentProfitPercent.toFixed(2)}%)`);
+        const topModels = successful.slice(0, 2).map(m => `${m.provider}: ${m.analysis.reasoning.substring(0, 30)}`).join('; ');
+        await executeSellForPosition(config, position, treasuryKeyBase58, `Stop-Loss: ${sellVotes.length}/${successful.length} vote SELL, ${currentProfitPercent.toFixed(2)}% loss. ${topModels}...`);
+      }
+      // ❌ BLOCK SELL if profit too small
+      else {
+        console.log(`[Position Monitor] ⏸️ HOLD: Profit ${currentProfitPercent.toFixed(2)}% below ${minProfitThreshold}% minimum (${isSwingPosition ? 'SWING' : 'SCALP'}) - waiting for better exit`);
+        logActivity('position_monitor', 'info', `💎 HOLD ${position.tokenSymbol}: ${currentProfitPercent.toFixed(2)}% → waiting for ${minProfitThreshold}% minimum`);
+      }
     } else if (hasHighConfidenceSell) {
       const highConfModel = sellVotes.find(m => m.analysis.confidence >= 75)!;
-      console.log(`[Position Monitor] ✅ ${highConfModel.provider} high-confidence SELL (${highConfModel.analysis.confidence}%) → executing despite mixed votes...`);
-      logActivity('position_monitor', 'ai_thought', `🧠 ${highConfModel.provider}: ${position.tokenSymbol} → SELL (${highConfModel.analysis.confidence}%)`);
-      await executeSellForPosition(config, position, treasuryKeyBase58, `${highConfModel.provider}: ${highConfModel.analysis.reasoning} (${highConfModel.analysis.confidence}% high confidence)`);
+      console.log(`[Position Monitor] ✅ ${highConfModel.provider} high-confidence SELL (${highConfModel.analysis.confidence}%)`);
+      
+      // Same profit threshold check for high-confidence sells
+      if (isInProfit && currentProfitPercent >= minProfitThreshold) {
+        console.log(`[Position Monitor] ✅ SELL APPROVED: ${currentProfitPercent.toFixed(2)}% profit exceeds ${minProfitThreshold}% minimum → executing...`);
+        logActivity('position_monitor', 'ai_thought', `🧠 ${highConfModel.provider}: ${position.tokenSymbol} → SELL (${highConfModel.analysis.confidence}%)`);
+        await executeSellForPosition(config, position, treasuryKeyBase58, `${highConfModel.provider}: ${highConfModel.analysis.reasoning} (${highConfModel.analysis.confidence}% high confidence)`);
+      } else if (isInLoss) {
+        console.log(`[Position Monitor] ✅ SELL APPROVED: Position in loss (${currentProfitPercent.toFixed(2)}%) - AI stop-loss → executing...`);
+        logActivity('position_monitor', 'ai_thought', `🧠 ${highConfModel.provider}: ${position.tokenSymbol} → SELL LOSS (${currentProfitPercent.toFixed(2)}%)`);
+        await executeSellForPosition(config, position, treasuryKeyBase58, `Stop-Loss: ${highConfModel.provider} ${highConfModel.analysis.reasoning} (${currentProfitPercent.toFixed(2)}% loss)`);
+      } else {
+        console.log(`[Position Monitor] ⏸️ HOLD: Profit ${currentProfitPercent.toFixed(2)}% below ${minProfitThreshold}% minimum - waiting for better exit`);
+        logActivity('position_monitor', 'info', `💎 HOLD ${position.tokenSymbol}: ${currentProfitPercent.toFixed(2)}% → waiting for ${minProfitThreshold}% minimum`);
+      }
     } else {
       const actions = successful.map(m => `${m.provider}: ${m.analysis.action} ${m.analysis.confidence}%`).join(', ');
       console.log(`[Position Monitor] ⏸️ Hivemind: No strong consensus to SELL → HOLDING (${actions})`);
@@ -5175,10 +5216,31 @@ Respond ONLY with valid JSON:
     const result = successful[0];
     console.log(`[Position Monitor] ✅ ${result.provider} analysis for ${position.tokenSymbol} (single model)`);
     
+    // Apply same profit threshold logic
+    const currentProfitPercent = parseFloat(position.profitPercent || "0");
+    const isInProfit = currentProfitPercent > 0;
+    const isInLoss = currentProfitPercent < 0;
+    const isSwingPosition = (position.strategyType === "SWING");
+    const MIN_PROFIT_SCALP = 2.0;
+    const MIN_PROFIT_SWING = 5.0;
+    const minProfitThreshold = isSwingPosition ? MIN_PROFIT_SWING : MIN_PROFIT_SCALP;
+    
     if (result.analysis.action === "SELL" && result.analysis.confidence >= 60) {
-      console.log(`[Position Monitor] ✅ ${result.provider} recommends SELL with ${result.analysis.confidence}% confidence → executing...`);
-      logActivity('position_monitor', 'ai_thought', `🧠 ${result.provider}: ${position.tokenSymbol} → SELL (${result.analysis.confidence}%)`);
-      await executeSellForPosition(config, position, treasuryKeyBase58, `${result.provider}: ${result.analysis.reasoning} (${result.analysis.confidence}% confidence)`);
+      console.log(`[Position Monitor] ✅ ${result.provider} recommends SELL with ${result.analysis.confidence}% confidence`);
+      
+      // Check profit threshold before selling
+      if (isInProfit && currentProfitPercent >= minProfitThreshold) {
+        console.log(`[Position Monitor] ✅ SELL APPROVED: ${currentProfitPercent.toFixed(2)}% profit exceeds ${minProfitThreshold}% minimum → executing...`);
+        logActivity('position_monitor', 'ai_thought', `🧠 ${result.provider}: ${position.tokenSymbol} → SELL (${result.analysis.confidence}%)`);
+        await executeSellForPosition(config, position, treasuryKeyBase58, `${result.provider}: ${result.analysis.reasoning} (${result.analysis.confidence}% confidence)`);
+      } else if (isInLoss) {
+        console.log(`[Position Monitor] ✅ SELL APPROVED: Position in loss (${currentProfitPercent.toFixed(2)}%) - AI stop-loss → executing...`);
+        logActivity('position_monitor', 'ai_thought', `🧠 ${result.provider}: ${position.tokenSymbol} → SELL LOSS (${currentProfitPercent.toFixed(2)}%)`);
+        await executeSellForPosition(config, position, treasuryKeyBase58, `Stop-Loss: ${result.provider} ${result.analysis.reasoning} (${currentProfitPercent.toFixed(2)}% loss)`);
+      } else {
+        console.log(`[Position Monitor] ⏸️ HOLD: Profit ${currentProfitPercent.toFixed(2)}% below ${minProfitThreshold}% minimum - waiting for better exit`);
+        logActivity('position_monitor', 'info', `💎 HOLD ${position.tokenSymbol}: ${currentProfitPercent.toFixed(2)}% → waiting for ${minProfitThreshold}% minimum`);
+      }
     } else {
       console.log(`[Position Monitor] ⏸️ ${result.provider} says ${result.analysis.action} with ${result.analysis.confidence}% confidence → HOLDING`);
       logActivity('position_monitor', 'ai_thought', `🧠 ${result.provider}: ${position.tokenSymbol} → ${result.analysis.action} (${result.analysis.confidence}%)`);
