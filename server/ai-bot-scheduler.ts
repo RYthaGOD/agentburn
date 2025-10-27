@@ -4546,6 +4546,19 @@ async function analyzePositionWithAI(
   const isSwingTrade = position.isSwingTrade === 1;
   const aiConfidenceAtBuy = parseFloat(position.aiConfidenceAtBuy || "0");
 
+  // 🎯 PROFIT TARGET GATING: Only allow AI sells if we've hit profit targets OR approaching stop-loss
+  const profitTarget = isSwingTrade ? 15 : 4; // SWING: +15%, SCALP: +4%
+  const stopLossThreshold = isSwingTrade ? -20 : -8; // SWING: -20%, SCALP: -8%
+  
+  // If we haven't hit profit target AND we're not near stop-loss, HOLD (don't even ask AI)
+  if (profitPercent < profitTarget && profitPercent > stopLossThreshold) {
+    console.log(`[Position Monitor] 💎 HOLDING ${position.tokenSymbol}: ${profitPercent > 0 ? '+' : ''}${profitPercent.toFixed(2)}% (target: +${profitTarget}%, stop: ${stopLossThreshold}%) - skipping AI analysis`);
+    logActivity('position_monitor', 'info', `💎 HOLD ${position.tokenSymbol}: ${profitPercent > 0 ? '+' : ''}${profitPercent.toFixed(2)}% (below +${profitTarget}% target)`);
+    return; // Don't sell until we hit profit target or stop-loss
+  }
+  
+  console.log(`[Position Monitor] 🔍 Analyzing ${position.tokenSymbol} with AI: ${profitPercent > 0 ? '+' : ''}${profitPercent.toFixed(2)}% ${profitPercent >= profitTarget ? '(✅ hit profit target)' : '(⚠️ approaching stop-loss)'}`);
+
   // Fetch comprehensive market data from DexScreener
   console.log(`[Position Monitor] 📊 Fetching market data for ${position.tokenSymbol} from DexScreener...`);
   const marketData = await fetchPositionMarketData(position.tokenMint);
@@ -4850,11 +4863,12 @@ async function executeSellForPosition(
     console.log(`[Position Monitor] 🔄 Executing swap with fallback: ${tokenAmountRaw} raw tokens → SOL`);
     
     // Try Jupiter first, then PumpSwap if it fails
+    // Using 10% slippage to preserve profits (30% was eating all gains!)
     const sellResult = await sellTokenWithFallback(
       treasuryKeyBase58,
       position.tokenMint,
       tokenAmountRaw,
-      3000 // 30% slippage for illiquid meme coins
+      1000 // 10% slippage (reduced from 30% to preserve profits)
     );
 
     if (!sellResult.success) {
