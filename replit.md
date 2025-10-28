@@ -36,6 +36,13 @@ A `node-cron` service automates hourly checks for buyback execution, including p
     -   **Auto-Replacement:** When a team member fails, the system automatically swaps in the healthiest inactive model
     -   **Weighted Voting:** Each AI model has a voting weight multiplier (OpenAI 1.3x, DeepSeek/Claude 1.2x, Together/OpenRouter 1.1x, others 1.0x) for consensus decisions
     -   **75% Cost Savings:** Only 3 models active at once (instead of 12), reducing API costs dramatically
+    -   **Recovery Mode (NEW):** Admin-controlled emergency mode that switches from 4-team rotation to single-provider operation (xAI Grok only) for cost reduction during high API usage or when multiple models need recovery. Features include:
+        -   **36-Hour Default Duration:** Configurable recovery period with automatic expiration and return to normal 4-team rotation
+        -   **Admin-Only Access:** Activation/deactivation restricted to AI_BOT_WHITELISTED_WALLETS for security
+        -   **Auto-Expiration:** System automatically resumes 4-team rotation when recovery period ends
+        -   **API Endpoints:** POST /activate, POST /deactivate, GET /status (public read-only)
+        -   **Database Tracking:** Persistent state management with endsAt timestamps in ai_recovery_mode table
+        -   **Secure Authentication:** Requires wallet signature verification for all state changes
 -   **Intelligent Circuit Breaker Protection:** Disables and rotates failing AI models, prioritizing reliable ones based on health scoring.
 -   **Advanced AI Rate Limiting & Retry System:** Implements universal and provider-specific rate limiting, exponential backoff for retries, and a smart circuit breaker to distinguish between rate limits and permanent failures.
 -   **Tri-Mode Trading Strategy (PROFITABILITY OPTIMIZED - MAJOR UPDATE Oct 2025):** Supports SCALP, QUICK_2X, and SWING modes with significantly raised confidence thresholds, conservative position sizing, and positive R-multiples to fix 3% win rate:
