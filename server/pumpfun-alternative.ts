@@ -242,8 +242,8 @@ export async function fetchTrendingPumpStyleTokens(maxTokens: number = 15): Prom
   try {
     console.log("[PumpFun Alt] 🔥 Fetching trending pump-style tokens from DexScreener...");
     
-    // Get trending pairs on Solana
-    const response = await fetch('https://api.dexscreener.com/latest/dex/pairs/solana/', {
+    // Search for trending Solana tokens (using search endpoint instead of invalid pairs/solana/ endpoint)
+    const response = await fetch('https://api.dexscreener.com/latest/dex/search?q=SOL', {
       headers: { 'Accept': 'application/json' },
     });
     
@@ -253,7 +253,8 @@ export async function fetchTrendingPumpStyleTokens(maxTokens: number = 15): Prom
     }
     
     const data = await response.json();
-    const pairs = data.pairs || [];
+    // Filter for Solana chain pairs only
+    const pairs = (data.pairs || []).filter((pair: any) => pair.chainId === 'solana');
     
     // Filter for pump-style characteristics:
     // - High volume relative to liquidity
