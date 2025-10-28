@@ -499,8 +499,8 @@ export default function Landing() {
             </div>
             <div>
               <Brain className="h-8 w-8 text-purple-500 mx-auto mb-2" />
-              <p className="font-semibold">11 AI Models</p>
-              <p className="text-sm text-muted-foreground">Consensus voting</p>
+              <p className="font-semibold">12 AI Models</p>
+              <p className="text-sm text-muted-foreground">4-team rotation</p>
             </div>
             <div>
               <Zap className="h-8 w-8 text-orange-500 mx-auto mb-2" />
@@ -528,11 +528,14 @@ export default function Landing() {
                 <CardTitle>GigaBrain AI Trading</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="text-muted-foreground">Autonomous 24/7 trading with 11-model hivemind consensus system</p>
+                <p className="text-muted-foreground">Autonomous 24/7 trading with 12-model hivemind and 4-team rotation</p>
                 <ul className="space-y-1 text-sm">
-                  <li>✓ Dual-mode strategy (SCALP & SWING)</li>
-                  <li>✓ Auto position sizing</li>
-                  <li>✓ Drawdown protection</li>
+                  <li>✓ Tri-mode strategy (SCALP, QUICK_2X, SWING)</li>
+                  <li>✓ Graduated position sizing (1-3%)</li>
+                  <li>✓ Dynamic trailing stop-loss (4 tiers)</li>
+                  <li>✓ AI loss prevention system</li>
+                  <li>✓ 15-min portfolio rebalancing</li>
+                  <li>✓ Conviction hold & accumulate</li>
                 </ul>
                 <Link href="/learn" className="text-sm text-primary hover:underline">
                   Learn More →
