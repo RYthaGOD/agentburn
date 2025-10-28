@@ -1637,6 +1637,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ AI RECOVERY MODE ENDPOINTS ============
+  // Activate recovery mode (36-hour Grok-only mode for cost savings during recovery)
+  app.post("/api/ai-bot/recovery-mode/activate", authRateLimit, async (req, res) => {
+    try {
+      const { ownerWalletAddress, signature, message, durationHours, reason } = req.body;
+      
+      if (!ownerWalletAddress || !signature || !message) {
+        return res.status(400).json({ 
+          message: "Missing required fields: ownerWalletAddress, signature, and message are required" 
+        });
+      }
+
+      // Verify wallet signature
+      const { verifyWalletSignature } = await import("./solana-sdk");
+      const isValidSignature = await verifyWalletSignature(
+        ownerWalletAddress,
+        message,
+        signature
+      );
+
+      if (!isValidSignature) {
+        return res.status(401).json({ message: "Invalid signature" });
+      }
+
+      // Extract timestamp from message
+      const timestampMatch = message.match(/at (\d+)$/);
+      if (!timestampMatch) {
+        return res.status(400).json({ message: "Invalid message format" });
+      }
+
+      const messageTimestamp = parseInt(timestampMatch[1], 10);
+      const now = Date.now();
+      const fiveMinutesInMs = 5 * 60 * 1000;
+      if (now - messageTimestamp > fiveMinutesInMs) {
+        return res.status(400).json({ message: "Message expired. Please try again." });
+      }
+
+      // Default to 36 hours if not specified
+      const hours = durationHours || 36;
+      const endsAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+
+      auditLog("activate_recovery_mode", {
+        walletAddress: ownerWalletAddress,
+        durationHours: hours,
+        endsAt: endsAt.toISOString(),
+        reason: reason || "User initiated",
+        ip: req.ip || "unknown",
+      });
+
+      // Create recovery mode configuration
+      const recoveryMode = await storage.activateRecoveryMode({
+        enabled: true,
+        startedAt: new Date(),
+        endsAt,
+        recoveryProvider: "xAI Grok",
+        reason: reason || "User initiated recovery mode",
+        activatedBy: ownerWalletAddress,
+      });
+
+      console.log(`[Recovery Mode] 🔧 ACTIVATED by ${ownerWalletAddress} - Duration: ${hours}h, Ends: ${endsAt.toISOString()}`);
+
+      res.json({
+        success: true,
+        message: `Recovery mode activated for ${hours} hours`,
+        recoveryMode,
+        endsAt: endsAt.toISOString(),
+      });
+    } catch (error: any) {
+      console.error("Activate recovery mode error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get recovery mode status
+  app.get("/api/ai-bot/recovery-mode/status", async (req, res) => {
+    try {
+      const recoveryMode = await storage.getRecoveryModeStatus();
+      
+      if (!recoveryMode || !recoveryMode.enabled) {
+        return res.json({
+          active: false,
+          message: "Recovery mode is not active. Using normal 4-team rotation.",
+        });
+      }
+
+      const now = new Date();
+      const isExpired = recoveryMode.endsAt && now > recoveryMode.endsAt;
+
+      if (isExpired) {
+        return res.json({
+          active: false,
+          message: "Recovery mode period has ended. System will resume 4-team rotation on next scan.",
+          lastRecoveryMode: recoveryMode,
+        });
+      }
+
+      const hoursRemaining = recoveryMode.endsAt 
+        ? ((recoveryMode.endsAt.getTime() - now.getTime()) / (1000 * 60 * 60)).toFixed(1)
+        : 'unlimited';
+
+      res.json({
+        active: true,
+        recoveryMode,
+        hoursRemaining,
+        message: `Recovery mode active - using ${recoveryMode.recoveryProvider} only`,
+      });
+    } catch (error: any) {
+      console.error("Get recovery mode status error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Manually deactivate recovery mode
+  app.post("/api/ai-bot/recovery-mode/deactivate", authRateLimit, async (req, res) => {
+    try {
+      const { ownerWalletAddress, signature, message } = req.body;
+      
+      if (!ownerWalletAddress || !signature || !message) {
+        return res.status(400).json({ 
+          message: "Missing required fields: ownerWalletAddress, signature, and message are required" 
+        });
+      }
+
+      // Verify wallet signature
+      const { verifyWalletSignature } = await import("./solana-sdk");
+      const isValidSignature = await verifyWalletSignature(
+        ownerWalletAddress,
+        message,
+        signature
+      );
+
+      if (!isValidSignature) {
+        return res.status(401).json({ message: "Invalid signature" });
+      }
+
+      // Extract timestamp from message
+      const timestampMatch = message.match(/at (\d+)$/);
+      if (!timestampMatch) {
+        return res.status(400).json({ message: "Invalid message format" });
+      }
+
+      const messageTimestamp = parseInt(timestampMatch[1], 10);
+      const now = Date.now();
+      const fiveMinutesInMs = 5 * 60 * 1000;
+      if (now - messageTimestamp > fiveMinutesInMs) {
+        return res.status(400).json({ message: "Message expired. Please try again." });
+      }
+
+      auditLog("deactivate_recovery_mode", {
+        walletAddress: ownerWalletAddress,
+        ip: req.ip || "unknown",
+      });
+
+      await storage.deactivateRecoveryMode();
+
+      console.log(`[Recovery Mode] ✅ DEACTIVATED by ${ownerWalletAddress} - Resuming 4-team rotation`);
+
+      res.json({
+        success: true,
+        message: "Recovery mode deactivated. System will resume 4-team rotation on next scan.",
+      });
+    } catch (error: any) {
+      console.error("Deactivate recovery mode error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ============ LEGACY PROJECT-BASED AI BOT ROUTE REMOVED ============
   // Project-based AI bot has been replaced with standalone AI bot system
   // See /api/ai-bot/* routes above

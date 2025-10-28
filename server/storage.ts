@@ -9,6 +9,7 @@ import {
   hivemindStrategies,
   tokenBlacklist,
   tradeJournal,
+  aiRecoveryMode,
   type Project,
   type InsertProject,
   type Transaction,
@@ -29,6 +30,8 @@ import {
   type InsertTokenBlacklist,
   type TradeJournal,
   type InsertTradeJournal,
+  type AIRecoveryMode,
+  type InsertAIRecoveryMode,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -108,6 +111,18 @@ export interface IStorage {
     commonFailureReasons: { reason: string; count: number }[];
     bestTokenCharacteristics: any[];
   }>;
+
+  // Recovery Mode operations (AI system recovery)
+  activateRecoveryMode(config: {
+    enabled: boolean;
+    startedAt: Date;
+    endsAt: Date;
+    recoveryProvider: string;
+    reason: string;
+    activatedBy: string;
+  }): Promise<any>;
+  getRecoveryModeStatus(): Promise<any | undefined>;
+  deactivateRecoveryMode(): Promise<void>;
 
   // Public stats (no authentication required)
   getPublicStats(): Promise<{
@@ -748,6 +763,51 @@ export class DatabaseStorage implements IStorage {
       availableCapitalSOL: availableCapitalSOL.toFixed(2),
       activePositionsCount,
     };
+  }
+
+  // Recovery Mode operations (AI system recovery)
+  async activateRecoveryMode(config: {
+    enabled: boolean;
+    startedAt: Date;
+    endsAt: Date;
+    recoveryProvider: string;
+    reason: string;
+    activatedBy: string;
+  }): Promise<AIRecoveryMode> {
+    // Insert new recovery mode configuration
+    const [recoveryMode] = await db
+      .insert(aiRecoveryMode)
+      .values(config)
+      .returning();
+    
+    return recoveryMode;
+  }
+
+  async getRecoveryModeStatus(): Promise<AIRecoveryMode | undefined> {
+    // Get the most recent recovery mode configuration
+    const [config] = await db
+      .select()
+      .from(aiRecoveryMode)
+      .orderBy(desc(aiRecoveryMode.createdAt))
+      .limit(1);
+    
+    return config || undefined;
+  }
+
+  async deactivateRecoveryMode(): Promise<void> {
+    // Get the most recent recovery mode
+    const current = await this.getRecoveryModeStatus();
+    
+    if (current) {
+      // Update to disable it
+      await db
+        .update(aiRecoveryMode)
+        .set({ 
+          enabled: false, 
+          updatedAt: new Date() 
+        })
+        .where(eq(aiRecoveryMode.id, current.id));
+    }
   }
 }
 
