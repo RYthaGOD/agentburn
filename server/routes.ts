@@ -1639,6 +1639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============ AI RECOVERY MODE ENDPOINTS ============
   // Activate recovery mode (36-hour Grok-only mode for cost savings during recovery)
+  // ADMIN ONLY: Restricted to whitelisted wallets
   app.post("/api/ai-bot/recovery-mode/activate", authRateLimit, async (req, res) => {
     try {
       const { ownerWalletAddress, signature, message, durationHours, reason } = req.body;
@@ -1646,6 +1647,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!ownerWalletAddress || !signature || !message) {
         return res.status(400).json({ 
           message: "Missing required fields: ownerWalletAddress, signature, and message are required" 
+        });
+      }
+
+      // Verify wallet is whitelisted (admin access only)
+      const { AI_BOT_WHITELISTED_WALLETS } = await import("@shared/config");
+      const isWhitelisted = AI_BOT_WHITELISTED_WALLETS.includes(ownerWalletAddress);
+      
+      if (!isWhitelisted) {
+        return res.status(403).json({ 
+          message: "Unauthorized: Recovery mode activation is restricted to admin wallets only" 
         });
       }
 
@@ -1750,6 +1761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Manually deactivate recovery mode
+  // ADMIN ONLY: Restricted to whitelisted wallets
   app.post("/api/ai-bot/recovery-mode/deactivate", authRateLimit, async (req, res) => {
     try {
       const { ownerWalletAddress, signature, message } = req.body;
@@ -1757,6 +1769,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!ownerWalletAddress || !signature || !message) {
         return res.status(400).json({ 
           message: "Missing required fields: ownerWalletAddress, signature, and message are required" 
+        });
+      }
+
+      // Verify wallet is whitelisted (admin access only)
+      const { AI_BOT_WHITELISTED_WALLETS } = await import("@shared/config");
+      const isWhitelisted = AI_BOT_WHITELISTED_WALLETS.includes(ownerWalletAddress);
+      
+      if (!isWhitelisted) {
+        return res.status(403).json({ 
+          message: "Unauthorized: Recovery mode deactivation is restricted to admin wallets only" 
         });
       }
 
