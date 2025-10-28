@@ -975,7 +975,14 @@ Be thorough, analytical, and CONSERVATIVE. Quality analysis over quick decisions
     throw new Error(`No response from ${provider}`);
   }
 
-  const analysis = JSON.parse(analysisText) as TradingAnalysis;
+  // Strip markdown code blocks if present (Claude sometimes wraps JSON in ```json...```)
+  const cleanedText = analysisText
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/, '')
+    .replace(/\s*```$/, '')
+    .trim();
+
+  const analysis = JSON.parse(cleanedText) as TradingAnalysis;
 
   // Validate and enforce constraints
   if (analysis.action === "buy") {
