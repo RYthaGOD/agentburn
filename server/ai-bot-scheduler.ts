@@ -1634,9 +1634,10 @@ async function runQuickTechnicalScan() {
             );
             const quickAnalysis = hiveMindResult.analysis;
 
-            // DUAL-MODE SYSTEM: SCALP (62%+) or SWING (75%+) thresholds
-            const SCALP_THRESHOLD = 0.62; // Mode A: Quick micro-profits
-            const SWING_THRESHOLD = 0.75; // Mode B: High-conviction holds
+            // TRI-MODE SYSTEM (PROFITABILITY OPTIMIZED): SCALP (70%+), QUICK_2X (78%+), SWING (88%+)
+            const SCALP_THRESHOLD = 0.70; // Mode A: Quick micro-profits (RAISED from 62%)
+            const QUICK_2X_THRESHOLD = 0.78; // Mode B: Fast 25% profits (RAISED from 70%)
+            const SWING_THRESHOLD = 0.88; // Mode C: High-conviction holds (RAISED from 75%)
             const minThreshold = SCALP_THRESHOLD; // Always check for SCALP opportunities in quick scan
             
             // Determine trade mode based on confidence
@@ -3025,10 +3026,12 @@ async function executeQuickTrade(
 }
 
 /**
- * TRI-MODE TRADING SYSTEM
- * Mode A "SCALP": Quick profits with lower risk (65-69% AI confidence)
- * Mode B "QUICK_2X": Fast 100% profit opportunities (70-79% AI confidence)
- * Mode C "SWING": High-conviction longer holds (82%+ AI confidence)
+ * TRI-MODE TRADING SYSTEM (PROFITABILITY OPTIMIZED - RAISED THRESHOLDS)
+ * Mode A "SCALP": Quick profits with lower risk (70-77% AI confidence - RAISED +5pts)
+ * Mode B "QUICK_2X": Fast 100% profit opportunities (78-87% AI confidence - RAISED +8pts)
+ * Mode C "SWING": High-conviction longer holds (88%+ AI confidence - RAISED +6pts)
+ * 
+ * ⚠️ CRITICAL: Reduced position sizing to 1-3% until win rate >35%
  */
 type TradeMode = "SCALP" | "QUICK_2X" | "SWING";
 
@@ -3043,107 +3046,109 @@ interface TradeModeConfig {
 
 /**
  * Determine trade mode based on AI confidence level
- * TRI-MODE SYSTEM - Optimized for different opportunity types
+ * TRI-MODE SYSTEM - PROFITABILITY OPTIMIZED (Higher thresholds for better win rate)
  */
 function determineTradeMode(confidence: number): TradeModeConfig {
-  if (confidence >= 0.82) {
-    // Mode C: SWING - High conviction longer-term trades (82%+ for quality)
-    // GRADUATED SIZING: Position size scales smoothly with confidence (5-9%)
-    const positionSizePercent = 5 + ((confidence - 0.82) / (1.0 - 0.82)) * 4; // Linear scale from 5% at 82% to 9% at 100%
-    const clampedPositionSize = Math.min(9, Math.max(5, positionSizePercent));
+  if (confidence >= 0.88) {
+    // Mode C: SWING - High conviction longer-term trades (88%+ for quality - RAISED from 82%)
+    // CONSERVATIVE SIZING: Position size scales smoothly with confidence (1-3% until win rate >35%)
+    const positionSizePercent = 1 + ((confidence - 0.88) / (1.0 - 0.88)) * 2; // Linear scale from 1% at 88% to 3% at 100%
+    const clampedPositionSize = Math.min(3, Math.max(1, positionSizePercent));
     
-    // TIGHTENED STOP-LOSS: Capital recycling optimized (-10% to -15%)
-    const stopLossPercent = confidence >= 0.90 ? -15 : confidence >= 0.85 ? -12 : -10;
+    // TIGHTENED STOP-LOSS: Faster capital recycling (-7% to -10%)
+    const stopLossPercent = confidence >= 0.95 ? -10 : confidence >= 0.92 ? -8 : -7;
     
     return {
       mode: "SWING",
-      minConfidence: 82, // RAISED: Higher threshold for quality trades only
+      minConfidence: 88, // RAISED +6pts: Higher threshold for quality trades only
       positionSizePercent: Math.round(clampedPositionSize * 10) / 10, // Round to 1 decimal
       maxHoldMinutes: 1440, // 24 hours
       stopLossPercent,
       profitTargetPercent: 15, // Let AI decide exit, but 15% minimum
     };
-  } else if (confidence >= 0.70) {
-    // Mode B: QUICK_2X - Fast 100% profit opportunities (70-79% confidence)
-    // 🚀 NEW MODE: Targets quick 2x gains with rapid entry/exit
-    // GRADUATED SIZING: Position size scales smoothly with confidence (2-4%)
-    const positionSizePercent = 2 + ((confidence - 0.70) / (0.82 - 0.70)) * 2; // Linear scale from 2% at 70% to 4% at 82%
-    const clampedPositionSize = Math.min(4, Math.max(2, positionSizePercent));
+  } else if (confidence >= 0.78) {
+    // Mode B: QUICK_2X - Fast profit opportunities (78-87% confidence - RAISED from 70%)
+    // 🚀 STRICTER MODE: Targets 25% profits with rapid entry/exit (more realistic than 100%)
+    // CONSERVATIVE SIZING: Position size scales smoothly with confidence (1-2%)
+    const positionSizePercent = 1 + ((confidence - 0.78) / (0.88 - 0.78)) * 1; // Linear scale from 1% at 78% to 2% at 88%
+    const clampedPositionSize = Math.min(2, Math.max(1, positionSizePercent));
     
-    // Tighter stop-loss for quick trades: -12%
-    const stopLossPercent = -12;
+    // Tighter stop-loss for quick trades: -8% (improved from -12%)
+    const stopLossPercent = -8;
     
     return {
       mode: "QUICK_2X",
-      minConfidence: 70,
+      minConfidence: 78, // RAISED +8pts for better quality
       positionSizePercent: Math.round(clampedPositionSize * 10) / 10, // Round to 1 decimal
-      maxHoldMinutes: 60, // 1 hour max hold for quick 2x opportunities
+      maxHoldMinutes: 60, // 1 hour max hold for quick opportunities
       stopLossPercent,
-      profitTargetPercent: 100, // Target 100% profit (2x)
+      profitTargetPercent: 25, // REALISTIC: Changed from 100% to 25% (more achievable)
     };
-  } else if (confidence >= 0.65) {
-    // Mode A: SCALP - Quick micro-profits (65-69% confidence)
-    // GRADUATED SIZING: Position size scales smoothly with confidence (3-5%)
-    const positionSizePercent = 3 + ((confidence - 0.65) / (0.70 - 0.65)) * 2; // Linear scale from 3% at 65% to 5% at 70%
-    const clampedPositionSize = Math.min(5, Math.max(3, positionSizePercent));
+  } else if (confidence >= 0.70) {
+    // Mode A: SCALP - Quick micro-profits (70-77% confidence - RAISED from 65%)
+    // CONSERVATIVE SIZING: Position size scales smoothly with confidence (1-2%)
+    const positionSizePercent = 1 + ((confidence - 0.70) / (0.78 - 0.70)) * 1; // Linear scale from 1% at 70% to 2% at 78%
+    const clampedPositionSize = Math.min(2, Math.max(1, positionSizePercent));
     
-    // OPTIMIZED STOP-LOSS: -8% to -10% graduated with confidence
-    const stopLossPercent = -8 - ((confidence - 0.65) / (0.70 - 0.65)) * 2; // Linear scale from -8% at 65% to -10% at 70%
-    const clampedStopLoss = Math.min(-8, Math.max(-10, stopLossPercent));
+    // CORRECTED STOP-LOSS: -3% for capital preservation (POSITIVE R-multiple)
+    const stopLossPercent = -3;
     
-    // GRADUATED PROFIT TARGET: 4% to 6% scales with confidence
-    const profitTargetPercent = 4 + ((confidence - 0.65) / (0.70 - 0.65)) * 2; // Linear scale from 4% at 65% to 6% at 70%
-    const clampedProfitTarget = Math.min(6, Math.max(4, profitTargetPercent));
+    // REALISTIC PROFIT TARGET: 3.5% (POSITIVE R-multiple: 3.5%/-3% = 1.17R - risks LESS than it earns)
+    const profitTargetPercent = 3.5;
     
     return {
       mode: "SCALP",
-      minConfidence: 65, // RAISED: Skip low-quality marginal trades
+      minConfidence: 70, // RAISED +5pts: Skip low-quality marginal trades
       positionSizePercent: Math.round(clampedPositionSize * 10) / 10, // Round to 1 decimal
       maxHoldMinutes: 30, // ENFORCED: Will auto-exit after 30 minutes if underperforming
-      stopLossPercent: Math.round(clampedStopLoss * 10) / 10,
-      profitTargetPercent: Math.round(clampedProfitTarget * 10) / 10,
+      stopLossPercent,
+      profitTargetPercent,
     };
   } else {
     // Below minimum threshold - return conservative defaults (should be filtered out)
     return {
       mode: "SCALP",
-      minConfidence: 65,
-      positionSizePercent: 3,
+      minConfidence: 70,
+      positionSizePercent: 1,
       maxHoldMinutes: 30,
-      stopLossPercent: -8,
-      profitTargetPercent: 4,
+      stopLossPercent: -3,
+      profitTargetPercent: 3.5,
     };
   }
 }
 
 /**
- * TRI-MODE POSITION SIZING (SCALP / QUICK_2X / SWING)
- * CAPITAL EFFICIENCY OPTIMIZED - Graduated allocation for maximum profitability
+ * TRI-MODE POSITION SIZING (SCALP / QUICK_2X / SWING) - PROFITABILITY OPTIMIZED
+ * 🚨 MAJOR UPDATE: Raised thresholds + reduced sizing + improved R-multiples for better win rate
  * 
- * SCALP Mode (65-69% confidence) - QUALITY QUICK TRADES:
- * - Position: 3-5% of portfolio (GRADUATED with confidence)
- * - Quick profits: +4-6% targets (GRADUATED with confidence)
- * - Stop-loss: -8% to -10% (GRADUATED - tighter for higher confidence)
+ * SCALP Mode (70-77% confidence) - QUALITY QUICK TRADES:
+ * - Position: 1-2% of portfolio (REDUCED from 3-5% - capital preservation)
+ * - Quick profits: +3.5% target (REALISTIC - down from 4-6%)
+ * - Stop-loss: -3% (CORRECTED for POSITIVE R-multiple: 3.5%/-3% = 1.17R - risks LESS than it earns)
  * - Max hold: 30 minutes (ENFORCED - auto-exit if underperforming)
+ * - Threshold RAISED +5pts (from 65% to 70%) for higher quality trades
  * 
- * QUICK_2X Mode (70-79% confidence) - FAST 2X OPPORTUNITIES:
- * - Position: 2-4% of portfolio (GRADUATED with confidence)
- * - Target: +100% (2x) profits with rapid momentum
- * - Stop-loss: -12% (tight to preserve capital)
+ * QUICK_2X Mode (78-87% confidence) - FAST 25% OPPORTUNITIES:
+ * - Position: 1-2% of portfolio (REDUCED from 2-4% - capital preservation)
+ * - Target: +25% profits (REALISTIC - down from unrealistic 100%)
+ * - Stop-loss: -8% (IMPROVED from -12%, better R-multiple: 25%/-8% = 3.1R)
  * - Max hold: 60 minutes (quick in and out)
+ * - Threshold RAISED +8pts (from 70% to 78%) for much higher quality
  * 
- * SWING Mode (82%+ confidence) - HIGH CONVICTION ONLY:
- * - Position: 5-9% of portfolio (GRADUATED with confidence)
- * - Larger profits: +15%+ targets
- * - Tighter stop: -10% to -15% (OPTIMIZED - faster capital recycling)
+ * SWING Mode (88%+ confidence) - HIGHEST CONVICTION ONLY:
+ * - Position: 1-3% of portfolio (REDUCED from 5-9% - capital preservation)
+ * - Larger profits: +15% targets
+ * - Tighter stop: -7% to -10% (OPTIMIZED - faster capital recycling, better R: 15%/-7% = 2.1R)
  * - Longer holds: AI-driven exits
+ * - Threshold RAISED +6pts (from 82% to 88%) for elite trades only
  * 
- * CAPITAL EFFICIENCY IMPROVEMENTS:
- * ✅ Graduated position sizing (smooth scaling vs fixed tiers)
- * ✅ Higher minimum confidence (65% SCALP, 70% QUICK_2X, 82% SWING)
- * ✅ Tightened stop-losses for faster capital recycling
- * ✅ All parameters scale smoothly with confidence for optimal allocation
- * ✅ QUICK_2X mode specifically targets fast 100% profit opportunities
+ * PROFITABILITY IMPROVEMENTS (To fix 3% win rate):
+ * ✅ RAISED confidence thresholds significantly (+5 to +8 pts across all modes)
+ * ✅ REDUCED position sizing to 1-3% (from 3-9%) until win rate >35%
+ * ✅ FIXED risk/reward ratios - all modes now have positive R-multiples
+ * ✅ REALISTIC profit targets - QUICK_2X changed from 100% to 25%
+ * ✅ TIGHTER stop-losses - preserve capital faster (-3.5% to -8% vs -8% to -15%)
+ * ⚠️ These changes prioritize QUALITY over QUANTITY to rebuild profitability
  */
 function calculateDynamicTradeAmount(
   baseAmount: number,
