@@ -58,7 +58,7 @@ export default function Landing() {
           <div className="text-center space-y-6">
             <Badge variant="outline" className="mb-4 bg-primary/10 border-primary/20">
               <Sparkles className="h-3 w-3 mr-1" />
-              11-Model AI Hivemind • 100% Autonomous • Non-Custodial
+              12-Model AI Hivemind • 4-Team Rotation • 100% Autonomous
             </Badge>
             
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight max-w-5xl mx-auto leading-tight">
@@ -70,7 +70,7 @@ export default function Landing() {
             </h1>
             
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
-              GigaBrain uses an 11-model AI consensus system to trade Solana tokens 24/7. Start with 0.1 SOL.
+              GigaBrain uses a 12-model AI hivemind with 4-team rotation to trade Solana tokens 24/7. Start with 0.1 SOL.
             </p>
 
             {/* Live Stats Preview */}
@@ -154,7 +154,7 @@ export default function Landing() {
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="font-medium">11-model hivemind AI</p>
+                      <p className="font-medium">12-model hivemind AI</p>
                       <p className="text-sm text-muted-foreground">Same AI system as paid users</p>
                     </div>
                   </div>
@@ -204,14 +204,14 @@ export default function Landing() {
                     <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="font-medium">Full hivemind AI access</p>
-                      <p className="text-sm text-muted-foreground">All 11 AI models working for you</p>
+                      <p className="text-sm text-muted-foreground">All 12 AI models working for you</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="font-medium">Auto portfolio rebalancing</p>
-                      <p className="text-sm text-muted-foreground">AI optimizes positions every 30min</p>
+                      <p className="text-sm text-muted-foreground">AI optimizes positions every 15min</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
