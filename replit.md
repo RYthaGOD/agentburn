@@ -3,6 +3,23 @@
 ## Overview
 BurnBot is a SaaS platform providing a no-code solution for Solana SPL token creators to automate token buyback and burn operations. It features a dashboard, flexible scheduling, transaction monitoring, and an autonomous AI Trading Bot named GigaBrain. GigaBrain utilizes a 12-model AI hivemind to identify and trade trending tokens on Solana, focusing on profit potential, autonomous capital management, dynamic position sizing, and intelligent bundle activity detection to avoid pump-and-dump schemes. The platform aims to enhance tokenomics, offer robust trading tools, and operate as a profit-hunting machine with strong safety guardrails. It includes a subscription model with free trades, followed by a paid subscription and a platform fee, a portion of which is used for token buyback and burn.
 
+## Recent Changes (Oct 29, 2025)
+### Fresh Start - System Improvements Deployed
+**Token Discovery Massively Enhanced:**
+- Expanded token sources: Now scanning 100+ tokens from 4 sources (was 30 from 2 sources)
+- Faster refresh cycles: 5-minute cache (was 20 minutes) for maximum opportunity capture
+- Relaxed quality filters: 60% organic (from 80%), 50% quality (from 70%), $10k liquidity (from $20k) - allows more trading variety while maintaining safety
+- Sources: 50 DexScreener trending, 25 PumpFun tokens, 50 low-cap tokens, 25 newly migrated tokens
+
+**Exit Strategy Fixed:**
+- Trailing stop now uses peak price (not current) for floor calculation - prevents stop from retreating below entry
+- 2-stage exit filter prevents premature panic-selling on temporary confidence drops
+
+**Performance Tracking Reset:**
+- All metrics reset to zero to track fresh performance data with improved system
+- Landing page and dashboard updated with "Fresh Start" messaging
+- Transparent communication about improvements to users
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
