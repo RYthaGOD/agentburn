@@ -2880,9 +2880,23 @@ async function executeQuickTrade(
     console.log(`[Quick Scan] 🛡️ Running AI loss prediction for ${token.symbol}...`);
     const lossPrediction = await predictLossProbability(token);
     
-    // AGGRESSIVE TRADING MODE: Only block if >95% unanimous consensus
-    // For risky trades (40-95% loss probability), apply risk-adjusted position sizing and tighter stops
-    if (!lossPrediction.safe || lossPrediction.lossProbability > 95) {
+    // 🚨 CRITICAL RISK FILTERS: Block tokens with unlocked liquidity (instant rug pull risk)
+    const hasUnlockedLiquidity = lossPrediction.risks.some(risk => 
+      risk.toLowerCase().includes('unlocked') || 
+      risk.toLowerCase().includes('not locked') ||
+      risk.toLowerCase().includes('rug pull')
+    );
+    
+    if (hasUnlockedLiquidity) {
+      console.log(`[Quick Scan] 🚨 TRADE BLOCKED - UNLOCKED LIQUIDITY detected (immediate rug pull risk)`);
+      console.log(`[Quick Scan] Risks: ${lossPrediction.risks.join(', ')}`);
+      logActivity('quick_scan', 'warning', `🛡️ BLOCKED ${token.symbol}: Unlocked liquidity - immediate rug pull risk`);
+      return;
+    }
+    
+    // TIGHTENED THRESHOLD: Block if >85% loss probability (was 95%)
+    // Problem: Was allowing 92.5% loss trades → 0% win rate, -1.25% ROI
+    if (!lossPrediction.safe || lossPrediction.lossProbability > 85) {
       console.log(`[Quick Scan] ❌ TRADE BLOCKED - AI Loss Prediction: ${lossPrediction.lossProbability}% loss probability (EXTREME RISK)`);
       console.log(`[Quick Scan] Risks: ${lossPrediction.risks.join(', ')}`);
       console.log(`[Quick Scan] Reasoning: ${lossPrediction.reasoning}`);
@@ -3921,20 +3935,23 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
         continue;
       }
       
-      // 🔥 TECHNICAL "BUY LOW" FILTERS: Ensure we buy at support, not at tops
-      // These filters complement AI analysis to enforce "buy low, sell high" discipline
+      // 🔥 TIGHTENED "BUY LOW" FILTERS: Avoid buying pumped tokens (profitability improvement)
+      // Problem: Bought LLMPOKER after +88% pump → 0% win rate, -1.25% ROI
+      // Solution: Stricter filters to only buy during dips/consolidation
       if (analysis.action === "buy") {
         const BOLLINGER_TOLERANCE = 0.15; // ±15% proximity to bands
         const MIN_VALID_PRICE = 1e-9; // Microprice protection
-        const RSI_OVERSOLD = 40; // Prefer buying oversold tokens
-        const MAX_24H_PUMP = 0.30; // Skip tokens already pumped >30% in 24h (0.30 = 30% on 0-1 scale)
+        const RSI_OVERBOUGHT = 60; // STRICTER: Block if RSI > 60 (was warning only at >70)
+        const MAX_1H_PUMP = 15; // NEW: Block if >15% pump in 1h
+        const MAX_24H_PUMP = 20; // TIGHTENED: Was 30%, now 20%
         
         // Extract technical indicators
         const currentPrice = token.priceSOL ?? 0;
         const bollingerLower = token.bollingerLower ?? 0;
         const bollingerUpper = token.bollingerUpper ?? 0;
         const rsi = token.rsi ?? 50;
-        const priceChange24h = token.priceChange24h ?? 0;
+        const priceChange1h = token.priceChange1h ?? 0; // Keep sign: +20% = pump (block), -20% = dip (allow)
+        const priceChange24h = token.priceChange24h ?? 0; // Keep sign: +30% = pump (block), -30% = crash (allow)
         
         // Validate Bollinger data
         const hasBollingerData = bollingerLower >= MIN_VALID_PRICE && 
@@ -3955,17 +3972,24 @@ async function executeStandaloneAIBot(ownerWalletAddress: string, collectLogs = 
           continue;
         }
         
-        // FILTER 2: RSI Check - Warn if buying overbought (RSI > 70)
-        if (rsi > 70) {
-          addLog(`⚠️ WARNING ${token.symbol}: Buying OVERBOUGHT token (RSI: ${rsi.toFixed(1)})`, "warning");
-          addLog(`   💡 Prefer RSI < ${RSI_OVERSOLD} for better entry (current: ${rsi.toFixed(1)})`, "info");
-          // Don't skip, just warn - AI confidence may override
+        // FILTER 2: RSI Check - BLOCK if overbought (RSI > 60) [STRICTER]
+        if (rsi > RSI_OVERBOUGHT) {
+          addLog(`🔴 SKIP ${token.symbol}: OVERBOUGHT (RSI: ${rsi.toFixed(1)} > ${RSI_OVERBOUGHT})`, "warning");
+          addLog(`   💡 Wait for RSI to cool below ${RSI_OVERBOUGHT} before buying`, "info");
+          continue; // CHANGED: Now blocks instead of just warning
         }
         
-        // FILTER 3: 24h Pump Filter - Avoid FOMO buying tokens already up >30%
+        // FILTER 3: 1h Pump Filter - NEW FILTER to catch recent pumps (e.g., LLMPOKER +88%)
+        if (priceChange1h > MAX_1H_PUMP) {
+          addLog(`🔴 SKIP ${token.symbol}: Recent pump +${priceChange1h.toFixed(1)}% in 1h (avoid buying momentum)`, "warning");
+          addLog(`   💡 Wait for 1h consolidation before entering`, "info");
+          continue;
+        }
+        
+        // FILTER 4: 24h Pump Filter - TIGHTENED from 30% to 20%
         if (priceChange24h > MAX_24H_PUMP) {
-          addLog(`🔴 SKIP ${token.symbol}: Already pumped +${(priceChange24h * 100).toFixed(1)}% in 24h (avoid FOMO buying at peaks)`, "warning");
-          addLog(`   💡 Enforce "buy low": Wait for pullback or dip (buying after +${(MAX_24H_PUMP * 100).toFixed(0)}% pump is risky)`, "info");
+          addLog(`🔴 SKIP ${token.symbol}: Already pumped +${priceChange24h.toFixed(1)}% in 24h (avoid FOMO buying at peaks)`, "warning");
+          addLog(`   💡 Enforce "buy low": Wait for pullback or dip (buying after +${MAX_24H_PUMP}% pump is risky)`, "info");
           continue;
         }
         
@@ -5303,7 +5327,7 @@ async function monitorPositionsWithDeepSeek() {
 
   schedulerStatus.positionMonitor.status = 'running';
   schedulerStatus.positionMonitor.lastRun = Date.now();
-  schedulerStatus.positionMonitor.nextRun = Date.now() + (3 * 60 * 1000); // 3 minutes (OPTIMIZED)
+  schedulerStatus.positionMonitor.nextRun = Date.now() + (60 * 1000); // 1 minute (TIGHTENED for faster stop-loss execution)
   
   try {
     console.log("[Position Monitor] Checking open positions with DeepSeek...");
@@ -5666,12 +5690,21 @@ async function analyzePositionWithAI(
   const isSwingTrade = position.isSwingTrade === 1;
   const aiConfidenceAtBuy = parseFloat(position.aiConfidenceAtBuy || "0");
 
-  // 🎯 PROFIT-MAXIMIZATION GATING: Let AI analyze when we can capture MORE profit
+  // 🎯 PROFIT-MAXIMIZATION WITH QUICK-TAKE PROTECTION
+  // For volatile low-cap tokens, we need to capture profits quickly before they disappear
   const profitTarget = isSwingTrade ? 15 : 4; // SWING: +15%, SCALP: +4%
   const peakProfit = parseFloat(position.peakProfitPercent || "0");
   
   // Track if we've ever hit profit target (peak-based, not current)
   const hasHitProfitTarget = peakProfit >= profitTarget;
+  
+  // 🚨 QUICK PROFIT-TAKING: For volatile tokens, lock in gains at key thresholds
+  // Problem: Low-cap tokens spike +20% then crash to -5% before next check
+  if (profitPercent >= 25) {
+    console.log(`[Position Monitor] 💰 QUICK PROFIT-TAKE ${position.tokenSymbol}: +${profitPercent.toFixed(2)}% (threshold: +25%) → SELLING to lock gains before crash!`);
+    await executeSellForPosition(config, position, treasuryKeyBase58, `Quick profit-take at +${profitPercent.toFixed(2)}% (volatile token protection)`);
+    return;
+  }
   
   // CASE 1: We're in profit and haven't hit target yet → HOLD and wait for more gains
   if (profitPercent > 0 && profitPercent < profitTarget && !hasHitProfitTarget) {
@@ -6369,14 +6402,14 @@ export function startPositionMonitoringScheduler() {
   console.log("[Position Monitor] Starting...");
   console.log("[Position Monitor] Using free DeepSeek API (5M tokens, superior reasoning) for position monitoring");
 
-  // Run every 3 minutes for active position management (OPTIMIZED: saves 50% API calls vs 1.5min)
-  positionMonitorJob = cron.schedule("*/3 * * * *", () => {
+  // Run every 1 minute for faster stop-loss execution (TIGHTENED: prevents late stop-losses at -27% instead of -8%)
+  positionMonitorJob = cron.schedule("* * * * *", () => {
     monitorPositionsWithDeepSeek().catch((error) => {
       console.error("[Position Monitor] Unexpected error:", error);
     });
   });
 
-  console.log("[Position Monitor] Active (checks every 3 minutes - OPTIMIZED to reduce API usage)");
+  console.log("[Position Monitor] Active (checks every 1 minute - TIGHTENED for faster stop-loss execution)");
 }
 
 /**
