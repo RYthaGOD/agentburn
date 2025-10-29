@@ -391,20 +391,20 @@ function generateStrategyFromSentiment(
 
     case "neutral":
     default:
-      // CONSERVATIVE by default - strict wealth-growing approach with minimal drawdowns
-      minConfidenceThreshold = 75; // INCREASED: Higher default threshold
-      maxDailyTrades = 3;
+      // OPPORTUNITY MODE: Lowered threshold to capture more trades
+      minConfidenceThreshold = 52; // LOWERED: Match quick scan threshold for more trades
+      maxDailyTrades = 5; // INCREASED: Allow more trades
       profitTargetMultiplier = 0.8;
-      riskLevel = "conservative";
+      riskLevel = "moderate";
       preferredMarketCap = "low";
       
       budgetPerTrade = 0.02; // REDUCED: Smaller default position size
-      minVolumeUSD = 25000; // CONSERVATIVE: Higher volume requirement ($25k minimum)
-      minLiquidityUSD = 20000; // CONSERVATIVE: Much higher liquidity requirement ($20k minimum)
-      minOrganicScore = 70; // CONSERVATIVE: Stricter organic score (70% minimum)
-      minQualityScore = 60; // CONSERVATIVE: Stricter quality score (60% minimum)
-      minTransactions24h = 50; // CONSERVATIVE: More active tokens (50 minimum)
-      minPotentialPercent = 30; // INCREASED: Better upside required
+      minVolumeUSD = 10000; // LOWERED: Allow lower volume tokens ($10k minimum)
+      minLiquidityUSD = 10000; // LOWERED: Allow lower liquidity ($10k minimum)
+      minOrganicScore = 60; // LOWERED: Less strict organic score (60% minimum)
+      minQualityScore = 50; // LOWERED: Less strict quality score (50% minimum)
+      minTransactions24h = 30; // LOWERED: Allow less active tokens (30 minimum)
+      minPotentialPercent = 20; // LOWERED: Lower upside required for more opportunities
       break;
   }
 
@@ -455,18 +455,18 @@ function getDefaultStrategy(): HivemindStrategy {
   return {
     marketSentiment: "neutral",
     preferredMarketCap: "low",
-    minConfidenceThreshold: 75, // STRICT: Higher threshold
-    maxDailyTrades: 3, // Quality over quantity
+    minConfidenceThreshold: 52, // LOWERED: Match quick scan threshold
+    maxDailyTrades: 5, // INCREASED: More trades for opportunities
     profitTargetMultiplier: 0.8, // Take profits consistently
-    riskLevel: "conservative",
+    riskLevel: "moderate",
     budgetPerTrade: 0.02, // REDUCED: Smaller trades for capital preservation
-    minVolumeUSD: 25000, // CONSERVATIVE: Higher volume required ($25k minimum)
-    minLiquidityUSD: 20000, // CONSERVATIVE: Much higher liquidity required ($20k minimum)
-    minOrganicScore: 70, // CONSERVATIVE: Higher organic requirement (70% minimum)
-    minQualityScore: 60, // CONSERVATIVE: Higher quality requirement (60% minimum)
-    minTransactions24h: 50, // CONSERVATIVE: More active tokens only (50 minimum)
-    minPotentialPercent: 30, // INCREASED: Better upside required
-    reasoning: "Default conservative wealth-growing strategy - Capital preservation with minimal drawdowns through strict quality filters (70% organic, 60% quality, $25k volume, $20k liquidity)",
+    minVolumeUSD: 10000, // LOWERED: Allow lower volume tokens ($10k minimum)
+    minLiquidityUSD: 10000, // LOWERED: Allow lower liquidity ($10k minimum)
+    minOrganicScore: 60, // LOWERED: Less strict organic requirement (60% minimum)
+    minQualityScore: 50, // LOWERED: Less strict quality requirement (50% minimum)
+    minTransactions24h: 30, // LOWERED: Allow less active tokens (30 minimum)
+    minPotentialPercent: 20, // LOWERED: Lower upside required for more opportunities
+    reasoning: "Default opportunity-seeking strategy - 52% confidence threshold, relaxed filters (60% organic, 50% quality, $10k volume, $10k liquidity) for maximum trading opportunities",
     generatedAt: new Date(),
   };
 }
