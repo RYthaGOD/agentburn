@@ -64,13 +64,35 @@ async function closeAllPositions(ownerWalletAddress: string) {
       console.log(`\n💰 Selling token: ${tokenMint.slice(0, 8)}...`);
       console.log(`   Amount: ${uiAmount} tokens (${tokenAmount} raw)`);
 
-      // Sell with 5% slippage
-      const sellResult = await sellTokenWithFallback(
+      // Try with increasing slippage: 10%, 25%, 50%
+      let sellResult = await sellTokenWithFallback(
         treasuryKeyBase58,
         tokenMint,
         parseInt(tokenAmount),
-        500 // 5% slippage
+        1000 // 10% slippage
       );
+
+      // If failed, try 25% slippage
+      if (!sellResult.success) {
+        console.log(`   🔄 Retrying with 25% slippage...`);
+        sellResult = await sellTokenWithFallback(
+          treasuryKeyBase58,
+          tokenMint,
+          parseInt(tokenAmount),
+          2500 // 25% slippage
+        );
+      }
+
+      // If still failed, try 50% slippage (emergency)
+      if (!sellResult.success) {
+        console.log(`   🔄 Retrying with 50% slippage (emergency)...`);
+        sellResult = await sellTokenWithFallback(
+          treasuryKeyBase58,
+          tokenMint,
+          parseInt(tokenAmount),
+          5000 // 50% slippage
+        );
+      }
 
       if (sellResult.success && sellResult.signature) {
         console.log(`   ✅ SOLD: ${sellResult.signature}`);
