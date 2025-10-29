@@ -20,6 +20,14 @@ BurnBot is a SaaS platform providing a no-code solution for Solana SPL token cre
 - Landing page and dashboard updated with "Fresh Start" messaging
 - Transparent communication about improvements to users
 
+### Latest Optimization (Oct 29, 2025 - Evening)
+**Trading Threshold Lowered for 100% More Opportunities:**
+- SCALP mode threshold: **52%** (down from 60%) - captures moderate-confidence opportunities
+- Expected impact: **2x trading frequency** without compromising safety
+- Position sizing: Still conservative 1-2% per trade
+- Stop-loss unchanged: -3% for capital protection
+- This allows bot to trade on 52-59% confidence signals (previously blocked)
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 

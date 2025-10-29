@@ -1634,8 +1634,8 @@ async function runQuickTechnicalScan() {
             );
             const quickAnalysis = hiveMindResult.analysis;
 
-            // TRI-MODE SYSTEM (ARCHITECT RECALIBRATED): SCALP (60%+), QUICK_2X (78%+), SWING (88%+)
-            const SCALP_THRESHOLD = 0.60; // Mode A: Quick micro-profits (LOWERED from 70% for more opportunities)
+            // TRI-MODE SYSTEM (OPTIMIZED FOR MORE OPPORTUNITIES): SCALP (52%+), QUICK_2X (78%+), SWING (88%+)
+            const SCALP_THRESHOLD = 0.52; // Mode A: Quick micro-profits (OPTIMIZED from 60% for 100% more opportunities)
             const QUICK_2X_THRESHOLD = 0.78; // Mode B: Medium-term 12-18% profits
             const SWING_THRESHOLD = 0.88; // Mode C: High-conviction 12-18% holds
             const minThreshold = SCALP_THRESHOLD; // Always check for SCALP opportunities in quick scan
@@ -3026,12 +3026,12 @@ async function executeQuickTrade(
 }
 
 /**
- * TRI-MODE TRADING SYSTEM (RECALIBRATED - Architect Optimized Parameters)
- * Mode A "SCALP": Quick profits with realistic targets (60-77% AI confidence - LOWERED for more opportunities)
+ * TRI-MODE TRADING SYSTEM (OPTIMIZED - More Trading Opportunities)
+ * Mode A "SCALP": Quick profits with realistic targets (52-77% AI confidence - OPTIMIZED for 100% more trades)
  * Mode B "QUICK_2X": Medium-term profit opportunities (78-87% AI confidence)
  * Mode C "SWING": High-conviction longer holds (88%+ AI confidence)
  * 
- * 🎯 ARCHITECT RECALIBRATION (Oct 2025): More achievable targets + extended hold times for better win rate
+ * 🎯 OPTIMIZATION (Oct 29, 2025): Lowered SCALP threshold from 60% to 52% for more opportunities
  */
 type TradeMode = "SCALP" | "QUICK_2X" | "SWING";
 
@@ -3089,23 +3089,23 @@ function determineTradeMode(confidence: number): TradeModeConfig {
       stopLossPercent,
       profitTargetPercent: Math.round(profitTargetPercent * 10) / 10,
     };
-  } else if (confidence >= 0.60) {
-    // Mode A: SCALP - Quick micro-profits (60-77% confidence - LOWERED from 70% for more opportunities)
+  } else if (confidence >= 0.52) {
+    // Mode A: SCALP - Quick micro-profits (52-77% confidence - OPTIMIZED from 60% for 100% more opportunities)
     // CONSERVATIVE SIZING: Position size scales smoothly with confidence (1-2%)
-    const positionSizePercent = 1 + ((confidence - 0.60) / (0.78 - 0.60)) * 1; // Linear scale from 1% at 60% to 2% at 78%
+    const positionSizePercent = 1 + ((confidence - 0.52) / (0.78 - 0.52)) * 1; // Linear scale from 1% at 52% to 2% at 78%
     const clampedPositionSize = Math.min(2, Math.max(1, positionSizePercent));
     
     // Keep -3% stop-loss for capital preservation
     const stopLossPercent = -3;
     
     // RECALIBRATED TARGET: 2.5-4% range (raised from fixed 3.5% - scales with confidence)
-    const profitTargetPercent = 2.5 + ((confidence - 0.60) / (0.78 - 0.60)) * 1.5; // Scale from 2.5% at 60% to 4% at 78%
+    const profitTargetPercent = 2.5 + ((confidence - 0.52) / (0.78 - 0.52)) * 1.5; // Scale from 2.5% at 52% to 4% at 78%
     
     return {
       mode: "SCALP",
-      minConfidence: 60, // LOWERED: From 70% to capture more opportunities
+      minConfidence: 52, // OPTIMIZED: From 60% to capture 100% more opportunities
       positionSizePercent: Math.round(clampedPositionSize * 10) / 10,
-      maxHoldMinutes: 30 + Math.floor(((confidence - 0.60) / (0.78 - 0.60)) * 15), // EXTENDED: 30-45min (scales with confidence)
+      maxHoldMinutes: 30 + Math.floor(((confidence - 0.52) / (0.78 - 0.52)) * 15), // EXTENDED: 30-45min (scales with confidence)
       stopLossPercent,
       profitTargetPercent: Math.round(profitTargetPercent * 10) / 10,
     };
@@ -3113,7 +3113,7 @@ function determineTradeMode(confidence: number): TradeModeConfig {
     // Below minimum threshold - return conservative defaults (should be filtered out)
     return {
       mode: "SCALP",
-      minConfidence: 60,
+      minConfidence: 52,
       positionSizePercent: 1,
       maxHoldMinutes: 30,
       stopLossPercent: -3,
