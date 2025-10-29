@@ -56,9 +56,9 @@ export default function Landing() {
       <section className="py-20 md:py-32">
         <div className="container mx-auto px-6 lg:px-8">
           <div className="text-center space-y-6">
-            <Badge variant="outline" className="mb-4 bg-primary/10 border-primary/20">
-              <Sparkles className="h-3 w-3 mr-1" />
-              12-Model AI Hivemind • 4-Team Rotation • 100% Autonomous
+            <Badge variant="outline" className="mb-4 bg-green-500/20 border-green-500/40 text-green-500 font-semibold">
+              <Zap className="h-3 w-3 mr-1" />
+              NEW: 3x More Token Variety • 4x Faster Discovery • Improved Win Rate
             </Badge>
             
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight max-w-5xl mx-auto leading-tight">
@@ -70,11 +70,11 @@ export default function Landing() {
             </h1>
             
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
-              GigaBrain uses a 12-model AI hivemind with 4-team rotation to trade Solana tokens 24/7. Start with 0.1 SOL.
+              GigaBrain uses a 12-model AI hivemind with 4-team rotation to trade Solana tokens 24/7. Scans 100+ tokens every 5 minutes for maximum opportunities.
             </p>
 
             {/* Live Stats Preview */}
-            {stats && stats.totalTrades > 0 && (
+            {stats && stats.totalTrades > 0 ? (
               <div className="flex items-center justify-center gap-8 py-6">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-green-500">{stats.winRate}%</p>
@@ -88,6 +88,16 @@ export default function Landing() {
                   <p className="text-3xl font-bold text-blue-500">{stats.totalTrades}</p>
                   <p className="text-sm text-muted-foreground">Total Trades</p>
                 </div>
+              </div>
+            ) : (
+              <div className="py-6 px-8 rounded-lg bg-gradient-to-br from-green-500/10 to-primary/10 border border-green-500/30 max-w-2xl mx-auto">
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <Sparkles className="h-5 w-5 text-green-500" />
+                  <p className="text-lg font-bold text-green-500">Fresh Start - Latest Improvements Active</p>
+                </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  System upgraded with enhanced token discovery (100+ tokens scanned), 5-minute refresh cycles, and smarter exit strategies. All metrics tracking fresh performance data.
+                </p>
               </div>
             )}
 
@@ -429,7 +439,7 @@ export default function Landing() {
                     <div>
                       <h4 className="font-bold mb-1">Independent AI Decisions</h4>
                       <p className="text-sm text-muted-foreground">
-                        The 11-model hivemind analyzes and executes trades independently for your wallet address. Each decision is tailored to your positions.
+                        The 12-model hivemind (4 teams × 3 models) analyzes and executes trades independently for your wallet address. Each decision is tailored to your positions.
                       </p>
                     </div>
                   </div>

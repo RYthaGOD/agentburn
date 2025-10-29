@@ -104,6 +104,37 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Fresh Start Banner */}
+      <Card className="border-2 border-green-500/30 bg-gradient-to-br from-green-500/10 to-background">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-4">
+            <div className="h-12 w-12 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+              <Zap className="h-6 w-6 text-green-500" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-green-500 mb-2">System Upgraded - Fresh Performance Tracking</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="font-semibold mb-1">3x More Token Variety</p>
+                  <p className="text-muted-foreground">Now scanning 100+ tokens from 4 sources (was 30)</p>
+                </div>
+                <div>
+                  <p className="font-semibold mb-1">4x Faster Discovery</p>
+                  <p className="text-muted-foreground">5-minute refresh cycles (was 20 minutes)</p>
+                </div>
+                <div>
+                  <p className="font-semibold mb-1">Smarter Exit Logic</p>
+                  <p className="text-muted-foreground">2-stage filter + trailing stops prevent premature exits</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mt-3">
+                All metrics reset to track fresh performance with the latest improvements. Lower quality filters (60% organic, 50% quality) allow more trading opportunities while maintaining safety.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold mb-2" data-testid="heading-dashboard">Dashboard</h1>
