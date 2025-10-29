@@ -394,18 +394,39 @@ async function getCachedOrFetchTokens(config?: {
 
   console.log("[AI Bot Cache] Cache miss or expired, fetching fresh data...");
   
-  // Fetch from Jupiter API (more reliable, better rate limits than DexScreener)
-  const { fetchTokensFromJupiter } = await import('./jupiter-token-discovery.js');
+  // 🎯 PROFITABILITY FOCUS: Use PumpFun API for tokens with ~$20k market cap
+  const { fetchPumpFunTokensByMarketCap } = await import('./pumpfun-api.js');
+  const { fetchLowCapPumpTokensViaDexScreener, fetchNewlyMigratedPumpTokens } = await import('./pumpfun-alternative.js');
   
-  const allTokens = await fetchTokensFromJupiter(100); // Fetch 100 tokens from Jupiter API
+  // Try PumpFun API first, fallback to DexScreener
+  let pumpFunTokens: any[] = [];
+  try {
+    pumpFunTokens = await fetchPumpFunTokensByMarketCap(10000, 50000, 50);
+  } catch (error) {
+    console.log('[AI Bot Cache] PumpFun API unavailable, using DexScreener fallback...');
+  }
+  
+  // Fetch DexScreener tokens as backup/supplement
+  const [lowCapTokens, migratedTokens] = await Promise.all([
+    fetchLowCapPumpTokensViaDexScreener(50), // Target ~$20k market cap tokens
+    fetchNewlyMigratedPumpTokens(30),        // Recently migrated PumpFun tokens
+  ]);
+  
+  // Combine all sources and deduplicate
+  const allTokens = [...pumpFunTokens, ...lowCapTokens, ...migratedTokens];
+  const uniqueTokens = Array.from(
+    new Map(allTokens.map(t => [t.mint, t])).values()
+  );
+  
+  console.log(`[AI Bot Cache] 🎯 Token Discovery: ${pumpFunTokens.length} PumpFun API + ${lowCapTokens.length} DexScreener + ${migratedTokens.length} migrated = ${uniqueTokens.length} unique tokens`);
   
   // Filter out blacklisted tokens
   const blacklistedTokens = await storage.getAllBlacklistedTokens();
   const blacklistSet = new Set(blacklistedTokens.map(b => b.tokenMint));
-  const filteredTokens = allTokens.filter(token => !blacklistSet.has(token.mint));
+  const filteredTokens = uniqueTokens.filter(token => !blacklistSet.has(token.mint));
   
-  if (filteredTokens.length < allTokens.length) {
-    const blockedCount = allTokens.length - filteredTokens.length;
+  if (filteredTokens.length < uniqueTokens.length) {
+    const blockedCount = uniqueTokens.length - filteredTokens.length;
     console.log(`[AI Bot] 🚫 Filtered out ${blockedCount} blacklisted token(s)`);
   }
   

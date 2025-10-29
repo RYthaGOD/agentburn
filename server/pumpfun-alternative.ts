@@ -177,8 +177,12 @@ export async function fetchNewlyMigratedPumpTokens(maxTokens: number = 20): Prom
         
         if (pairAge > MAX_AGE_MS) continue;
         
-        // Must have some volume to be tradeable
-        if ((pumpswapPair.volume?.h24 || 0) < 1000) continue;
+        // Must have some volume to be tradeable (lowered for 20k tokens)
+        if ((pumpswapPair.volume?.h24 || 0) < 500) continue;
+        
+        // 🎯 TARGET: ~$20k market cap for profitability (range: $5k-$100k)
+        const marketCap = pumpswapPair.fdv || pumpswapPair.marketCap || 0;
+        if (marketCap > 100000 || marketCap < 5000) continue;
         
         // Calculate social & community metrics
         const socialMetrics = calculateSocialMetrics(pumpswapPair);
@@ -226,8 +230,8 @@ export async function fetchLowCapPumpTokensViaDexScreener(maxTokens: number = 15
   try {
     console.log("[PumpFun Alt] 🔥 Scanning for low-cap opportunities via DexScreener...");
     
-    // Search queries that tend to catch pump.fun style tokens
-    const queries = ['meme', 'pepe', 'doge', 'shib'];
+    // 🎯 Expanded search queries for better PumpFun token discovery
+    const queries = ['pump', 'solana', 'meme', 'pepe', 'doge', 'cat', 'moon', 'ai'];
     const tokens: TokenMarketData[] = [];
     const seenMints = new Set<string>();
     
@@ -249,15 +253,16 @@ export async function fetchLowCapPumpTokensViaDexScreener(maxTokens: number = 15
           if (!pair.baseToken?.address) continue;
           if (seenMints.has(pair.baseToken.address)) continue;
           
-          // Low market cap filter (under $500k)
+          // 🎯 TARGET: ~$20k market cap for profitability (range: $5k-$100k for more opportunities)
           const marketCap = pair.fdv || pair.marketCap || 0;
-          if (marketCap > 500000 || marketCap < 5000) continue;
+          if (marketCap > 100000 || marketCap < 5000) continue;
           
-          // Must have volume
-          if ((pair.volume?.h24 || 0) < 2000) continue;
+          // 📊 Adjusted minimums for smaller market cap tokens
+          // Must have volume (lowered for 20k cap tokens)
+          if ((pair.volume?.h24 || 0) < 500) continue;
           
-          // Must have liquidity
-          if ((pair.liquidity?.usd || 0) < 3000) continue;
+          // Must have liquidity (lowered for 20k cap tokens)
+          if ((pair.liquidity?.usd || 0) < 1000) continue;
           
           seenMints.add(pair.baseToken.address);
           
