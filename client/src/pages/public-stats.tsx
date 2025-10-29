@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Zap, Target, Trophy, Clock, BarChart3, Activity, Sparkles, Wallet, PieChart, DollarSign } from "lucide-react";
+import { TrendingUp, Zap, Target, Trophy, Clock, BarChart3, Activity, Sparkles, Wallet, PieChart, DollarSign, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 
 interface PublicStats {
   totalTrades: number;
@@ -22,10 +23,65 @@ interface PublicStats {
   activePositionsCount: number;
 }
 
+interface RecentTrade {
+  id: string;
+  tokenSymbol: string;
+  tokenName: string;
+  entryAt: string;
+  exitAt: string;
+  profitLossPercent: string;
+  tradingMode: string;
+  entryPriceSOL: string;
+  exitPriceSOL: string;
+}
+
 export default function PublicStats() {
-  const { data: stats, isLoading } = useQuery<PublicStats>({
+  const { data: stats, isLoading, refetch } = useQuery<PublicStats>({
     queryKey: ["/api/public/stats"],
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
+
+  const { data: recentTrades } = useQuery<RecentTrade[]>({
+    queryKey: ["/api/public/recent-trades"],
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+  });
+
+  // Set SEO and Open Graph meta tags for social sharing
+  useEffect(() => {
+    const title = "GigaBrain AI Trading Bot - Live Performance Stats | BurnBot";
+    const description = `Real-time performance dashboard for GigaBrain AI trading bot. ${stats?.totalTrades || 0} trades, ${stats?.winRate || 0}% win rate, ${stats?.totalProfit || 0} SOL profit. 100% transparent, verifiable on-chain.`;
+    const url = window.location.href;
+    
+    // Set page title
+    document.title = title;
+    
+    // Set or create meta tags
+    const setMetaTag = (name: string, content: string, property = false) => {
+      const attribute = property ? 'property' : 'name';
+      let tag = document.querySelector(`meta[${attribute}="${name}"]`);
+      if (!tag) {
+        tag = document.createElement('meta');
+        tag.setAttribute(attribute, name);
+        document.head.appendChild(tag);
+      }
+      tag.setAttribute('content', content);
+    };
+    
+    // Standard meta
+    setMetaTag('description', description);
+    
+    // Open Graph tags (for Facebook, Discord, LinkedIn)
+    setMetaTag('og:title', title, true);
+    setMetaTag('og:description', description, true);
+    setMetaTag('og:url', url, true);
+    setMetaTag('og:type', 'website', true);
+    setMetaTag('og:site_name', 'BurnBot - GigaBrain AI Trading', true);
+    
+    // Twitter Card tags
+    setMetaTag('twitter:card', 'summary_large_image');
+    setMetaTag('twitter:title', title);
+    setMetaTag('twitter:description', description);
+  }, [stats]);
 
   if (isLoading) {
     return (
@@ -350,6 +406,68 @@ export default function PublicStats() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Recent Trades */}
+        {recentTrades && recentTrades.length > 0 && (
+          <Card className="border-blue-500/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-blue-500" />
+                Recent Trades
+              </CardTitle>
+              <CardDescription>
+                Latest 10 completed trades - 100% transparent, verifiable on-chain
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {recentTrades.map((trade) => {
+                  const profitLoss = parseFloat(trade.profitLossPercent);
+                  const isWin = profitLoss > 0;
+                  const isLoss = profitLoss < 0;
+                  const exitTime = new Date(trade.exitAt);
+                  const entryTime = new Date(trade.entryAt);
+                  const holdTimeMinutes = Math.floor((exitTime.getTime() - entryTime.getTime()) / 60000);
+                  
+                  return (
+                    <div 
+                      key={trade.id} 
+                      className="flex items-center justify-between p-3 rounded-lg border hover-elevate"
+                      data-testid={`trade-${trade.id}`}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        {isWin && <ArrowUpRight className="h-5 w-5 text-green-500" />}
+                        {isLoss && <ArrowDownRight className="h-5 w-5 text-red-500" />}
+                        {!isWin && !isLoss && <Minus className="h-5 w-5 text-muted-foreground" />}
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{trade.tokenSymbol}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {trade.tradingMode}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {trade.tokenName} • {holdTimeMinutes}m hold
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="text-right">
+                        <div className={`text-lg font-bold ${isWin ? 'text-green-500' : isLoss ? 'text-red-500' : 'text-muted-foreground'}`}>
+                          {isWin ? '+' : ''}{profitLoss.toFixed(2)}%
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {exitTime.toLocaleDateString()} {exitTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Trust Signals */}
         <Card className="border-primary/20">

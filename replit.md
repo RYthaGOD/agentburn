@@ -3,39 +3,6 @@
 ## Overview
 BurnBot is a SaaS platform providing a no-code solution for Solana SPL token creators to automate token buyback and burn operations. It features a dashboard, flexible scheduling, transaction monitoring, and an autonomous AI Trading Bot named GigaBrain. GigaBrain utilizes a 12-model AI hivemind to identify and trade trending tokens on Solana, focusing on profit potential, autonomous capital management, dynamic position sizing, and intelligent bundle activity detection to avoid pump-and-dump schemes. The platform aims to enhance tokenomics, offer robust trading tools, and operate as a profit-hunting machine with strong safety guardrails. It includes a subscription model with free trades, followed by a paid subscription and a platform fee, a portion of which is used for token buyback and burn.
 
-## Recent Changes (Oct 29, 2025)
-### Fresh Start - System Improvements Deployed
-**Token Discovery Massively Enhanced:**
-- Expanded token sources: Now scanning 100+ tokens from 4 sources (was 30 from 2 sources)
-- Faster refresh cycles: 5-minute cache (was 20 minutes) for maximum opportunity capture
-- Relaxed quality filters: 60% organic (from 80%), 50% quality (from 70%), $10k liquidity (from $20k) - allows more trading variety while maintaining safety
-- Sources: 50 DexScreener trending, 25 PumpFun tokens, 50 low-cap tokens, 25 newly migrated tokens
-
-**Exit Strategy Fixed:**
-- Trailing stop now uses peak price (not current) for floor calculation - prevents stop from retreating below entry
-- 2-stage exit filter prevents premature panic-selling on temporary confidence drops
-
-**Performance Tracking Reset:**
-- All metrics reset to zero to track fresh performance data with improved system
-- Landing page and dashboard updated with "Fresh Start" messaging
-- Transparent communication about improvements to users
-
-### Latest Optimization (Oct 29, 2025 - Evening)
-**Trading Threshold Lowered for 100% More Opportunities:**
-- SCALP mode threshold: **52%** (down from 60%) - captures moderate-confidence opportunities
-- Expected impact: **2x trading frequency** without compromising safety
-- Position sizing: Still conservative 1-2% per trade
-- Stop-loss unchanged: -3% for capital protection
-- This allows bot to trade on 52-59% confidence signals (previously blocked)
-
-**PumpFun Social Metrics Integration:**
-- **Buy Pressure:** % of transactions that are buys (higher = bullish sentiment)
-- **Transaction Velocity:** 24h buy+sell transaction count (higher = active community)
-- **Migration Freshness:** Hours since bonding curve graduation (lower = more momentum)
-- **Token Age:** Hours since creation (helps identify trending new launches)
-- **Volume/Liquidity Ratio:** Trading activity relative to pool size (higher = real demand)
-- AI now has 5 additional data points per token for smarter BUY decisions
-
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
@@ -59,45 +26,25 @@ A `node-cron` service automates hourly checks for buyback execution, including p
 #### GigaBrain AI Trading Bot (Standalone)
 **GigaBrain** operates autonomously with a 12-model AI hivemind, restricted to whitelisted wallets. Key features include:
 
--   **Autonomous Capital Management:** Manages liquidity reserves, employs percentage-based position sizing, and uses AI-driven exits. It includes strict quality filters for token selection, portfolio diversification, optimized stop-loss protection, and a Portfolio Drawdown Circuit Breaker.
--   **Token Discovery:** Aggregates tokens from various sources like DexScreener Trending and PumpFun.
--   **Smart Hivemind AI Workflow with 4-Team Rotation:** Features position monitoring, quick and deep technical scans, and automatic portfolio rebalancing. The system uses a 4-team rotation with 3 AI models per team, each working 6-hour shifts for 24/7 coverage:
-    -   **Team A (0-6 UTC):** DeepSeek (1.2x), OpenAI (1.3x), Cerebras (1.0x)
-    -   **Team B (6-12 UTC):** DeepSeek #2 (1.2x), OpenAI #2 (1.3x), Google Gemini (1.0x)
-    -   **Team C (12-18 UTC):** Anthropic Claude (1.2x), Together AI (1.1x), Groq (1.0x)
-    -   **Team D (18-24 UTC):** OpenRouter (1.1x), ChatAnywhere (1.0x), xAI Grok (1.0x)
-    -   **Auto-Replacement:** When a team member fails, the system automatically swaps in the healthiest inactive model
-    -   **Weighted Voting:** Each AI model has a voting weight multiplier (OpenAI 1.3x, DeepSeek/Claude 1.2x, Together/OpenRouter 1.1x, others 1.0x) for consensus decisions
-    -   **75% Cost Savings:** Only 3 models active at once (instead of 12), reducing API costs dramatically
-    -   **Recovery Mode (NEW):** Admin-controlled emergency mode that switches from 4-team rotation to single-provider operation (xAI Grok only) for cost reduction during high API usage or when multiple models need recovery. Features include:
-        -   **36-Hour Default Duration:** Configurable recovery period with automatic expiration and return to normal 4-team rotation
-        -   **Admin-Only Access:** Activation/deactivation restricted to AI_BOT_WHITELISTED_WALLETS for security
-        -   **Auto-Expiration:** System automatically resumes 4-team rotation when recovery period ends
-        -   **API Endpoints:** POST /activate, POST /deactivate, GET /status (public read-only)
-        -   **Database Tracking:** Persistent state management with endsAt timestamps in ai_recovery_mode table
-        -   **Secure Authentication:** Requires wallet signature verification for all state changes
--   **Intelligent Circuit Breaker Protection:** Disables and rotates failing AI models, prioritizing reliable ones based on health scoring.
--   **Advanced AI Rate Limiting & Retry System:** Implements universal and provider-specific rate limiting, exponential backoff for retries, and a smart circuit breaker to distinguish between rate limits and permanent failures.
--   **Tri-Mode Trading Strategy (PROFITABILITY OPTIMIZED - CRITICAL UPDATE Oct 29, 2025):** Supports SCALP, QUICK_2X, and SWING modes with comprehensive safeguards to fix 3% win rate by preventing premature exits:
-    -   **SCALP Mode:** 60-77% confidence (LOWERED to 60% from 70% for more opportunities), 2.5-4% profit target (realistic growth-based), 1-2% conservative position sizing, -3% stop-loss (POSITIVE R-multiple: 1.33), 30-45 minute enforced max hold (extended for capital efficiency)
-    -   **QUICK_2X Mode:** 78-87% confidence, 12-18% profit target (REDUCED from 25% for realism), 1-2% conservative position sizing, -6% stop-loss (IMPROVED R-multiple: 3.0), 90-minute enforced max hold (extended from 60min for capital efficiency)
-    -   **SWING Mode:** 88%+ confidence, 12-18% profit target (realistic targets), 1-3% conservative position sizing, -7% stop-loss (IMPROVED R-multiple: 2.1), 180-minute enforced max hold (REDUCED from 1440min for faster capital recycling)
-    -   **2-Stage Exit Filter (NEW - WIN RATE FIX):** Prevents AI panic-selling on temporary confidence drops by requiring BOTH: (1) 2+ consecutive low-confidence samples (hysteresis), AND (2) actual price deterioration below entry OR trailing stop breach. Counter resets when position remains profitable to avoid blocking valid exits.
-    -   **Smart Trailing Stop-Loss (NEW - LOSS PREVENTION):** Arms after securing ≥1.5% profit, trails 3% below peak, uses PEAK price (not current) for floor calculation, and NEVER drops below entry price or previous stop (only ratchets upward to lock gains). Example: Entry $0.001, Peak $0.00102 → Stop = max($0.001, $0.00102 × 0.97) = $0.001 (preserves breakeven).
-    -   **Graduated Position Sizing:** Position size scales continuously with confidence instead of fixed tiers - maximizes capital allocation to highest-conviction trades
-    -   **Dynamic Tiered Stop-Loss (4 Tiers):** Locks in gains as positions become profitable - Tier 1: +5% (protect at -2%), Tier 2: +10% (lock +2%), Tier 3: +20% (lock +10%), Tier 4: +50% (lock +30%)
-    -   **Faster Portfolio Rebalancing:** 15-minute intervals (reduced from 30min) for rapid capital recycling and opportunity capture
-    -   **Enhanced Opportunistic Rotation:** Automatically swaps underperforming positions for better opportunities - now includes "Smart Rotation" that considers swapping even with available capital if new opportunity is 10%+ better confidence
--   **Advanced Technical Analysis:** Integrates RSI, EMA, and Bollinger Bands into buy/sell decisions, generating a Technical Score.
--   **Sell Decision Framework:** AI continuously monitors positions with dynamic exit criteria based on confidence, profit targets, technical signals, or max hold time, including peak profit tracking and tiered profit protection.
--   **Opportunistic Position Rotation:** Automatically sells weaker positions to free up capital and maintain liquidity.
--   **Automatic Buyback & Burn Mechanism:** Configurable automatic buyback and immediate on-chain burning of tokens using a percentage of profits from successful trades.
--   **AI-Powered Loss Prevention System:** Includes a centralized trading guard, hardened technical fallback, multi-provider loss prediction for rug pull risks, enhanced supermajority consensus for trades, and a fail-closed architecture, blocking trades with high loss probability.
--   **Profit Maximization System:** Enforces minimum profit thresholds, smart exit logic, and a profit-hunting strategy with features like peak profit tracking, smart stop-loss, buy-the-dip detection, and AI override for smart exits when AI confidence is high.
--   **Optimized Slippage Strategy:** Implements tiered slippage settings for BUY (3%), Normal SELL (5%), and Emergency Rotation SELL (8%) operations to preserve profits.
--   **Multi-Strategy Trading System:** Complementary strategies (Mean Reversion, Momentum Breakout, Grid Trading) run alongside AI-driven SCALP/SWING, focusing on "Buy Low, Sell High" principles with configurable parameters for position sizing, profit targets, and stop losses.
--   **AI-Driven Trade Execution Filters:** Deep scans now include technical "buy low" filters (Bollinger Band proximity, 24h pump filter) before executing AI-driven buy trades, ensuring purchases at support levels and preventing FOMO buying at peaks.
--   **Conviction Hold & Accumulate:** AI position monitoring can now accumulate (buy more) of losing positions when the AI has very high conviction (85%+ confidence) that fundamentals remain strong despite the dip. Strict safety limits prevent over-averaging: maximum 2x original position size, maximum -15% drawdown, and requires RSI <30 (extreme oversold), EMA bullish trend intact, and price near Bollinger Band lower support. Accumulation buys 50% of original entry size, averaging down the entry price through dollar-cost averaging.
+- **Autonomous Capital Management:** Manages liquidity reserves, employs percentage-based position sizing, and uses AI-driven exits. It includes strict quality filters for token selection, portfolio diversification, optimized stop-loss protection, and a Portfolio Drawdown Circuit Breaker.
+- **Token Discovery:** Aggregates tokens from various sources like DexScreener Trending and PumpFun, with expanded sources and faster refresh cycles.
+- **Smart Hivemind AI Workflow with 4-Team Rotation:** Features position monitoring, quick and deep technical scans, and automatic portfolio rebalancing. The system uses a 4-team rotation with 3 AI models per team, each working 6-hour shifts for 24/7 coverage. It includes weighted voting for consensus decisions, auto-replacement of failing models, and a Recovery Mode for emergency cost reduction.
+- **Intelligent Circuit Breaker Protection:** Disables and rotates failing AI models, prioritizing reliable ones based on health scoring.
+- **Advanced AI Rate Limiting & Retry System:** Implements universal and provider-specific rate limiting, exponential backoff for retries, and a smart circuit breaker.
+- **Tri-Mode Trading Strategy (SCALP, QUICK_2X, and SWING):** Each mode has specific confidence thresholds, profit targets, position sizing, stop-loss percentages, and enforced max hold times. Includes a 2-Stage Exit Filter to prevent premature panic-selling and a Smart Trailing Stop-Loss that uses peak price and never drops below entry.
+- **Graduated Position Sizing:** Position size scales continuously with confidence.
+- **Dynamic Tiered Stop-Loss (4 Tiers):** Locks in gains as positions become profitable.
+- **Faster Portfolio Rebalancing:** 15-minute intervals for rapid capital recycling.
+- **Enhanced Opportunistic Rotation:** Automatically swaps underperforming positions for better opportunities, even with available capital if a new opportunity has significantly higher confidence.
+- **Advanced Technical Analysis:** Integrates RSI, EMA, and Bollinger Bands into buy/sell decisions.
+- **Sell Decision Framework:** AI continuously monitors positions with dynamic exit criteria based on confidence, profit targets, technical signals, or max hold time.
+- **Automatic Buyback & Burn Mechanism:** Configurable automatic buyback and immediate on-chain burning of tokens using a percentage of profits.
+- **AI-Powered Loss Prevention System:** Includes a centralized trading guard, hardened technical fallback, multi-provider loss prediction, enhanced supermajority consensus, and a fail-closed architecture.
+- **Profit Maximization System:** Enforces minimum profit thresholds, smart exit logic, and a profit-hunting strategy.
+- **Optimized Slippage Strategy:** Implements tiered slippage settings for BUY (3%), Normal SELL (5%), and Emergency Rotation SELL (8%).
+- **Multi-Strategy Trading System:** Complementary strategies (Mean Reversion, Momentum Breakout, Grid Trading) run alongside AI-driven SCALP/SWING.
+- **AI-Driven Trade Execution Filters:** Deep scans include technical "buy low" filters before executing AI-driven buy trades.
+- **Conviction Hold & Accumulate:** AI can accumulate losing positions when high conviction (85%+) that fundamentals remain strong, with strict safety limits.
 
 ### Data Storage
 Uses PostgreSQL via Neon's serverless driver and Drizzle ORM, with UUID primary keys, decimal types, and automatic timestamps.
@@ -106,39 +53,39 @@ Uses PostgreSQL via Neon's serverless driver and Drizzle ORM, with UUID primary 
 Wallet-based authentication using cryptographic signature verification via tweetnacl and Solana Wallet Adapter.
 
 ### Security Infrastructure
-Employs defense-in-depth security measures including rate limiting, DDoS protection, security headers (Helmet.js), input validation (XSS, Solana address, Zod, SQL injection prevention), audit logging, and secure environment variable handling.
+Employs defense-in-depth security measures including rate limiting, DDoS protection, security headers (Helmet.js), input validation, and audit logging.
 
 ### Production Readiness & Automated Workflow
 Includes secure encrypted key management, automated PumpFun rewards claiming, balance checks, optimal SOL to token swaps via Jupiter Ultra API, token burns, and a payment/trial system with whitelisted wallets.
 
 ### Transaction Fee System
--   **Project-Linked Bots:** 0.5% transaction fee after 60 free transactions.
--   **AI Trading Bot:** 1% platform fee on all buy transactions (deducted pre-execution) to a treasury wallet, with an exempt wallet having 0% fees.
+- **Project-Linked Bots:** 0.5% transaction fee after 60 free transactions.
+- **AI Trading Bot:** 1% platform fee on all buy transactions (deducted pre-execution) to a treasury wallet, with an exempt wallet having 0% fees.
 
 ## External Dependencies
 
 **Blockchain Integration:**
--   Solana Web3.js
--   SPL Token program
--   @solana/wallet-adapter suite
--   bs58
--   tweetnacl
+- Solana Web3.js
+- SPL Token program
+- @solana/wallet-adapter suite
+- bs58
+- tweetnacl
 
 **Payment Processing:**
--   Solana-native payments (SOL only) to treasury wallet.
+- Solana-native payments (SOL only) to treasury wallet.
 
 **Third-Party Services:**
--   Neon Database (PostgreSQL)
--   Jupiter Ultra API (Swap API)
--   Jupiter Price API v3
--   PumpFun Lightning API
--   DexScreener API
--   **AI Hive Mind Providers:**
-    -   DeepSeek V3
-    -   Cerebras AI
-    -   Google Gemini
-    -   ChatAnywhere
-    -   Groq
-    -   Anthropic Claude Sonnet 4
-    -   OpenAI Primary
-    -   OpenAI Backup
+- Neon Database (PostgreSQL)
+- Jupiter Ultra API (Swap API)
+- Jupiter Price API v3
+- PumpFun Lightning API
+- DexScreener API
+- **AI Hive Mind Providers:**
+    - DeepSeek V3
+    - Cerebras AI
+    - Google Gemini
+    - ChatAnywhere
+    - Groq
+    - Anthropic Claude Sonnet 4
+    - OpenAI Primary
+    - OpenAI Backup

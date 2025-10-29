@@ -2882,6 +2882,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public Recent Trades API (no authentication required)
+  app.get("/api/public/recent-trades", async (req, res) => {
+    try {
+      const { desc, sql } = await import("drizzle-orm");
+      
+      // Get 10 most recent completed trades
+      const recentTrades = await db
+        .select({
+          id: tradeJournal.id,
+          tokenSymbol: tradeJournal.tokenSymbol,
+          tokenName: tradeJournal.tokenName,
+          entryAt: tradeJournal.entryAt,
+          exitAt: tradeJournal.exitAt,
+          profitLossPercent: tradeJournal.profitLossPercent,
+          tradingMode: tradeJournal.tradingMode,
+          entryPriceSOL: tradeJournal.entryPriceSOL,
+          exitPriceSOL: tradeJournal.exitPriceSOL,
+        })
+        .from(tradeJournal)
+        .where(sql`${tradeJournal.exitAt} IS NOT NULL`)
+        .orderBy(desc(tradeJournal.exitAt))
+        .limit(10);
+      
+      res.json(recentTrades);
+    } catch (error: any) {
+      console.error("Get recent trades error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Token Analyzer API (no authentication required)
   app.get("/api/public/analyze-token/:tokenMint", async (req, res) => {
     try {
