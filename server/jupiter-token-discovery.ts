@@ -268,12 +268,33 @@ export async function fetchTokensFromJupiter(maxTokens: number = 100): Promise<T
       fetchHighOrganicScoreTokensFromJupiter('1h', 40),
     ]);
 
-    // Combine and deduplicate
+    // 🎯 PROFITABILITY FOCUS: Filter for ~$20k market cap tokens (user's target range)
+    // High market cap tokens (TRUMP $200M+, PUMP $200M+) have NOT been profitable
+    const MIN_MARKET_CAP = 5000;    // $5k minimum
+    const MAX_MARKET_CAP = 200000;  // $200k maximum (sweet spot for profits)
+    
+    // Combine and deduplicate with market cap filtering
     const seenMints = new Set<string>();
     const allTokens: TokenMarketData[] = [];
+    const filteredOut = { tooLarge: 0, tooSmall: 0, noData: 0 };
 
     for (const token of [...trending, ...topTraded, ...highOrganic]) {
       if (seenMints.has(token.mint)) continue;
+      
+      // 🎯 CRITICAL FILTER: Only tokens in profitable market cap range
+      if (!token.marketCapUSD || token.marketCapUSD === 0) {
+        filteredOut.noData++;
+        continue; // Skip tokens without market cap data
+      }
+      if (token.marketCapUSD < MIN_MARKET_CAP) {
+        filteredOut.tooSmall++;
+        continue; // Skip micro-cap tokens
+      }
+      if (token.marketCapUSD > MAX_MARKET_CAP) {
+        filteredOut.tooLarge++;
+        continue; // Skip high market cap tokens (TRUMP, PUMP, etc.)
+      }
+      
       seenMints.add(token.mint);
       allTokens.push(token);
       
@@ -284,7 +305,16 @@ export async function fetchTokensFromJupiter(maxTokens: number = 100): Promise<T
     console.log(`  - Trending (1h): ${trending.length} tokens`);
     console.log(`  - Top Traded (24h): ${topTraded.length} tokens`);
     console.log(`  - High Organic Score (1h): ${highOrganic.length} tokens`);
-    console.log(`  - Total (deduplicated): ${allTokens.length} tokens`);
+    console.log(`  - Market Cap Filter ($${MIN_MARKET_CAP.toLocaleString()}-$${MAX_MARKET_CAP.toLocaleString()}):`);
+    console.log(`    ✅ Passed: ${allTokens.length} tokens`);
+    console.log(`    ❌ Too large (>${MAX_MARKET_CAP.toLocaleString()}): ${filteredOut.tooLarge}`);
+    console.log(`    ❌ Too small (<${MIN_MARKET_CAP.toLocaleString()}): ${filteredOut.tooSmall}`);
+    console.log(`    ❌ No market cap data: ${filteredOut.noData}`);
+
+    // Show sample market caps to verify filtering
+    if (allTokens.length > 0) {
+      console.log(`[Jupiter API] Sample tokens: ${allTokens.slice(0, 3).map(t => `${t.symbol} ($${(t.marketCapUSD || 0).toLocaleString()} mcap)`).join(', ')}`);
+    }
 
     return allTokens;
   } catch (error) {
