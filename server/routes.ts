@@ -2924,37 +2924,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         priceUSD: parseFloat(pair.priceUsd || '0'),
         priceSOL: parseFloat(pair.priceNative || '0'),
         volumeUSD24h: pair.volume?.h24 || 0,
-        liquidity: pair.liquidity?.usd || 0,
-        holders: pair.holders || 0,
-        marketCap: pair.fdv || 0,
+        marketCapUSD: pair.fdv || 0, // FDV = fully diluted valuation
+        liquidityUSD: pair.liquidity?.usd || 0,
+        holderCount: pair.holders || 0,
         priceChange24h: pair.priceChange?.h24 || 0,
-        transactions24h: (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0),
       };
 
       console.log("[Token Analyzer] Running bundle detection...");
-      // Get organic and quality scores
+      // Get organic and quality scores with defensive null-checks
       const bundleAnalysis = await detectBundleActivity(tokenMint, pair);
       const organicScore = pair.profile?.organicScore ?? 50;
       const qualityScore = pair.profile?.qualityScore ?? 50;
+      const bundleReasons = bundleAnalysis?.reasons || [];
 
       console.log("[Token Analyzer] Running AI hivemind analysis...");
-      // Run AI hivemind analysis
-      const aiAnalysis = await analyzeTokenWithHiveMind(
+      // Run AI hivemind analysis with full model consensus
+      const aiResult = await analyzeTokenWithHiveMind(
         tokenData,
         "medium", // Default risk tolerance
         0.02, // Default budget per trade
         0.5, // Minimum agreement
-        { isQuickScan: false, allowOpenAI: true } // Full analysis with all models
+        { forceInclude: true } // Include all models for thorough analysis
       );
 
+      // Extract the consensus analysis
+      const aiAnalysis = aiResult.analysis;
+      
       // Map AI action to recommendation
       const recommendation = aiAnalysis.action.toUpperCase() as "BUY" | "SELL" | "HOLD";
       
       console.log("[Token Analyzer] Analysis complete:", {
         symbol: tokenData.symbol,
         recommendation,
-        confidence: (aiAnalysis.confidence * 100).toFixed(1) + "%"
+        confidence: (aiAnalysis.confidence * 100).toFixed(1) + "%",
+        consensus: aiResult.consensus
       });
+
+      // Extract risks and opportunities from key factors
+      const keyFactors = aiAnalysis.keyFactors || [];
+      const risks = keyFactors.filter(f => 
+        f.toLowerCase().includes('risk') || 
+        f.toLowerCase().includes('concern') ||
+        f.toLowerCase().includes('warning') ||
+        f.toLowerCase().includes('low') && (f.toLowerCase().includes('liquidity') || f.toLowerCase().includes('volume'))
+      );
+      const opportunities = keyFactors.filter(f => 
+        !risks.includes(f) && (
+          f.toLowerCase().includes('potential') ||
+          f.toLowerCase().includes('growing') ||
+          f.toLowerCase().includes('strong') ||
+          f.toLowerCase().includes('positive')
+        )
+      );
 
       const result = {
         tokenMint,
@@ -2962,20 +2983,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: tokenData.name,
         price: tokenData.priceUSD,
         volume24h: tokenData.volumeUSD24h,
-        liquidity: tokenData.liquidity,
+        liquidity: tokenData.liquidityUSD,
         organicScore,
         qualityScore,
         aiConfidence: Math.round(aiAnalysis.confidence * 100),
         recommendation,
-        risks: aiAnalysis.risks,
-        opportunities: aiAnalysis.opportunities || [],
+        risks: risks.length > 0 ? risks : bundleReasons.filter(r => r.includes('low') || r.includes('suspicious')),
+        opportunities: opportunities.length > 0 ? opportunities : [],
         analysis: aiAnalysis.reasoning,
+        keyFactors: aiAnalysis.keyFactors,
         // Additional metrics
-        holders: tokenData.holders,
-        marketCap: tokenData.marketCap,
+        holders: tokenData.holderCount,
+        marketCap: tokenData.marketCapUSD,
         priceChange24h: tokenData.priceChange24h,
-        transactions24h: tokenData.transactions24h,
-        isSuspicious: bundleAnalysis.isSuspicious,
+        isSuspicious: bundleAnalysis?.isSuspicious || false,
+        // AI voting details
+        consensus: aiResult.consensus,
+        votingModels: aiResult.votes.filter(v => v.success).length,
       };
 
       res.json(result);
