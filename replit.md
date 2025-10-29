@@ -78,8 +78,8 @@ Includes secure encrypted key management, automated PumpFun rewards claiming, ba
 - Neon Database (PostgreSQL)
 - Jupiter Ultra API (Swap API)
 - Jupiter Price API v3
+- Jupiter Token API v2 (Token Discovery)
 - PumpFun Lightning API
-- DexScreener API
 - **AI Hive Mind Providers:**
     - DeepSeek V3
     - Cerebras AI

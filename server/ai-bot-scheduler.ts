@@ -394,35 +394,10 @@ async function getCachedOrFetchTokens(config?: {
 
   console.log("[AI Bot Cache] Cache miss or expired, fetching fresh data...");
   
-  // Fetch from ALL sources in parallel for maximum coverage
-  const { fetchTrendingPumpStyleTokens, fetchNewlyMigratedPumpTokens, fetchLowCapPumpTokensViaDexScreener } = await import('./pumpfun-alternative');
+  // Fetch from Jupiter API (more reliable, better rate limits than DexScreener)
+  const { fetchTokensFromJupiter } = await import('./jupiter-token-discovery.js');
   
-  const [dexTokens, pumpfunTrendingTokens, pumpfunMigratedTokens, pumpfunLowCapTokens] = await Promise.all([
-    fetchTrendingPumpFunTokens(config), // DexScreener trending (general Solana)
-    fetchTrendingPumpStyleTokens(30), // DexScreener pump-style tokens (EXPANDED 15→30)
-    fetchNewlyMigratedPumpTokens(40), // Newly migrated tokens via DexScreener (EXPANDED 20→40)
-    fetchLowCapPumpTokensViaDexScreener(30), // Low-cap opportunities via DexScreener (EXPANDED 15→30)
-  ]);
-  
-  // Combine all sources, removing duplicates by mint address
-  const seenMints = new Set<string>();
-  const allTokens = [
-    ...dexTokens,
-    ...pumpfunTrendingTokens,
-    ...pumpfunMigratedTokens,
-    ...pumpfunLowCapTokens
-  ].filter(token => {
-    if (seenMints.has(token.mint)) return false;
-    seenMints.add(token.mint);
-    return true;
-  });
-
-  console.log(`[AI Bot] 🎯 Token Discovery Summary:`);
-  console.log(`  - DexScreener trending: ${dexTokens.length} tokens`);
-  console.log(`  - PumpFun trending: ${pumpfunTrendingTokens.length} tokens`);
-  console.log(`  - Newly migrated (PumpFun → PumpSwap): ${pumpfunMigratedTokens.length} tokens`);
-  console.log(`  - Low-cap new tokens: ${pumpfunLowCapTokens.length} tokens`);
-  console.log(`  - Total (deduplicated): ${allTokens.length} tokens`);
+  const allTokens = await fetchTokensFromJupiter(100); // Fetch 100 tokens from Jupiter API
   
   // Filter out blacklisted tokens
   const blacklistedTokens = await storage.getAllBlacklistedTokens();
