@@ -1,4 +1,4 @@
-import { Home, Plus, History, Settings, Flame, TrendingUp, DollarSign, Brain, Shield } from "lucide-react";
+import { Home, Plus, History, Settings, Flame, TrendingUp, DollarSign, Brain, Shield, Zap } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -36,6 +36,11 @@ const menuItems = [
     title: "AI Bot",
     url: "/dashboard/ai-bot",
     icon: Brain,
+  },
+  {
+    title: "Agentic Burn",
+    url: "/dashboard/agentic-burn",
+    icon: Zap,
   },
   {
     title: "Blacklist",
