@@ -2,6 +2,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Coins, Zap, TrendingUp, DollarSign, Flame, Activity, PlayCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +15,10 @@ export default function AgenticBurnPage() {
   const demoWallet = "jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38";
   const { toast } = useToast();
   const [testResult, setTestResult] = useState<any>(null);
+  
+  // User inputs for burn configuration
+  const [tokenMint, setTokenMint] = useState("So11111111111111111111111111111111111111112");
+  const [burnAmount, setBurnAmount] = useState("0.01");
 
   // Fetch x402 payment stats
   const { data: x402Stats, isLoading: x402Loading, refetch: refetchX402 } = useQuery<any>({
@@ -36,8 +42,8 @@ export default function AgenticBurnPage() {
           // Use a properly formatted base58 devnet keypair for demo
           // This is a throwaway devnet wallet generated for demo purposes only
           walletPrivateKey: "5JuSWTQ4EKzh7FGxUwkCNNWM6rJcgd7WLJXVBw8n4k8KCYNEo7zR8KFQZvZoKMLTkVAh2dJPNPPm3oQGj6vUxqZC",
-          tokenMint: "So11111111111111111111111111111111111111112", // Wrapped SOL for demo
-          burnAmountSOL: 0.01,
+          tokenMint: tokenMint, // User-specified token
+          burnAmountSOL: parseFloat(burnAmount), // User-specified amount
         }),
       });
       return response.json();
@@ -90,13 +96,50 @@ export default function AgenticBurnPage() {
               Hackathon Demo - Test Agentic Burn
             </CardTitle>
             <CardDescription>
-              Click to demonstrate the complete x402 + BAM flow (simulated transaction)
+              Configure your burn parameters and test the complete x402 + BAM flow
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Token Configuration Inputs */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="token-mint" data-testid="label-token-mint">Token Mint Address</Label>
+                <Input
+                  id="token-mint"
+                  value={tokenMint}
+                  onChange={(e) => setTokenMint(e.target.value)}
+                  placeholder="Enter Solana token mint address"
+                  className="font-mono text-sm"
+                  data-testid="input-token-mint"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Default: Wrapped SOL (wSOL)
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="burn-amount" data-testid="label-burn-amount">Burn Amount (SOL)</Label>
+                <Input
+                  id="burn-amount"
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={burnAmount}
+                  onChange={(e) => setBurnAmount(e.target.value)}
+                  placeholder="0.01"
+                  data-testid="input-burn-amount"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Amount of SOL to use for buying tokens
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+            
             <Button
               onClick={() => testBurnMutation.mutate()}
-              disabled={testBurnMutation.isPending}
+              disabled={testBurnMutation.isPending || !tokenMint || !burnAmount}
               size="lg"
               className="w-full"
               data-testid="button-test-burn"
