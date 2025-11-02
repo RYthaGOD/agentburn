@@ -116,6 +116,13 @@ export interface AgenticBurnRequest {
   
   // Optional: link to trading position
   relatedPositionId?: string;
+  
+  // AI Decision Criteria (optional, with defaults)
+  criteria?: {
+    confidenceThreshold?: number;
+    maxBurnPercentage?: number;
+    requirePositiveSentiment?: boolean;
+  };
 }
 
 export interface AgenticBurnResult {
@@ -161,7 +168,15 @@ export async function executeAgenticBurn(
     slippageBps = 1000, // 10% slippage default
     burnServiceFeeUSD = 0.005, // $0.005 default service fee
     relatedPositionId,
+    criteria,
   } = request;
+  
+  // Set defaults for AI criteria
+  const criteriaConfig = {
+    confidenceThreshold: criteria?.confidenceThreshold ?? 70,
+    maxBurnPercentage: criteria?.maxBurnPercentage ?? 5,
+    requirePositiveSentiment: criteria?.requirePositiveSentiment ?? true,
+  };
 
   console.log("\n" + "=".repeat(80));
   console.log("🤖 AGENTIC BURN SERVICE - Starting Agent-Activated Buy & Burn");
@@ -178,9 +193,11 @@ export async function executeAgenticBurn(
     // =========================================================================
     console.log("\n🧠 [Step 0/4] DeepSeek AI Analysis: Evaluating burn request...");
     console.log("-".repeat(80));
+    console.log(`Criteria: Confidence ≥${criteriaConfig.confidenceThreshold}%, Max Burn ${criteriaConfig.maxBurnPercentage}%, Require Positive: ${criteriaConfig.requirePositiveSentiment}`);
     
-    const aiDecision = await analyzeWithDeepSeek(tokenMint, buyAmountSOL);
+    const aiDecision = await analyzeWithDeepSeek(tokenMint, buyAmountSOL, criteriaConfig);
     console.log(`✅ AI Decision: ${aiDecision.approved ? "APPROVED" : "REJECTED"}`);
+    console.log(`   Confidence: ${aiDecision.confidence}%`);
     console.log(`💭 Reasoning: ${aiDecision.reasoning}`);
     
     if (!aiDecision.approved) {

@@ -3201,6 +3201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         slippageBps,
         burnServiceFeeUSD,
         relatedPositionId,
+        criteria,
       } = req.body;
 
       // Validation
@@ -3228,6 +3229,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         slippageBps: slippageBps ? parseInt(slippageBps) : 1000,
         burnServiceFeeUSD: burnServiceFeeUSD ? parseFloat(burnServiceFeeUSD) : 0.005,
         relatedPositionId,
+        criteria: criteria ? {
+          confidenceThreshold: criteria.confidenceThreshold,
+          maxBurnPercentage: criteria.maxBurnPercentage,
+          requirePositiveSentiment: criteria.requirePositiveSentiment,
+        } : undefined,
       });
 
       if (result.success) {
