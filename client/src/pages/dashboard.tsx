@@ -104,31 +104,31 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Fresh Start Banner */}
-      <Card className="border-2 border-green-500/30 bg-gradient-to-br from-green-500/10 to-background">
+      {/* DeepSeek AI Banner */}
+      <Card className="border-2 border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-background">
         <CardContent className="pt-6">
           <div className="flex items-start gap-4">
-            <div className="h-12 w-12 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-              <Zap className="h-6 w-6 text-green-500" />
+            <div className="h-12 w-12 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+              <Brain className="h-6 w-6 text-blue-500" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-green-500 mb-2">System Upgraded - Fresh Performance Tracking</h3>
+              <h3 className="text-lg font-bold text-blue-500 mb-2">Powered by DeepSeek V3 - Advanced AI Trading</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
-                  <p className="font-semibold mb-1">3x More Token Variety</p>
-                  <p className="text-muted-foreground">Now scanning 100+ tokens from 4 sources (was 30)</p>
+                  <p className="font-semibold mb-1">DeepSeek V3 AI</p>
+                  <p className="text-muted-foreground">World's most advanced open-source AI model</p>
                 </div>
                 <div>
-                  <p className="font-semibold mb-1">4x Faster Discovery</p>
-                  <p className="text-muted-foreground">5-minute refresh cycles (was 20 minutes)</p>
+                  <p className="font-semibold mb-1">Free API Access</p>
+                  <p className="text-muted-foreground">5M tokens monthly, superior reasoning capabilities</p>
                 </div>
                 <div>
-                  <p className="font-semibold mb-1">Smarter Exit Logic</p>
-                  <p className="text-muted-foreground">2-stage filter + trailing stops prevent premature exits</p>
+                  <p className="font-semibold mb-1">24/7 Trading</p>
+                  <p className="text-muted-foreground">Continuous market analysis & execution</p>
                 </div>
               </div>
               <p className="text-sm text-muted-foreground mt-3">
-                All metrics reset to track fresh performance with the latest improvements. Lower quality filters (60% organic, 50% quality) allow more trading opportunities while maintaining safety.
+                DeepSeek V3 delivers institutional-grade AI analysis with cutting-edge reasoning. Scans 100+ tokens every 5 minutes for maximum opportunities.
               </p>
             </div>
           </div>
@@ -192,11 +192,11 @@ export default function Dashboard() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   GigaBrain AI Trading
-                  <Badge variant="outline" className="bg-primary/10">
-                    12 AI Models
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500">
+                    DeepSeek V3
                   </Badge>
                 </CardTitle>
-                <CardDescription>Autonomous trading bot with hivemind AI</CardDescription>
+                <CardDescription>Autonomous trading bot powered by advanced AI</CardDescription>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -218,16 +218,16 @@ export default function Dashboard() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-4 rounded-lg bg-background/50">
+              <p className="text-sm text-muted-foreground mb-1">AI Model</p>
+              <p className="text-lg font-bold text-blue-500">DeepSeek V3</p>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-background/50">
               <p className="text-sm text-muted-foreground mb-1">Trading Mode</p>
-              <p className="text-lg font-bold text-primary">Tri-Mode</p>
+              <p className="text-lg font-bold">Tri-Mode</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-background/50">
-              <p className="text-sm text-muted-foreground mb-1">AI Models</p>
-              <p className="text-lg font-bold">12 Active</p>
-            </div>
-            <div className="text-center p-4 rounded-lg bg-background/50">
-              <p className="text-sm text-muted-foreground mb-1">Team Rotation</p>
-              <p className="text-lg font-bold">4 Teams</p>
+              <p className="text-sm text-muted-foreground mb-1">API Cost</p>
+              <p className="text-lg font-bold text-green-500">Free</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-background/50">
               <p className="text-sm text-muted-foreground mb-1">Status</p>
