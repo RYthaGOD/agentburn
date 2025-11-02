@@ -1,6 +1,6 @@
 import { Connection, Keypair, PublicKey, Transaction, VersionedTransaction, TransactionMessage, SystemProgram } from "@solana/web3.js";
-import { searcherClient } from "@solsdk/jito-ts/dist/sdk/block-engine/searcher";
-import { Bundle } from "@solsdk/jito-ts/dist/sdk/block-engine/types";
+import { searcherClient } from "@solsdk/jito-ts/dist/sdk/block-engine/searcher.js";
+import { Bundle } from "@solsdk/jito-ts/dist/sdk/block-engine/types.js";
 import { db } from "./db";
 import { bamBundles, type InsertBamBundle } from "@shared/schema";
 import { eq } from "drizzle-orm";
