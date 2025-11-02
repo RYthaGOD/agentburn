@@ -3325,11 +3325,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Generate a temporary demo keypair server-side for security
-      const { Keypair } = await import("@solana/web3.js");
-      const bs58 = await import("bs58");
-      const demoKeypair = Keypair.generate();
-      const demoPrivateKey = bs58.default.encode(demoKeypair.secretKey);
+      // Use the funded demo wallet from secrets for testing
+      const demoPrivateKey = process.env.DEMO_WALLET_PRIVATE_KEY;
+      
+      if (!demoPrivateKey) {
+        return res.status(500).json({
+          message: "Demo wallet not configured. Please add DEMO_WALLET_PRIVATE_KEY to secrets.",
+        });
+      }
 
       const { demoAgenticBurn } = await import("./agentic-burn-service");
 
