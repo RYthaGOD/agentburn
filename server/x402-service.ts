@@ -4,14 +4,18 @@ import { db } from "./db";
 import { x402Micropayments, type InsertX402Micropayment } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
-const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+// Network configuration - switches between mainnet and devnet based on NODE_ENV
+export const NETWORK = (process.env.NODE_ENV === "production" ? "solana-mainnet" : "solana-devnet") as "solana-mainnet" | "solana-devnet";
+
+// RPC Endpoints
+const RPC_ENDPOINT_MAINNET = "https://api.mainnet-beta.solana.com";
+const RPC_ENDPOINT_DEVNET = "https://api.devnet.solana.com";
+const RPC_ENDPOINT = process.env.SOLANA_RPC_URL || (NETWORK === "solana-mainnet" ? RPC_ENDPOINT_MAINNET : RPC_ENDPOINT_DEVNET);
 const connection = new Connection(RPC_ENDPOINT, "confirmed");
 
 // USDC Mint Addresses
 const USDC_MINT_DEVNET = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
 const USDC_MINT_MAINNET = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-
-export const NETWORK = (process.env.NODE_ENV === "production" ? "solana-mainnet" : "solana-devnet") as "solana-mainnet" | "solana-devnet";
 export const USDC_MINT = NETWORK === "solana-mainnet" ? USDC_MINT_MAINNET : USDC_MINT_DEVNET;
 
 /**
