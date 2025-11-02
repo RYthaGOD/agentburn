@@ -29,12 +29,13 @@ export default function AgenticBurnPage() {
   // Test agentic burn mutation
   const testBurnMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/demo/agentic-burn", {
+      const response = await fetch("/api/agentic-burn/demo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          walletPrivateKey: "demo_wallet_key_for_testing", // Demo key for testing
           tokenMint: "So11111111111111111111111111111111111111112", // Wrapped SOL for demo
-          buyAmountSOL: 0.01,
+          burnAmountSOL: 0.01,
         }),
       });
       return response.json();
