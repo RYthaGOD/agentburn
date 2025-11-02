@@ -415,6 +415,7 @@ export async function demoAgenticBurn(
   // Import database
   const { db } = await import("./db");
   const { agenticBurns } = await import("../shared/schema");
+  const { eq } = await import("drizzle-orm");
   
   // Create burn history record
   const [burnRecord] = await db.insert(agenticBurns).values({
@@ -438,7 +439,7 @@ export async function demoAgenticBurn(
     const step1Start = Date.now();
     console.log("\n🧠 [Step 1/4] DeepSeek AI Analysis...");
     
-    await db.update(agenticBurns).set({ currentStep: 1 }).where({ id: burnHistoryId });
+    await db.update(agenticBurns).set({ currentStep: 1 }).where(eq(agenticBurns.id, burnHistoryId));
     
     const aiDecision = await analyzeWithDeepSeek(targetTokenMint, burnAmountSOL, criteriaConfig);
     const step1Duration = Date.now() - step1Start;
@@ -453,7 +454,7 @@ export async function demoAgenticBurn(
       aiReasoning: aiDecision.reasoning,
       aiApproved: aiDecision.approved,
       step1DurationMs: step1Duration,
-    }).where({ id: burnHistoryId });
+    }).where(eq(agenticBurns.id, burnHistoryId));
     
     if (!aiDecision.approved) {
       await db.update(agenticBurns).set({
@@ -461,7 +462,7 @@ export async function demoAgenticBurn(
         errorMessage: `Burn rejected by AI: ${aiDecision.reasoning}`,
         errorStep: 1,
         totalDurationMs: Date.now() - totalStartTime,
-      }).where({ id: burnHistoryId });
+      }).where(eq(agenticBurns.id, burnHistoryId));
       
       return {
         success: false,
@@ -482,7 +483,7 @@ export async function demoAgenticBurn(
     const step2Start = Date.now();
     console.log("\n📱 [Step 2/4] x402 Micropayment...");
     
-    await db.update(agenticBurns).set({ currentStep: 2 }).where({ id: burnHistoryId });
+    await db.update(agenticBurns).set({ currentStep: 2 }).where(eq(agenticBurns.id, burnHistoryId));
     
     const paymentResult = await x402Service.payForBurnExecution(
       gigabrainKeypair,
@@ -497,7 +498,7 @@ export async function demoAgenticBurn(
     await db.update(agenticBurns).set({
       step2DurationMs: step2Duration,
       paymentId: paymentResult.paymentId || null,
-    }).where({ id: burnHistoryId });
+    }).where(eq(agenticBurns.id, burnHistoryId));
     
     if (!paymentResult.success) {
       await db.update(agenticBurns).set({
@@ -505,7 +506,7 @@ export async function demoAgenticBurn(
         errorMessage: `x402 payment failed: ${paymentResult.error}`,
         errorStep: 2,
         totalDurationMs: Date.now() - totalStartTime,
-      }).where({ id: burnHistoryId });
+      }).where(eq(agenticBurns.id, burnHistoryId));
       
       return {
         success: false,
@@ -527,7 +528,7 @@ export async function demoAgenticBurn(
     const step3Start = Date.now();
     console.log("\n🔄 [Step 3/4] Jupiter Swap (DEMO MODE)...");
     
-    await db.update(agenticBurns).set({ currentStep: 3 }).where({ id: burnHistoryId });
+    await db.update(agenticBurns).set({ currentStep: 3 }).where(eq(agenticBurns.id, burnHistoryId));
     
     const simulatedOutputAmount = Math.floor(burnAmountSOL * 1000000);
     const step3Duration = Date.now() - step3Start;
@@ -536,7 +537,7 @@ export async function demoAgenticBurn(
     
     await db.update(agenticBurns).set({
       step3DurationMs: step3Duration,
-    }).where({ id: burnHistoryId });
+    }).where(eq(agenticBurns.id, burnHistoryId));
     
     // =========================================================================
     // STEP 4: JITO BAM BUNDLE (DEMO MODE)
@@ -544,7 +545,7 @@ export async function demoAgenticBurn(
     const step4Start = Date.now();
     console.log("\n⚡ [Step 4/4] Jito BAM Bundle (DEMO MODE)...");
     
-    await db.update(agenticBurns).set({ currentStep: 4 }).where({ id: burnHistoryId });
+    await db.update(agenticBurns).set({ currentStep: 4 }).where(eq(agenticBurns.id, burnHistoryId));
     
     const bundleId = `DEMO_BUNDLE_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const step4Duration = Date.now() - step4Start;
@@ -563,7 +564,7 @@ export async function demoAgenticBurn(
       tokensBurned: tokensBurned.toString(),
       status: "completed",
       completedAt: new Date(),
-    }).where({ id: burnHistoryId });
+    }).where(eq(agenticBurns.id, burnHistoryId));
     
     console.log("\n✨ AGENTIC BURN COMPLETE!");
     console.log(`Total execution time: ${totalDuration}ms`);
@@ -597,7 +598,7 @@ export async function demoAgenticBurn(
       status: "failed",
       errorMessage,
       totalDurationMs: totalDuration,
-    }).where({ id: burnHistoryId });
+    }).where(eq(agenticBurns.id, burnHistoryId));
     
     console.error(`❌ Agentic burn error:`, error);
     return {
