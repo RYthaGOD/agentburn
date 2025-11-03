@@ -11,8 +11,6 @@ import {
   claimCreatorRewardsFull 
 } from "./pumpfun";
 import { burnTokens, loadKeypairFromPrivateKey, getSolBalance } from "./solana-sdk";
-import { executeVolumeBot, executeBuyBot, shouldRunVolumeBot } from "./trading-bot";
-import { deductTransactionFee } from "./transaction-fee";
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 
@@ -126,36 +124,10 @@ class BuybackScheduler {
           console.log(`Project ${project.name} - owner wallet is whitelisted, bypassing payment check`);
         }
 
-        // Determine if it's time to execute based on schedule
-        const shouldExecute = this.shouldExecuteNow(project.schedule, project.customCronExpression, now);
-
-        if (shouldExecute) {
-          console.log(`Executing buyback for project: ${project.name}`);
+        // For agenticBurn-focused system, execute buyback if enabled
+        if (project.agenticBurnEnabled) {
+          console.log(`Executing agentic burn for project: ${project.name}`);
           await this.executeBuyback(project.id);
-        }
-
-        // Execute volume bot if enabled and it's time to run
-        if (project.volumeBotEnabled) {
-          const lastVolumeRun = await this.getLastBotRun(project.id, 'volume');
-          if (shouldRunVolumeBot(project, lastVolumeRun)) {
-            console.log(`Executing volume bot for project: ${project.name}`);
-            const volumeResult = await executeVolumeBot(project);
-            if (volumeResult.success) {
-              await this.recordBotRun(project.id, 'volume');
-              console.log(`Volume bot completed: ${volumeResult.volume} SOL volume generated`);
-            } else {
-              console.error(`Volume bot failed: ${volumeResult.error}`);
-            }
-          }
-        }
-
-        // Execute buy bot if enabled (runs every check to monitor price)
-        if (project.buyBotEnabled) {
-          console.log(`Checking buy bot limit orders for project: ${project.name}`);
-          const buyBotResult = await executeBuyBot(project);
-          if (buyBotResult.success && buyBotResult.transactionSignatures.length > 0) {
-            console.log(`Buy bot executed ${buyBotResult.transactionSignatures.length} limit orders`);
-          }
         }
       }
     } catch (error) {
@@ -163,18 +135,6 @@ class BuybackScheduler {
     }
   }
 
-  // Track last bot run times in memory (could be moved to database in production)
-  private botRunTimes: Map<string, Date> = new Map();
-
-  private async getLastBotRun(projectId: string, botType: 'volume' | 'buy'): Promise<Date | null> {
-    const key = `${projectId}:${botType}`;
-    return this.botRunTimes.get(key) || null;
-  }
-
-  private async recordBotRun(projectId: string, botType: 'volume' | 'buy'): Promise<void> {
-    const key = `${projectId}:${botType}`;
-    this.botRunTimes.set(key, new Date());
-  }
 
   async executeBuyback(projectId: string) {
     try {
@@ -334,68 +294,9 @@ class BuybackScheduler {
         try {
           console.log(`\nExecuting buyback for ${project.name}...`);
           
-          // Deduct transaction fee if applicable (after 60 transactions)
           const keypair = loadKeypairFromPrivateKey(treasuryPrivateKey);
-          const feeResult = await deductTransactionFee(project.id, buybackAmountSOL, keypair);
           
-          let actualBuybackAmount = buybackAmountSOL;
-          if (feeResult.feeDeducted > 0) {
-            console.log(`Transaction fee deducted: ${feeResult.feeDeducted} SOL (0.5%)`);
-            console.log(`Fee transaction: ${feeResult.txSignature}`);
-            actualBuybackAmount = feeResult.remainingAmount;
-            
-            // Recalculate swap order with remaining amount
-            const amountLamportsAfterFee = actualBuybackAmount * 1e9;
-            const swapOrderAfterFee = await getSwapOrder(
-              SOL_MINT,
-              project.tokenMintAddress,
-              amountLamportsAfterFee,
-              project.treasuryWalletAddress
-            );
-            
-            // Use actual token decimals for accurate calculation
-            const actualTokenAmount = swapOrderAfterFee.outputAmount / (10 ** decimals);
-            console.log(`1. Executing swap: ${actualBuybackAmount} SOL → ${actualTokenAmount} tokens`);
-            const swapResult = await executeSwapOrder(swapOrderAfterFee, treasuryPrivateKey);
-            
-            console.log(`   Swap completed: ${swapResult.transactionId}`);
-            
-            // Record successful swap transaction
-            await storage.createTransaction({
-              projectId: project.id,
-              type: "buyback",
-              amount: actualBuybackAmount.toString(),
-              tokenAmount: actualTokenAmount.toString(),
-              txSignature: swapResult.transactionId,
-              status: "completed",
-              errorMessage: null,
-            });
-
-            // Burn the tokens using SPL Token burn instruction
-            console.log(`2. Burning ${actualTokenAmount} tokens (reduces supply permanently)...`);
-            const burnSignature = await burnTokens(
-              project.tokenMintAddress,
-              keypair,
-              actualTokenAmount,
-              project.tokenDecimals
-            );
-            console.log(`   Burn completed: ${burnSignature}`);
-            
-            // Record successful burn transaction
-            await storage.createTransaction({
-              projectId: project.id,
-              type: "burn",
-              amount: "0",
-              tokenAmount: actualTokenAmount.toString(),
-              txSignature: burnSignature,
-              status: "completed",
-              errorMessage: null,
-            });
-            
-            return;
-          }
-          
-          // Execute the swap (no fee case)
+          // Execute the swap
           console.log(`1. Executing swap: ${buybackAmountSOL} SOL → ${tokenAmount} tokens`);
           const swapResult = await executeSwapOrder(swapOrder, treasuryPrivateKey);
           console.log(`   Swap completed: ${swapResult.transactionId}`);

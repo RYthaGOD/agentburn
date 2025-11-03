@@ -2,7 +2,6 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { scheduler } from "./scheduler";
-import { startAITradingBotScheduler, startPositionMonitoringScheduler, startPortfolioRebalancingScheduler, startWalletSyncScheduler, startDatabaseCleanupScheduler } from "./ai-bot-scheduler";
 import { realtimeService } from "./realtime";
 import {
   securityHeaders,
@@ -107,7 +106,7 @@ export async function triggerGracefulShutdown() {
 
 (async () => {
   try {
-    console.log("🚀 Starting BurnBot GigaBrain server...");
+    console.log("🚀 Starting GigaBrain Agentic Burn System...");
     console.log("Environment:", process.env.NODE_ENV || "development");
     console.log("Port:", process.env.PORT || "5000");
     
@@ -118,25 +117,9 @@ export async function triggerGracefulShutdown() {
     realtimeService.initialize(server);
     console.log("✅ WebSocket service initialized");
 
-    // Initialize scheduler
+    // Initialize scheduler for automated burns
     await scheduler.initialize();
-    console.log("✅ Scheduler initialized");
-
-    // Initialize AI trading bot scheduler
-    startAITradingBotScheduler();
-    
-    // Initialize position monitoring scheduler (free Cerebras API)
-    startPositionMonitoringScheduler();
-    
-    // Initialize portfolio rebalancing scheduler (every 30 minutes with OpenAI)
-    startPortfolioRebalancingScheduler();
-    
-    // Initialize wallet synchronization scheduler (every 5 minutes)
-    startWalletSyncScheduler();
-    
-    // Initialize database cleanup scheduler (daily at 3 AM + startup)
-    startDatabaseCleanupScheduler();
-    console.log("✅ All schedulers initialized");
+    console.log("✅ Agentic burn scheduler initialized");
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

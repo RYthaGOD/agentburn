@@ -1,72 +1,72 @@
-# BurnBot - Solana Token Buyback & Burn SaaS Platform
+# GigaBrain Agentic Burn System - Solana x402 Hackathon Submission
 
 ## Overview
-BurnBot is a SaaS platform providing a no-code solution for Solana SPL token creators to automate token buyback and burn operations. It features a dashboard, flexible scheduling, transaction monitoring, and an autonomous AI Trading Bot named GigaBrain. GigaBrain utilizes DeepSeek V3, the world's most advanced open-source AI, to identify and trade trending tokens on Solana, focusing on profit potential, autonomous capital management, dynamic position sizing, and intelligent bundle activity detection to avoid pump-and-dump schemes. The platform aims to enhance tokenomics, offer robust trading tools, and operate as a profit-hunting machine with strong safety guardrails. It includes a subscription model with free trades, followed by a paid subscription and a platform fee, a portion of which is used for token buyback and burn.
+GigaBrain is an autonomous deflationary token burn system built for the Solana x402 Hackathon. It leverages x402 micropayments ($0.005 USDC per premium data feed) to enable AI-powered decision-making for token burn operations. The system features on-chain Anchor/Rust programs, DeepSeek V3 AI analysis, Jito BAM (Bundle Auction Market) for MEV protection, and a no-code configuration dashboard.
+
+**Hackathon Focus**: Demonstrate how x402's agent economy enables autonomous financial operations with premium data feeds, combining AI decision-making with decentralized execution.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## System Architecture
+## System Architecture (Refactored for x402 Hackathon)
 
 ### Frontend
-The frontend is built with React 18+, TypeScript, Vite, Wouter for routing, shadcn/ui (New York variant) on Radix UI, and Tailwind CSS (dark mode). It uses TanStack Query for server state management and React Hook Form with Zod for validation. The GigaBrain AI interface features a "Black and Gold" theme, displaying 17 real-time trading metrics via WebSockets.
+Built with React 18+, TypeScript, Vite, Wouter for routing, shadcn/ui (New York variant) on Radix UI, and Tailwind CSS (dark mode). Uses TanStack Query for server state management and React Hook Form with Zod for validation. Features a streamlined dashboard focused on agentic burn configuration and monitoring.
 
 ### Backend
-The backend is an Express.js server in TypeScript, employing an ESM module system, a RESTful API, centralized error handling, Zod schema validation, a storage abstraction layer, and a repository pattern.
+Express.js server in TypeScript with ESM module system, RESTful API, centralized error handling, Zod schema validation, storage abstraction layer, and repository pattern. Simplified to support only agentic burn operations.
+
+### Core Hackathon Features
+
+#### 1. Agentic Burn System
+- **AI Decision-Making**: DeepSeek V3 analyzes token metrics (market cap, liquidity, sentiment, volume trends) to determine optimal burn percentage
+- **x402 Micropayments**: Premium data feeds (DexScreener, Jupiter, PumpFun) accessed via $0.005 USDC x402 payments
+- **On-Chain Programs**: Anchor/Rust programs on Solana for trustless burn execution
+- **Jito BAM Integration**: Bundle Auction Market for MEV protection and guaranteed execution
+- **Configurable Criteria**: Users set confidence thresholds, max burn percentages, and sentiment requirements
+
+#### 2. x402 Service Integration
+- **Automated Payments**: System automatically pays x402 micropayments for premium API access
+- **Transaction Tracking**: All x402 payments logged in database with detailed analytics
+- **Agent Economy**: Demonstrates autonomous AI agents paying for premium data feeds
+
+#### 3. Jito BAM Bundle System
+- **Bundle Creation**: Groups swap + burn transactions into atomic bundles
+- **Priority Fees**: Optimized tip amounts for block inclusion
+- **Status Tracking**: Real-time bundle status monitoring (pending, landed, failed)
+- **MEV Protection**: Prevents front-running and sandwich attacks
+
+### Database Schema (Simplified for Hackathon)
+
+**Core Tables:**
+- `projects`: Burn configurations with AI criteria (agenticBurnEnabled, aiConfidenceThreshold, maxBurnPercentage, requirePositiveSentiment)
+- `transactions`: Burn history (swap, burn, claim operations)
+- `x402Micropayments`: x402 payment tracking (premium data feed access logs)
+- `bamBundles`: Jito BAM bundle tracking (bundleId, status, tipAmount, transactionSignatures)
+- `agenticBurns`: Complete agentic burn execution logs (AI decisions, execution results, profitability metrics)
+- `projectSecrets`: Encrypted private keys for automated execution
+
+**Removed Tables** (Legacy trading bot functionality removed for hackathon focus):
+- ❌ aiBotConfigs
+- ❌ aiBotPositions
+- ❌ hivemindStrategies
+- ❌ tokenBlacklist
+- ❌ tradeJournal
+- ❌ aiRecoveryMode
+- ❌ payments (trial/subscription system)
+- ❌ usedSignatures
 
 ### Scheduling System
-A `node-cron` service automates hourly checks for buyback execution, including payment validation, treasury balance verification, Jupiter Ultra API for swaps, and PumpFun creator reward claims, utilizing SPL Token instructions for burns.
-
-### Trading Bot System
-
-#### Project-Linked Bots
-- **Volume Bot:** Configurable buy/sell cycles with settings for amounts, percentages, intervals, and price guards.
-- **Buy Bot (Limit Orders):** Executes buy orders based on target SOL prices with configurable limits and slippage protection.
-
-#### GigaBrain AI Trading Bot (Standalone)
-**GigaBrain** operates autonomously powered by DeepSeek V3 AI, restricted to whitelisted wallets. Key features include:
-
-- **Autonomous Capital Management:** Manages liquidity reserves, employs percentage-based position sizing, and uses AI-driven exits. It includes strict quality filters for token selection, portfolio diversification, optimized stop-loss protection, and a Portfolio Drawdown Circuit Breaker.
-- **Token Discovery:** Aggregates tokens from various sources like DexScreener Trending and PumpFun, with expanded sources and faster refresh cycles.
-- **DeepSeek V3 AI Analysis:** Features continuous position monitoring, quick and deep technical scans, and automatic portfolio rebalancing. The system operates 24/7 with free API access (5M tokens monthly) and superior reasoning capabilities. Includes smart error handling and automatic retry logic.
-- **Cost-Effective AI:** Uses DeepSeek V3's free tier exclusively, eliminating AI API costs while maintaining institutional-grade analysis quality.
-- **Advanced Rate Limiting & Retry System:** Implements rate limiting, exponential backoff for retries, and a smart circuit breaker for reliability.
-- **Tri-Mode Trading Strategy (SCALP, QUICK_2X, and SWING):** Each mode has specific confidence thresholds, profit targets, position sizing, stop-loss percentages, and enforced max hold times. Includes a 2-Stage Exit Filter to prevent premature panic-selling and a Smart Trailing Stop-Loss that uses peak price and never drops below entry.
-- **Graduated Position Sizing:** Position size scales continuously with confidence.
-- **Dynamic Tiered Stop-Loss (4 Tiers):** Locks in gains as positions become profitable.
-- **Faster Portfolio Rebalancing:** 15-minute intervals for rapid capital recycling.
-- **Enhanced Opportunistic Rotation:** Automatically swaps underperforming positions for better opportunities, even with available capital if a new opportunity has significantly higher confidence.
-- **Advanced Technical Analysis:** Integrates RSI, EMA, and Bollinger Bands into buy/sell decisions.
-- **Sell Decision Framework:** AI continuously monitors positions with dynamic exit criteria based on confidence, profit targets, technical signals, or max hold time.
-- **Automatic Buyback & Burn Mechanism:** Configurable automatic buyback and immediate on-chain burning of tokens using a percentage of profits.
-- **AI-Powered Loss Prevention System (PROFITABILITY-OPTIMIZED):** Multi-provider loss prediction with risk-adjusted position sizing. Blocks trades with >85% loss probability (was >95%). Hard-blocks tokens with unlocked liquidity (rug pull risk). For risky trades (40-85% loss probability): automatically reduces position size (25-50%) and tightens stop-losses (-1.5% to -2%) for protection.
-- **Profit Maximization System:** Enforces minimum profit thresholds, smart exit logic, and a profit-hunting strategy.
-- **Optimized Slippage Strategy:** Implements tiered slippage settings for BUY (3%), Normal SELL (5%), and Emergency Rotation SELL (8%).
-- **Multi-Strategy Trading System:** Complementary strategies (Mean Reversion, Momentum Breakout, Grid Trading) run alongside AI-driven SCALP/SWING.
-- **AI-Driven Trade Execution Filters (PROFITABILITY-OPTIMIZED):** Deep scans with tightened "buy low" filters:
-  - Block tokens pumped >20% in 24h (was 30%)
-  - Block tokens pumped >15% in 1h (new filter)
-  - Block overbought tokens with RSI >60 (was warning only at >70)
-  - Allow dip-buying on tokens down -20%+ (buy the dip strategy)
-- **Conviction Hold & Accumulate:** AI can accumulate losing positions when high conviction (85%+) that fundamentals remain strong, with strict safety limits.
-- **Fast Position Monitoring (PROFITABILITY-OPTIMIZED):** Position checks every 1 minute (was 3 minutes) for faster stop-loss execution, preventing late triggers at -27% instead of target -8%.
-- **Quick Profit-Taking (PROFITABILITY-OPTIMIZED):** Automatic sell at +25% profit to lock gains before volatile low-cap tokens crash.
+`node-cron` service for automated burn execution checks (every 5 minutes in development, hourly in production). Checks `agenticBurnEnabled` flag and executes burns based on configured criteria.
 
 ### Data Storage
-Uses PostgreSQL via Neon's serverless driver and Drizzle ORM, with UUID primary keys, decimal types, and automatic timestamps.
+PostgreSQL via Neon's serverless driver and Drizzle ORM, with UUID primary keys, decimal types, and automatic timestamps.
 
 ### Authentication & Authorization
 Wallet-based authentication using cryptographic signature verification via tweetnacl and Solana Wallet Adapter.
 
 ### Security Infrastructure
-Employs defense-in-depth security measures including rate limiting, DDoS protection, security headers (Helmet.js), input validation, and audit logging.
-
-### Production Readiness & Automated Workflow
-Includes secure encrypted key management, automated PumpFun rewards claiming, balance checks, optimal SOL to token swaps via Jupiter Ultra API, token burns, and a payment/trial system with whitelisted wallets.
-
-### Transaction Fee System
-- **Project-Linked Bots:** 0.5% transaction fee after 60 free transactions.
-- **AI Trading Bot:** 1% platform fee on all buy transactions (deducted pre-execution) to a treasury wallet, with an exempt wallet having 0% fees.
+Defense-in-depth security: rate limiting, DDoS protection, security headers (Helmet.js), input validation, and audit logging.
 
 ## External Dependencies
 
@@ -77,8 +77,9 @@ Includes secure encrypted key management, automated PumpFun rewards claiming, ba
 - bs58
 - tweetnacl
 
-**Payment Processing:**
-- Solana-native payments (SOL only) to treasury wallet.
+**Hackathon-Specific:**
+- x402 SDK for micropayments
+- Jito BAM SDK for bundle submission
 
 **Third-Party Services:**
 - Neon Database (PostgreSQL)
@@ -86,5 +87,27 @@ Includes secure encrypted key management, automated PumpFun rewards claiming, ba
 - Jupiter Price API v3
 - Jupiter Token API v2 (Token Discovery)
 - PumpFun Lightning API
+- DexScreener API
 - **AI Provider:**
     - DeepSeek V3 (Free tier - 5M tokens monthly, advanced reasoning)
+
+## Recent Major Refactoring (November 2025)
+
+**Removed ALL Legacy Trading Bot Code:**
+- Deleted 8 server files: ai-bot-scheduler, grok-analysis, hivemind-strategy, volume-bot, trading-bot, etc.
+- Removed 6 database tables related to trading bot functionality
+- Simplified server/routes.ts from 3,586 lines to ~350 lines (agentic burn endpoints only)
+- Removed frontend pages: ai-bot.tsx, trading-bot.tsx, volume-bot.tsx
+- Updated App.tsx to remove trading bot routes
+- Focused exclusively on x402 agentic burn hackathon demo
+
+**Hackathon Demo Focus:**
+The system now exclusively demonstrates the x402 agent economy through autonomous burn operations:
+1. User configures burn criteria via dashboard
+2. AI agent (DeepSeek V3) analyzes token using x402-paid premium data
+3. AI determines optimal burn percentage based on criteria
+4. System executes swap + burn via Jito BAM bundle
+5. All operations logged with detailed analytics
+
+## Demo Script
+See `VIDEO_DEMO_SCRIPT.md` for complete 3-minute video demo guide.
