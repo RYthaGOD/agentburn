@@ -11,7 +11,7 @@ import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import fs from 'fs';
 
 const DEVNET_RPC = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
-const PROGRAM_ID = new PublicKey(process.env.PROGRAM_ID || 'PLACEHOLDER_PROGRAM_ID_REPLACE_AFTER_DEPLOY');
+const PROGRAM_ID = new PublicKey(process.env.PROGRAM_ID || 'BurnGigaBrain11111111111111111111111111111111');
 
 // Load wallet
 function loadWallet() {

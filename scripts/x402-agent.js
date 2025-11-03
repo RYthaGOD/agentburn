@@ -17,7 +17,7 @@ import fs from 'fs';
 
 // Configuration
 const DEVNET_RPC = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
-const PROGRAM_ID = new PublicKey(process.env.PROGRAM_ID || 'PLACEHOLDER_PROGRAM_ID_REPLACE_AFTER_DEPLOY');
+const PROGRAM_ID = new PublicKey(process.env.PROGRAM_ID || 'BurnGigaBrain11111111111111111111111111111111');
 const USDC_MINT_DEVNET = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 const X402_TREASURY = new PublicKey('jawKuQ3xtcYoAuqE9jyG2H35sv2pWJSzsyjoNpsxG38');
 const X402_BURN_FEE = 0.005; // $0.005 USDC per burn

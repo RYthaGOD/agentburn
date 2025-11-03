@@ -5,10 +5,10 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-gigabrain_burn = "PLACEHOLDER_PROGRAM_ID_REPLACE_AFTER_DEPLOY"
+gigabrain_burn = "BurnGigaBrain11111111111111111111111111111111"
 
 [programs.mainnet]
-gigabrain_burn = "PLACEHOLDER_PROGRAM_ID_REPLACE_AFTER_DEPLOY"
+gigabrain_burn = "BurnGigaBrain11111111111111111111111111111111"
 
 [registry]
 url = "https://api.apr.dev"

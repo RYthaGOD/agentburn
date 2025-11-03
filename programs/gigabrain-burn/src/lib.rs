@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Token, TokenAccount, Mint};
 
-declare_id!("PLACEHOLDER_PROGRAM_ID_REPLACE_AFTER_DEPLOY");
+declare_id!("BurnGigaBrain11111111111111111111111111111111");
 
 /// GigaBrain AI Trading Bot - Autonomous Token Burn Program
 /// 
