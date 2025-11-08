@@ -1,4 +1,4 @@
-# 🤖 GigaBrun AI Trader/Agent
+# 🤖 GigaBurn AI Trader/Agent
 
 > **Autonomous AI Trading with x402 Micropayments and On-Chain Burns**
 
