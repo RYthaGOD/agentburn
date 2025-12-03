@@ -88,11 +88,22 @@ export default function PaymentButton({
       console.log('✅ Payment transaction confirmed:', paymentSig);
 
       // Step 3: Mark invoice as paid on-chain
-      console.log('🔄 Marking invoice as paid on-chain...');
-      const provider = fromWalletAdapter(connection, wallet);
-      const invoicePdaPubkey = new PublicKey(invoicePda);
+      // Note: Only the creator can mark invoice as paid
+      // In production, this should be done by the creator after verifying payment
+      // For MVP demo purposes, if the connected wallet is the creator, mark it paid
+      console.log('🔄 Checking if we can mark invoice as paid...');
+      const creatorPubkey = new PublicKey(creator);
       
-      await markInvoicePaidOnChain(provider, invoicePdaPubkey, paymentSig);
+      if (wallet.publicKey.equals(creatorPubkey)) {
+        console.log('🔄 Marking invoice as paid on-chain (as creator)...');
+        const provider = fromWalletAdapter(connection, wallet);
+        const invoicePdaPubkey = new PublicKey(invoicePda);
+        
+        await markInvoicePaidOnChain(provider, invoicePdaPubkey, paymentSig);
+        console.log('✅ Invoice marked as paid on-chain');
+      } else {
+        console.log('ℹ️ Only creator can mark invoice as paid. Payment completed but status not updated on-chain.');
+      }
       
       console.log('✅ Invoice marked as paid on-chain');
       

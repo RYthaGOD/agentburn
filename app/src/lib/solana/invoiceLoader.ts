@@ -30,7 +30,7 @@ export const loadInvoicesForWallet = async (
     {
       memcmp: {
         offset: 8, // After discriminator
-        bytes: walletPubkey.toBase58(),
+        bytes: walletPubkey.toBase58(), // Anchor's all() method accepts base58
       },
     },
   ]);

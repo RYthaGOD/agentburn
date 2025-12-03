@@ -131,8 +131,8 @@ impl InvoiceAccount {
     /// Calculate space needed for InvoiceAccount
     /// 8 (discriminator) + 32 (creator) + 1 + 32 (client Option) + 32 (mint) + 
     /// 8 (amount) + 32 (token_mint) + 8 (due_date) + 1 (status enum) + 
-    /// 8 (created_at) + 8 (updated_at) + 1 (bump) + 4 + 128 (receipt string Option)
-    pub const SPACE: usize = 8 + 32 + 1 + 32 + 32 + 8 + 32 + 8 + 1 + 8 + 8 + 1 + 4 + 128;
+    /// 8 (created_at) + 8 (updated_at) + 1 (bump) + 1 + 4 + 128 (receipt string Option with prefix)
+    pub const SPACE: usize = 8 + 32 + 1 + 32 + 32 + 8 + 32 + 8 + 1 + 8 + 8 + 1 + 1 + 4 + 128;
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, Debug)]

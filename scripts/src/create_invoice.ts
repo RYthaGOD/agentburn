@@ -62,7 +62,12 @@ async function main() {
   console.log('📄 Program ID:', programId.toBase58(), '\n');
 
   // Step 1: Create a mint for the invoice pNFT (simplified for MVP)
-  console.log('🎨 Minting invoice NFT...');
+  // Note: For MVP, we create a basic SPL token mint to serve as the invoice identifier.
+  // In production, this should be a full pNFT with:
+  // - Token Metadata (name, symbol, URI using mpl-token-metadata)
+  // - Master Edition (to make it a proper NFT)
+  // - Programmable NFT features (Token-2022)
+  console.log('🎨 Creating invoice NFT mint (basic SPL token for MVP)...');
   const mintKeypair = Keypair.generate();
   
   const mint = await createMint(
@@ -77,11 +82,7 @@ async function main() {
   );
   
   console.log('✅ Invoice NFT Mint:', mint.toBase58());
-  
-  // For MVP, we're not creating full metadata, but this is where you'd add:
-  // - Token Metadata (name, symbol, URI)
-  // - Master Edition (to make it an NFT)
-  console.log('   (Metadata creation skipped for MVP - can add mpl-token-metadata later)\n');
+  console.log('   (Basic mint created - add full pNFT metadata for production)\n');
 
   // Step 2: Derive Invoice PDA
   const [invoicePda, bump] = PublicKey.findProgramAddressSync(

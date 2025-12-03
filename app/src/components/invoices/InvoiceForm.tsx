@@ -35,7 +35,12 @@ export default function InvoiceForm() {
       const amountLamports = Math.floor(parseFloat(amount) * anchor.web3.LAMPORTS_PER_SOL);
       const dueDate = Math.floor(Date.now() / 1000) + (parseInt(daysUntilDue) * 24 * 60 * 60);
       
-      // For MVP, generate a fake mint (in production, mint actual pNFT)
+      // For MVP UI, generate a keypair for the mint address
+      // Note: This mint is not actually created on-chain in the UI flow
+      // In production, you would:
+      // 1. Create the actual SPL token mint on-chain
+      // 2. Add full pNFT metadata using mpl-token-metadata
+      // 3. Use the CLI script approach or integrate mint creation in the UI transaction
       const mintKeypair = Keypair.generate();
       const mint = mintKeypair.publicKey;
       
