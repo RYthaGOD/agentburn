@@ -1,0 +1,168 @@
+{
+  "version": "0.1.0",
+  "name": "invoice_program",
+  "instructions": [
+    {
+      "name": "createInvoice",
+      "accounts": [
+        {
+          "name": "invoice",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "creator",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "invoiceMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "dueDate",
+          "type": "i64"
+        },
+        {
+          "name": "tokenMint",
+          "type": "publicKey"
+        },
+        {
+          "name": "bump",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "markInvoicePaid",
+      "accounts": [
+        {
+          "name": "invoice",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "creator",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "receiptReference",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "InvoiceAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "publicKey"
+          },
+          {
+            "name": "client",
+            "type": {
+              "option": "publicKey"
+            }
+          },
+          {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "tokenMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "dueDate",
+            "type": "i64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": "InvoiceStatus"
+            }
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          },
+          {
+            "name": "updatedAt",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "lastReceiptReference",
+            "type": {
+              "option": "string"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "InvoiceStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Unpaid"
+          },
+          {
+            "name": "PartiallyPaid"
+          },
+          {
+            "name": "Paid"
+          },
+          {
+            "name": "Canceled"
+          },
+          {
+            "name": "Disputed"
+          },
+          {
+            "name": "Expired"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidStatusTransition",
+      "msg": "Invalid status transition"
+    }
+  ],
+  "metadata": {
+    "address": "inv1pVoiCe11111111111111111111111111111111"
+  }
+}

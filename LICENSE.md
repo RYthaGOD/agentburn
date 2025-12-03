@@ -1,6 +1,6 @@
 # MIT License
 
-Copyright (c) 2025 GigaBrain AI Trading Bot
+Copyright (c) 2025 Solana B2B Invoicing Platform
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -29,7 +29,6 @@ This project uses the following third-party software:
 - **Solana** - Apache License 2.0
 - **Anchor Framework** - Apache License 2.0
 - **SPL Token** - Apache License 2.0
-- **DeepSeek AI** - DeepSeek API Terms of Service
 - **x402 Protocol** - PayAI x402 Protocol License
 
 For full license details of dependencies, see `package.json` and `Cargo.toml`.
