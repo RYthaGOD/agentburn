@@ -180,7 +180,7 @@ anchor deploy
 ## File Structure Summary
 
 ```
-agentburn/
+solana-invoice/
 ├── programs/invoice_program/  # Anchor program (Rust)
 ├── scripts/                   # CLI tools (TypeScript)
 ├── app/                       # Next.js UI (React)

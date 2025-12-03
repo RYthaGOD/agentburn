@@ -54,7 +54,7 @@ A production-ready MVP for B2B invoicing on Solana blockchain has been successfu
 ## 📁 Complete File Structure
 
 ```
-agentburn/
+solana-invoice/
 │
 ├── programs/
 │   └── invoice_program/              # Anchor Program (Rust)

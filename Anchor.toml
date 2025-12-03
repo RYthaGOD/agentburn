@@ -8,11 +8,9 @@ skip-lint = false
 invoice_program = "inv1pVoiCe11111111111111111111111111111111"
 
 [programs.devnet]
-gigabrain_burn = "BurnGigaBrain11111111111111111111111111111111"
 invoice_program = "inv1pVoiCe11111111111111111111111111111111"
 
 [programs.mainnet]
-gigabrain_burn = "BurnGigaBrain11111111111111111111111111111111"
 invoice_program = "inv1pVoiCe11111111111111111111111111111111"
 
 [registry]

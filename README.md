@@ -1,415 +1,328 @@
-# 🤖 GigaBurn AI Trader/Agent
+# Solana B2B Invoicing Platform
 
-> **Autonomous AI Trading with x402 Micropayments and On-Chain Burns**
+A B2B invoicing platform on Solana where each invoice is represented as a pNFT (programmable NFT for MVP). The platform uses an Anchor program to track invoices on-chain and supports x402 payment protocol integration.
 
-GigaBrain is an AI-powered trading bot for Solana that autonomously trades tokens, detects profit opportunities, and executes token burns using **x402 micropayments** for service fees. Built with **DeepSeek V3 AI** (free tier - 5M tokens/day), it features autonomous decision-making with zero human intervention.
+## Architecture
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
-[![Solana](https://img.shields.io/badge/Solana-Devnet-blueviolet)](https://explorer.solana.com)
-[![Anchor](https://img.shields.io/badge/Anchor-0.29.0-blue)](https://www.anchor-lang.com/)
+This project consists of three main components:
 
----
-
-## 🌟 Key Features
-
-### 🧠 **DeepSeek V3 AI Decision Making**
-- Free tier with 5M tokens monthly (no API costs!)
-- Superior reasoning for technical analysis
-- Continuous position monitoring (1-minute intervals)
-- Multi-strategy trading (SCALP, SWING, Mean Reversion)
-
-### 💳 **x402 Micropayment Integration**
-- **HTTP 402 Payment Required** protocol for agent-to-agent commerce
-- $0.005 USDC per burn execution service
-- Autonomous USDC transfers (no human approval needed)
-- On-chain payment verification
-
-### 🔥 **Autonomous Token Burns**
-- Configurable profit thresholds (e.g., burn at 10% profit)
-- Percentage-based burn amounts (e.g., 25% of profits)
-- On-chain burn execution via Anchor program
-- SPL token support with MEV protection
-
-### 🛡️ **Safety Features**
-- Loss prediction AI (blocks trades with >85% loss probability)
-- Portfolio drawdown circuit breaker
-- Dynamic tiered stop-losses (4 levels)
-- Liquidity verification (prevents rug pulls)
-
----
-
-## 📁 Repository Structure
+1. **Anchor Program** (`programs/invoice_program`) - On-chain invoice tracking
+2. **Scripts** (`scripts/`) - CLI tools for invoice creation and management
+3. **Next.js dApp** (`app/`) - Web interface for invoice management
 
 ```
-gigabrain/
-├── programs/              # Anchor/Rust on-chain programs
-│   └── gigabrain-burn/   
-│       ├── src/
-│       │   └── lib.rs    # SPL token burn program
-│       ├── Cargo.toml
-│       └── Xargo.toml
-│
-├── scripts/              # x402 JavaScript integration
-│   ├── x402-agent.js     # Autonomous agent (payment + burn)
-│   ├── initialize.js     # Initialize burn configuration
-│   └── deploy.sh         # Deploy to devnet
-│
-├── tests/                # Simulations and tests
-│   └── simulations/
-│       └── burn-simulation.test.js
-│
-├── server/               # Full-stack application backend
-├── client/               # React frontend (trading dashboard)
-├── shared/               # Shared types/schemas
-│
-├── Anchor.toml           # Anchor configuration
-├── LICENSE.md            # MIT License
-└── README.md             # This file
+solana-invoice-mvp/
+├── programs/
+│   └── invoice_program/       # Anchor program for on-chain invoices
+├── scripts/                    # TypeScript utilities for invoice management
+├── app/                        # Next.js frontend dApp
+├── idl/                        # IDL files copied from program build
+├── Anchor.toml                 # Anchor workspace configuration
+├── Cargo.toml                  # Rust workspace configuration
+└── README.md                   # This file
 ```
 
----
+## Features
 
-## 🚀 Quick Start
+- 🔐 **On-chain Invoice Tracking** - Each invoice is stored as a PDA on Solana
+- 🎨 **pNFT Representation** - Invoices are represented as programmable NFTs
+- 💳 **x402 Payment Protocol** - Ready for x402 micropayment integration
+- 📊 **Invoice Dashboard** - View all invoices as creator or client
+- ✅ **Status Management** - Track invoice status (Unpaid, Paid, Disputed, etc.)
+- 💰 **SOL Payments** - MVP supports SOL transfers (ready for USDC/SPL tokens)
 
-### Prerequisites
+## Prerequisites
 
-1. **Rust & Anchor**
-   ```bash
-   # Install Rust
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   
-   # Install Solana CLI
-   sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
-   
-   # Install Anchor
-   cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
-   avm install latest
-   avm use latest
-   ```
+Before you begin, ensure you have the following installed:
 
-2. **Node.js** (v18+)
-   ```bash
-   npm install
-   ```
+- **Rust** (latest stable)
+- **Solana CLI** (v1.17+)
+- **Anchor** (v0.30.1)
+- **Node.js** (v18+)
+- **Yarn** or **npm**
 
-3. **Solana Wallet**
-   ```bash
-   # Generate a new wallet (or use existing)
-   solana-keygen new --outfile ~/.config/solana/id.json
-   
-   # Get devnet SOL
-   solana airdrop 2 --url devnet
-   ```
-
----
-
-## ⚙️ Setup & Deployment
-
-### 1. Deploy Anchor Program to Devnet
+### Installation Commands
 
 ```bash
-# Run automated deployment script
-./scripts/deploy.sh
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install Solana CLI
+sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
+
+# Install Anchor
+cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+avm install 0.30.1
+avm use 0.30.1
+
+# Install Node.js dependencies (in scripts/ and app/ directories)
+cd scripts && npm install
+cd ../app && npm install
 ```
 
-This script will:
-- ✅ Build the Anchor program
-- ✅ Generate program ID
-- ✅ Update `Anchor.toml` and `lib.rs` with actual ID
-- ✅ Deploy to Solana devnet
-- ✅ Show explorer link
+## Quick Start
 
-**Expected Output:**
-```
-✅ Deployment Complete!
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 Deployment Info:
-   Network: Devnet
-   Program ID: AbC123...XyZ789
-   Explorer: https://explorer.solana.com/address/AbC123...XyZ789?cluster=devnet
-```
-
-### 2. Configure Environment Variables
+### 1. Build and Deploy the Anchor Program
 
 ```bash
-# Set program ID from deployment
-export PROGRAM_ID=<your_program_id_from_deploy>
-
-# Configure wallet path (if non-default)
-export WALLET_PATH=~/.config/solana/id.json
-
-# Optional: Use custom RPC endpoint
-export SOLANA_RPC_URL=https://api.devnet.solana.com
-```
-
-### 3. Initialize Burn Configuration
-
-```bash
-# Initialize burn rules for a token
-node scripts/initialize.js <TOKEN_MINT_ADDRESS>
-
-# Example with default test mint
-node scripts/initialize.js 11111111111111111111111111111111
-```
-
-**Configuration Options:**
-- `profitThreshold`: Minimum profit to trigger burn (basis points, e.g., 1000 = 10%)
-- `burnPercentage`: Percent of profits to burn (0-10000 = 0-100%)
-- `minBurnAmount`: Minimum token amount per burn
-
----
-
-## 🎯 Usage
-
-### Run Autonomous Agent
-
-```bash
-# Start the autonomous trading + burn agent
-node scripts/x402-agent.js
-```
-
-**What the Agent Does:**
-
-1. **🎯 Monitors Profits**
-   - Continuously checks trading performance
-   - Detects when profit threshold is met (e.g., 10% profit)
-
-2. **💳 Executes x402 Payment**
-   - Automatically pays $0.005 USDC for burn service
-   - No human approval needed
-   - Transaction confirmed on-chain
-
-3. **🔥 Executes Token Burn**
-   - Calls Anchor program to burn tokens
-   - Burns configured percentage of profits (e.g., 25%)
-   - Updates burn statistics on-chain
-
-**Example Output:**
-```
-🤖 GigaBrain x402 Autonomous Agent Starting...
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 Configuration:
-   Network: Devnet
-   Wallet: 7xK...3mN
-   Program: AbC123...XyZ789
-   x402 Fee: $0.005 USDC per burn
-
-🎯 Profit Threshold Met: 1000 basis points
-   Autonomous burn triggered!
-
-💳 Creating x402 payment: $0.005 USDC
-✅ x402 Payment Confirmed: 5k3...d8j
-   Amount: $0.005 USDC
-   Treasury: jaw...G38
-
-🔥 Executing Autonomous Burn...
-   Token: So1...tkn
-   Amount: 2500000
-   Profit: 1500
-
-✅ Burn Transaction: 2hB...9pL
-
-✅ Autonomous Burn Complete!
-   x402 Payment: 5k3...d8j
-   Burn Transaction: 2hB...9pL
-```
-
----
-
-## 🧪 Testing
-
-### Run Simulation Tests
-
-```bash
-# Install test dependencies
-npm install --save-dev mocha chai
-
-# Run burn simulation tests
-npm test
-```
-
-**Test Coverage:**
-- ✅ Profit threshold detection
-- ✅ Burn amount calculation
-- ✅ x402 payment verification
-- ✅ PDA derivation
-- ✅ End-to-end autonomous flow
-
----
-
-## 📖 How It Works
-
-### The Autonomous Burn Flow
-
-```
-┌─────────────────────────────────────────────────────┐
-│  1. AI TRADING BOT (DeepSeek V3)                   │
-│     - Monitors positions every 1 minute             │
-│     - Detects profit threshold met (e.g., +10%)    │
-└──────────────┬──────────────────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────────────────┐
-│  2. x402 MICROPAYMENT                               │
-│     - Agent creates USDC transfer ($0.005)          │
-│     - Sends to treasury wallet                      │
-│     - Confirms on-chain (HTTP 402 Payment Required) │
-└──────────────┬──────────────────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────────────────┐
-│  3. ON-CHAIN BURN (Anchor Program)                  │
-│     - Verifies payment signature                    │
-│     - Checks profit threshold                       │
-│     - Executes SPL token burn                       │
-│     - Updates statistics (total burned, count)      │
-└─────────────────────────────────────────────────────┘
-```
-
-### x402 Protocol Integration
-
-**x402** (HTTP 402 Payment Required) enables autonomous agent-to-agent payments:
-
-- **Agent 1 (GigaBrain AI)**: Needs burn service
-- **Agent 2 (BurnBot Service)**: Provides burn execution
-- **Payment**: $0.005 USDC via SPL token transfer
-- **Verification**: On-chain signature confirms payment
-- **Execution**: Burn service activates after payment confirmation
-
-**No human intervention required!** ✨
-
----
-
-## 🔧 Advanced Configuration
-
-### Update Burn Rules
-
-```javascript
-// In scripts/initialize.js, modify config:
-
-const config = {
-  profitThreshold: 2000,  // 20% profit required
-  burnPercentage: 5000,   // 50% of profits burned
-  minBurnAmount: 5000000, // 5 tokens minimum
-};
-```
-
-### Custom RPC Endpoint
-
-```bash
-# Use Helius, QuickNode, or other RPC
-export SOLANA_RPC_URL=https://your-custom-rpc-endpoint.com
-```
-
-### MEV Protection (Jito)
-
-The full-stack application includes Jito BAM (Bundle Auction Mechanism) integration for MEV protection. See `server/jito-bam-service.ts` for implementation.
-
----
-
-## 📊 Devnet Program ID
-
-After deployment, your program ID will be:
-
-```
-PLACEHOLDER - Update after running ./scripts/deploy.sh
-```
-
-**Devnet Explorer:**
-```
-https://explorer.solana.com/address/YOUR_PROGRAM_ID?cluster=devnet
-```
-
----
-
-## 🏗️ Program Instructions
-
-The Anchor program (`programs/gigabrain-burn/src/lib.rs`) provides:
-
-### `initialize_burn_config`
-Initialize burn configuration for a token mint.
-
-**Parameters:**
-- `profit_threshold: u64` - Minimum profit in basis points
-- `burn_percentage: u16` - Burn percentage (0-10000)
-- `min_burn_amount: u64` - Minimum tokens per burn
-
-### `execute_autonomous_burn`
-Execute autonomous burn with x402 payment verification.
-
-**Parameters:**
-- `amount: u64` - Tokens to burn
-- `x402_signature: String` - Payment verification signature
-- `profit_amount: u64` - Current profit that triggered burn
-
-### `update_burn_config`
-Update existing burn configuration.
-
-**Parameters:**
-- `new_profit_threshold: Option<u64>`
-- `new_burn_percentage: Option<u16>`
-- `new_min_burn_amount: Option<u64>`
-
----
-
-## 🔐 Security
-
-- ✅ **Anchor Framework** - Rust type safety and security
-- ✅ **x402 Payment Verification** - On-chain payment confirmation
-- ✅ **PDA-based Access Control** - Secure configuration storage
-- ✅ **Loss Prevention AI** - Blocks risky trades (>85% loss probability)
-- ✅ **Liquidity Checks** - Prevents rug pull tokens
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Please open an issue or PR.
-
-### Development Setup
-
-```bash
-# Install dependencies
-npm install
-
-# Build Anchor program
+# Build the program
 anchor build
 
-# Run tests
-npm test
+# Get the program ID
+solana address -k target/deploy/invoice_program-keypair.json
 
-# Start full-stack app (dev mode)
-npm run dev
+# Update the program ID in:
+# - Anchor.toml (under [programs.localnet])
+# - programs/invoice_program/src/lib.rs (declare_id!)
+
+# Start local validator (in a separate terminal)
+solana-test-validator
+
+# Deploy to localnet
+anchor deploy
+
+# Copy IDL to required locations
+cp target/idl/invoice_program.json idl/
+cp target/idl/invoice_program.json scripts/idl/
+cp target/idl/invoice_program.json app/idl/
 ```
 
+### 2. Run Scripts to Create Invoices
+
+```bash
+cd scripts
+
+# Create a new invoice
+npm run create:invoice
+
+# Mark an invoice as paid (replace with actual invoice PDA)
+npm run mark:paid <INVOICE_PDA> <RECEIPT_REFERENCE>
+```
+
+### 3. Run the Frontend dApp
+
+```bash
+cd app
+
+# Start development server
+npm run dev
+
+# Open browser to http://localhost:3000
+```
+
+## Usage
+
+### Creating an Invoice
+
+1. Navigate to `http://localhost:3000`
+2. Connect your Solana wallet (Phantom, Solflare, etc.)
+3. Fill in the invoice form:
+   - Amount (in SOL)
+   - Due date (days from now)
+   - Optional client wallet address
+4. Click "Create Invoice"
+5. Approve the transaction in your wallet
+
+### Viewing Invoices
+
+1. Navigate to `http://localhost:3000/dashboard`
+2. Connect your wallet
+3. View invoices where you are:
+   - **Creator** (issuer) - Invoices you created
+   - **Client** (payer) - Invoices assigned to you
+
+### Paying an Invoice
+
+1. From the dashboard or invoice detail page
+2. Click the "Pay" button on an unpaid invoice
+3. The system will:
+   - Process x402 payment request (stub for MVP)
+   - Transfer SOL to the invoice creator
+   - Mark the invoice as paid on-chain
+
+## Program Instructions
+
+### `create_invoice`
+
+Creates a new invoice on-chain with associated pNFT.
+
+**Parameters:**
+- `amount: u64` - Invoice amount in lamports
+- `due_date: i64` - Unix timestamp for due date
+- `token_mint: Pubkey` - Token mint for payment (SOL placeholder for MVP)
+- `bump: u8` - PDA bump seed
+
+**Accounts:**
+- `invoice` - InvoiceAccount PDA (to be created)
+- `creator` - Invoice creator (signer)
+- `invoice_mint` - NFT mint representing the invoice
+- `system_program` - System program
+
+### `mark_invoice_paid`
+
+Marks an invoice as paid and stores payment receipt reference.
+
+**Parameters:**
+- `receipt_reference: String` - Payment transaction signature or x402 receipt ID
+
+**Accounts:**
+- `invoice` - InvoiceAccount PDA (mut)
+- `creator` - Invoice creator (signer)
+
+## Invoice Status Lifecycle
+
+```
+Unpaid → PartiallyPaid → Paid
+   ↓           ↓           ↓
+Canceled   Canceled    (final)
+   ↓           ↓
+Disputed   Disputed
+   ↓
+Expired
+```
+
+## x402 Integration
+
+The platform is designed to support x402 (HTTP 402 Payment Required) protocol for micropayments. The MVP includes a stub implementation that can be replaced with a real x402 SDK.
+
+See `app/x402-INTEGRATION.md` for details on integrating a real x402 service.
+
+## Development
+
+### Project Structure
+
+#### Anchor Program (`programs/invoice_program`)
+
+- `src/lib.rs` - Main program logic
+- Defines `InvoiceAccount` PDA structure
+- Implements `create_invoice` and `mark_invoice_paid` instructions
+- Validates status transitions and payment requirements
+
+#### Scripts (`scripts/`)
+
+- `src/create_invoice.ts` - Mints pNFT and creates invoice
+- `src/mark_invoice_paid.ts` - Updates invoice status on-chain
+- `src/env.ts` - Environment configuration
+
+#### Next.js App (`app/`)
+
+- `pages/` - Application routes
+- `components/` - Reusable React components
+- `lib/solana/` - Solana/Anchor utilities
+- `lib/x402/` - x402 payment protocol integration (stub)
+
+### Running Tests
+
+```bash
+# Anchor program tests
+anchor test
+
+# Scripts tests (if added)
+cd scripts && npm test
+
+# Frontend tests (if added)
+cd app && npm test
+```
+
+## Configuration
+
+### Environment Variables
+
+Create `.env` files in both `scripts/` and `app/` directories:
+
+**scripts/.env**
+```
+SOLANA_RPC_ENDPOINT=http://127.0.0.1:8899
+KEYPAIR_PATH=~/.config/solana/id.json
+```
+
+**app/.env.local**
+```
+NEXT_PUBLIC_SOLANA_RPC_ENDPOINT=http://127.0.0.1:8899
+```
+
+### Network Configuration
+
+Update `Anchor.toml` to switch between localnet, devnet, and mainnet:
+
+```toml
+[provider]
+cluster = "localnet"  # or "devnet", "mainnet-beta"
+wallet = "~/.config/solana/id.json"
+```
+
+## Roadmap
+
+- [x] MVP with SOL payments
+- [ ] USDC/SPL token support
+- [ ] Real x402 SDK integration
+- [ ] Token-2022 programmable NFTs
+- [ ] Multi-signature invoices
+- [ ] Recurring invoices
+- [ ] Invoice templates
+- [ ] Organization/workspace model
+- [ ] Role-based access control
+- [ ] Invoice dispute resolution
+- [ ] Automated reminders
+- [ ] Analytics dashboard
+
+## Security Considerations
+
+- 🔐 All transactions require wallet signature
+- ✅ Status transitions are validated on-chain
+- 🔍 Payment receipts are stored immutably
+- ⚠️ Always verify recipient addresses before payment
+- 🛡️ Use hardware wallets for production
+
+## Troubleshooting
+
+### Program deployment fails
+
+```bash
+# Ensure local validator is running
+solana-test-validator
+
+# Check wallet has sufficient SOL
+solana balance
+
+# Request airdrop if needed (localnet/devnet only)
+solana airdrop 2
+```
+
+### Scripts can't find IDL
+
+```bash
+# Ensure IDL is copied after build
+cp target/idl/invoice_program.json scripts/idl/
+```
+
+### Frontend wallet won't connect
+
+- Ensure you have a Solana wallet extension installed (Phantom, Solflare)
+- Check that the wallet is set to the correct network (localnet/devnet)
+- Clear browser cache and reload
+
+## Contributing
+
+Contributions are welcome! Please follow these guidelines:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with clear commit messages
+4. Test thoroughly (program, scripts, frontend)
+5. Submit a pull request
+
+## License
+
+MIT License - See LICENSE file for details
+
+## Support
+
+For questions or issues:
+- Open a GitHub issue
+- Join our Discord community (coming soon)
+- Check the documentation in each component's directory
+
 ---
 
-## 📄 License
-
-MIT License - see [LICENSE.md](LICENSE.md)
-
----
-
-## 🔗 Links
-
-- **Solana Explorer (Devnet)**: https://explorer.solana.com/?cluster=devnet
-- **Anchor Docs**: https://www.anchor-lang.com/
-- **DeepSeek AI**: https://api.deepseek.com/
-- **x402 Protocol**: https://payai.com/x402
-- **Jito MEV**: https://www.jito.wtf/
-
----
-
-## 📞 Support
-
-For questions or support:
-- Open an issue on GitHub
-- Join our Discord (coming soon)
-- Check documentation in `/docs` folder
-
----
-
-**Built for the Solana Hackathon with ❤️**
-
-*Autonomous AI trading with zero human intervention*
+**Built with ❤️ for the Solana ecosystem**

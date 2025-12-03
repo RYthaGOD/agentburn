@@ -36,7 +36,7 @@ solana --version
 
 ```bash
 # Navigate to project root
-cd /path/to/agentburn
+cd /path/to/solana-invoice
 
 # Build the invoice_program
 anchor build
