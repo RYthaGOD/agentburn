@@ -8,6 +8,9 @@ import { SolanaWalletProvider } from "@/lib/wallet-provider";
 import { RealtimeProvider } from "@/hooks/use-realtime";
 import Landing from "@/pages/landing";
 import InvoiceLanding from "@/pages/invoice-landing";
+import InvoiceList from "@/pages/invoice-list";
+import InvoiceCreate from "@/pages/invoice-create";
+import InvoiceDetail from "@/pages/invoice-detail";
 import Dashboard from "@/pages/dashboard";
 import NewProject from "@/pages/new-project";
 import ProjectDetails from "@/pages/project-details";
@@ -27,6 +30,9 @@ function Router() {
     <Switch>
       <Route path="/" component={InvoiceLanding} />
       <Route path="/old" component={Landing} />
+      <Route path="/invoices" component={InvoiceList} />
+      <Route path="/invoices/create" component={InvoiceCreate} />
+      <Route path="/invoices/:id" component={InvoiceDetail} />
       <Route path="/stats" component={PublicStats} />
       <Route path="/analyze" component={TokenAnalyzer} />
       <Route path="/learn" component={HowItWorks} />
