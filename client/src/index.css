@@ -2,67 +2,67 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE */
+/* LIGHT MODE - Gunmetal Grey & Purple Theme */
 :root {
-  --button-outline: rgba(218,165,32, .12);
-  --badge-outline: rgba(218,165,32, .06);
+  --button-outline: rgba(139, 92, 246, .12);
+  --badge-outline: rgba(139, 92, 246, .06);
 
   /* Automatic computation of border around primary / danger buttons */
   --opaque-button-border-intensity: -8; /* In terms of percentages */
 
   /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(218,165,32, .04);
-  --elevate-2: rgba(218,165,32, .10);
+  --elevate-1: rgba(139, 92, 246, .04);
+  --elevate-2: rgba(139, 92, 246, .10);
 
-  --background: 0 0% 98%;
+  --background: 225 15% 96%;
 
-  --foreground: 222 15% 12%;
+  --foreground: 225 20% 15%;
 
-  --border: 220 10% 88%;
+  --border: 225 10% 75%;
 
   --card: 0 0% 100%;
 
-  --card-foreground: 222 15% 12%;
+  --card-foreground: 225 20% 15%;
 
-  --card-border: 220 10% 84%;
+  --card-border: 225 10% 85%;
 
-  --sidebar: 220 8% 96%;
+  --sidebar: 225 15% 94%;
 
-  --sidebar-foreground: 222 15% 12%;
+  --sidebar-foreground: 225 20% 15%;
 
-  --sidebar-border: 220 10% 90%;
+  --sidebar-border: 225 10% 80%;
 
-  --sidebar-primary: 48 100% 50%;
+  --sidebar-primary: 262 83% 58%;
 
-  --sidebar-primary-foreground: 0 0% 0%;
+  --sidebar-primary-foreground: 0 0% 100%;
 
-  --sidebar-accent: 220 12% 92%;
+  --sidebar-accent: 225 12% 90%;
 
-  --sidebar-accent-foreground: 222 15% 15%;
+  --sidebar-accent-foreground: 225 20% 20%;
 
-  --sidebar-ring: 48 100% 50%;
+  --sidebar-ring: 262 83% 58%;
 
   --popover: 0 0% 100%;
 
-  --popover-foreground: 222 15% 12%;
+  --popover-foreground: 225 20% 15%;
 
-  --popover-border: 220 10% 86%;
+  --popover-border: 225 10% 85%;
 
-  --primary: 48 100% 50%;
+  --primary: 262 83% 58%;
 
-  --primary-foreground: 0 0% 0%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 48 20% 85%;
+  --secondary: 225 15% 85%;
 
-  --secondary-foreground: 48 100% 20%;
+  --secondary-foreground: 225 20% 25%;
 
-  --muted: 45 15% 92%;
+  --muted: 225 12% 92%;
 
-  --muted-foreground: 48 15% 30%;
+  --muted-foreground: 225 15% 40%;
 
-  --accent: 48 100% 50%;
+  --accent: 262 83% 58%;
 
-  --accent-foreground: 0 0% 0%;
+  --accent-foreground: 0 0% 100%;
 
   --destructive: 0 72% 55%;
 
@@ -123,64 +123,64 @@
 }
 
 .dark {
-  --button-outline: rgba(255,215,0, .15);
-  --badge-outline: rgba(255,215,0, .08);
+  --button-outline: rgba(139, 92, 246, .15);
+  --badge-outline: rgba(139, 92, 246, .08);
 
   --opaque-button-border-intensity: 9;  /* In terms of percentages */
 
-  /* Backgrounds applied on top of other backgrounds when hovered/active - with gold glow */
-  --elevate-1: rgba(255,215,0, .06);
-  --elevate-2: rgba(255,215,0, .12);
+  /* Backgrounds applied on top of other backgrounds when hovered/active - with purple glow */
+  --elevate-1: rgba(139, 92, 246, .06);
+  --elevate-2: rgba(139, 92, 246, .12);
 
-  --background: 0 0% 5%;
+  --background: 225 20% 8%;
 
-  --foreground: 48 100% 96%;
+  --foreground: 225 15% 95%;
 
-  --border: 45 15% 20%;
+  --border: 225 15% 20%;
 
-  --card: 0 0% 8%;
+  --card: 225 18% 12%;
 
-  --card-foreground: 48 100% 96%;
+  --card-foreground: 225 15% 95%;
 
-  --card-border: 45 15% 16%;
+  --card-border: 225 15% 18%;
 
-  --sidebar: 0 0% 8%;
+  --sidebar: 225 18% 10%;
 
-  --sidebar-foreground: 48 100% 96%;
+  --sidebar-foreground: 225 15% 95%;
 
-  --sidebar-border: 45 15% 16%;
+  --sidebar-border: 225 15% 18%;
 
-  --sidebar-primary: 48 100% 50%;
+  --sidebar-primary: 262 83% 58%;
 
-  --sidebar-primary-foreground: 0 0% 0%;
+  --sidebar-primary-foreground: 0 0% 100%;
 
-  --sidebar-accent: 0 0% 12%;
+  --sidebar-accent: 225 18% 15%;
 
-  --sidebar-accent-foreground: 48 100% 96%;
+  --sidebar-accent-foreground: 225 15% 95%;
 
-  --sidebar-ring: 48 100% 50%;
+  --sidebar-ring: 262 83% 58%;
 
-  --popover: 0 0% 12%;
+  --popover: 225 18% 14%;
 
-  --popover-foreground: 48 100% 96%;
+  --popover-foreground: 225 15% 95%;
 
-  --popover-border: 45 15% 20%;
+  --popover-border: 225 15% 22%;
 
-  --primary: 48 100% 50%;
+  --primary: 262 83% 58%;
 
-  --primary-foreground: 0 0% 0%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 0 0% 20%;
+  --secondary: 225 18% 20%;
 
-  --secondary-foreground: 48 100% 50%;
+  --secondary-foreground: 262 83% 70%;
 
-  --muted: 0 0% 12%;
+  --muted: 225 18% 15%;
 
-  --muted-foreground: 48 20% 70%;
+  --muted-foreground: 225 15% 70%;
 
-  --accent: 48 100% 50%;
+  --accent: 262 83% 58%;
 
-  --accent-foreground: 0 0% 0%;
+  --accent-foreground: 0 0% 100%;
 
   --destructive: 0 72% 55%;
 
@@ -322,24 +322,129 @@
     inset: -1px;
   }
 
-  /* Gold-themed gradients and glows */
-  .gold-gradient {
-    background: linear-gradient(135deg, hsl(48 100% 50%), hsl(45 100% 60%));
+  /* Glassmorphic styles */
+  .glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
-  .gold-glow {
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+  .glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
-  .gold-glow-hover:hover {
-    box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
   }
 
-  .gold-border {
-    border-image: linear-gradient(135deg, hsl(48 100% 50%), hsl(42 100% 50%)) 1;
+  /* Purple-themed gradients and glows */
+  .purple-gradient {
+    background: linear-gradient(135deg, hsl(262 83% 58%), hsl(272 83% 68%));
   }
 
-  /* Override Solana Wallet Adapter styles with gold theme */
+  .purple-glow {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+  }
+
+  .purple-glow-hover:hover {
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.5);
+  }
+
+  .gunmetal-gradient {
+    background: linear-gradient(135deg, hsl(225 18% 20%), hsl(225 18% 30%));
+  }
+
+  /* Smoke shadow animation - keyframes */
+  @keyframes smoke-rise {
+    0% {
+      transform: translateY(0) scale(1);
+      opacity: 0.5;
+    }
+    50% {
+      transform: translateY(-10px) scale(1.1);
+      opacity: 0.3;
+    }
+    100% {
+      transform: translateY(-20px) scale(1.2);
+      opacity: 0;
+    }
+  }
+
+  @keyframes smoke-expand {
+    0% {
+      box-shadow: 
+        0 0 0 0 rgba(139, 92, 246, 0.4),
+        0 0 0 0 rgba(139, 92, 246, 0.3),
+        0 0 0 0 rgba(139, 92, 246, 0.2);
+    }
+    50% {
+      box-shadow: 
+        0 0 20px 10px rgba(139, 92, 246, 0.2),
+        0 0 30px 15px rgba(139, 92, 246, 0.15),
+        0 0 40px 20px rgba(139, 92, 246, 0.1);
+    }
+    100% {
+      box-shadow: 
+        0 0 0 0 rgba(139, 92, 246, 0),
+        0 0 0 0 rgba(139, 92, 246, 0),
+        0 0 0 0 rgba(139, 92, 246, 0);
+    }
+  }
+
+  /* Smoke shadow effect on active (click) */
+  .smoke-shadow:active::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    animation: smoke-expand 0.6s ease-out;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  /* Smoke particles effect */
+  .smoke-shadow:active::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 80%;
+    border-radius: inherit;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+    animation: smoke-rise 0.8s ease-out;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .smoke-shadow {
+    position: relative;
+    overflow: visible;
+    transition: all 0.2s ease;
+  }
+
+  .smoke-shadow:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.2);
+  }
+
+  .smoke-shadow:active {
+    transform: translateY(0);
+  }
+
+  /* Override Solana Wallet Adapter styles with purple theme */
   .wallet-adapter-button {
     background-color: hsl(var(--primary)) !important;
     color: hsl(var(--primary-foreground)) !important;

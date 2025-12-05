@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { SolanaWalletProvider } from "@/lib/wallet-provider";
 import { RealtimeProvider } from "@/hooks/use-realtime";
 import Landing from "@/pages/landing";
+import InvoiceLanding from "@/pages/invoice-landing";
 import Dashboard from "@/pages/dashboard";
 import NewProject from "@/pages/new-project";
 import ProjectDetails from "@/pages/project-details";
@@ -24,7 +25,8 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Landing} />
+      <Route path="/" component={InvoiceLanding} />
+      <Route path="/old" component={Landing} />
       <Route path="/stats" component={PublicStats} />
       <Route path="/analyze" component={TokenAnalyzer} />
       <Route path="/learn" component={HowItWorks} />

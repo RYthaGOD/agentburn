@@ -12,12 +12,19 @@ import {
 } from "./security";
 // Import crypto functions at module level for security
 import { getArciumService, loadKeypairFromPrivateKey } from "./arcium-service";
+// Import invoice routes
+import { registerInvoiceRoutes } from "./invoice-routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", service: "GigaBrain Agentic Burn System" });
+    res.json({ status: "ok", service: "SolanaInvoice B2B Invoicing System" });
   });
+  
+  // ================================================
+  // INVOICE ROUTES (New B2B Invoicing System)
+  // ================================================
+  registerInvoiceRoutes(app);
 
   // ===================================
   // PROJECT ROUTES (Burn Configuration)
