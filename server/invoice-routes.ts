@@ -172,8 +172,9 @@ export function registerInvoiceRoutes(app: Express): void {
   /**
    * Get invoice by invoice number
    * GET /api/invoices/number/:invoiceNumber?wallet=xxx
+   * NOTE: Requires authentication to prevent invoice number guessing attacks
    */
-  app.get("/api/invoices/number/:invoiceNumber", async (req, res) => {
+  app.get("/api/invoices/number/:invoiceNumber", requireWalletOwnership, async (req, res) => {
     try {
       const { invoiceNumber } = req.params;
       const walletAddress = req.query.wallet as string;
@@ -491,6 +492,7 @@ export function registerInvoiceRoutes(app: Express): void {
   /**
    * Get payments for a wallet
    * GET /api/payments?wallet=xxx
+   * Already has requireWalletOwnership middleware
    */
   app.get("/api/payments", requireWalletOwnership, async (req, res) => {
     try {
