@@ -17,6 +17,7 @@ import {
 import { fromZodError } from "zod-validation-error";
 import { requireWalletOwnership, strictRateLimit } from "./security";
 import { getArciumService, loadKeypairFromPrivateKey } from "./arcium-service";
+import { getInvoiceNFTService } from "./nft-service";
 
 /**
  * Register invoice-related API routes
@@ -74,10 +75,43 @@ export function registerInvoiceRoutes(app: Express): void {
         }
       }
       
+      // AUTO-MINT Invoice NFT (unless explicitly disabled)
+      if (req.body.mintNFT !== false) {
+        try {
+          const nftService = getInvoiceNFTService();
+          if (nftService.isReady()) {
+            const nftResult = await nftService.mintInvoiceNFT(
+              invoice,
+              invoice.invoicerWalletAddress
+            );
+            
+            // Update invoice with NFT details
+            await invoiceStorage.updateInvoice(invoice.id, {
+              nftMint: nftResult.mint,
+              nftMerkleTree: nftResult.merkleTree,
+              nftLeafIndex: nftResult.leafIndex,
+              nftMintedAt: new Date(),
+            });
+            
+            // Update invoice object for response
+            invoice.nftMint = nftResult.mint;
+            invoice.nftMerkleTree = nftResult.merkleTree;
+            invoice.nftLeafIndex = nftResult.leafIndex;
+            invoice.nftMintedAt = new Date();
+            
+            console.log(`✅ Auto-minted Invoice NFT: ${nftResult.mint}`);
+          }
+        } catch (nftError: any) {
+          // Non-blocking: log error but continue
+          console.error("Failed to auto-mint invoice NFT:", nftError.message);
+        }
+      }
+      
       res.status(201).json({
         success: true,
         invoice,
-        message: "Invoice created successfully",
+        nftMinted: !!invoice.nftMint,
+        message: "Invoice created successfully" + (invoice.nftMint ? " with NFT" : ""),
       });
     } catch (error: any) {
       if (error.name === "ZodError") {
@@ -437,11 +471,41 @@ export function registerInvoiceRoutes(app: Express): void {
       // Get updated invoice
       const updatedInvoice = await invoiceStorage.getInvoice(validatedData.invoiceId);
       
+      // AUTO-MINT Payment Receipt NFT (unless explicitly disabled)
+      let receiptNFT = null;
+      if (req.body.mintReceiptNFT !== false) {
+        try {
+          const nftService = getInvoiceNFTService();
+          if (nftService.isReady()) {
+            const receiptResult = await nftService.mintPaymentReceiptNFT(
+              payment,
+              invoice,
+              payment.toAddress  // Recipient gets the receipt NFT
+            );
+            
+            receiptNFT = {
+              mint: receiptResult.mint,
+              signature: receiptResult.signature,
+              owner: payment.toAddress,
+            };
+            
+            console.log(`✅ Auto-minted Payment Receipt NFT: ${receiptResult.mint}`);
+            
+            // Store receipt NFT in database
+            // TODO: Add to paymentReceiptNFTs table
+          }
+        } catch (nftError: any) {
+          // Non-blocking: log error but continue
+          console.error("Failed to auto-mint payment receipt NFT:", nftError.message);
+        }
+      }
+      
       res.status(201).json({
         success: true,
         payment,
         invoice: updatedInvoice,
-        message: "Payment recorded successfully",
+        receiptNFT,
+        message: "Payment recorded successfully" + (receiptNFT ? " with receipt NFT" : ""),
       });
     } catch (error: any) {
       if (error.name === "ZodError") {
@@ -573,6 +637,58 @@ export function registerInvoiceRoutes(app: Express): void {
         profile,
       });
     } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Mint Business Identity NFT
+   * POST /api/business/mint-identity-nft?wallet=xxx
+   * 
+   * Mints a verified business credential NFT for the authenticated business
+   */
+  app.post("/api/business/mint-identity-nft", requireWalletOwnership, strictRateLimit, async (req, res) => {
+    try {
+      const walletAddress = req.query.wallet as string;
+      const verificationLevel = req.body.verificationLevel || "basic"; // basic, verified, premium
+      
+      // Get business profile
+      const profile = await invoiceStorage.getBusinessProfile(walletAddress);
+      if (!profile) {
+        return res.status(404).json({ message: "Business profile not found. Create a profile first." });
+      }
+      
+      // Check if already has identity NFT
+      // TODO: Check businessIdentityNFTs table
+      
+      // Mint Business Identity NFT
+      const nftService = getInvoiceNFTService();
+      if (!nftService.isReady()) {
+        return res.status(503).json({ 
+          message: "NFT service not available. Please try again later." 
+        });
+      }
+      
+      const identityResult = await nftService.mintBusinessIdentityNFT(
+        profile,
+        verificationLevel
+      );
+      
+      // Store identity NFT in database
+      // TODO: Add to businessIdentityNFTs table
+      
+      res.status(201).json({
+        success: true,
+        identityNFT: {
+          mint: identityResult.mint,
+          signature: identityResult.signature,
+          owner: profile.walletAddress,
+          verificationLevel,
+        },
+        message: `Business identity NFT minted successfully (${verificationLevel} verification)`,
+      });
+    } catch (error: any) {
+      console.error("Failed to mint business identity NFT:", error);
       res.status(500).json({ message: error.message });
     }
   });

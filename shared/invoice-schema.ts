@@ -69,6 +69,15 @@ export const invoices = pgTable("invoices", {
   x402FeePaid: boolean("x402_fee_paid").notNull().default(false),
   x402PaymentSignature: text("x402_payment_signature"),
   
+  // NFT Integration (pNFT for tradeable invoices)
+  nftMint: text("nft_mint"), // NFT mint address
+  nftMerkleTree: text("nft_merkle_tree"), // Merkle tree for compressed NFT
+  nftLeafIndex: integer("nft_leaf_index"), // Position in merkle tree
+  nftMetadataUri: text("nft_metadata_uri"), // URI to NFT metadata
+  nftMintedAt: timestamp("nft_minted_at"), // When NFT was minted
+  nftTransferredTo: text("nft_transferred_to"), // For invoice financing (NFT sold to buyer)
+  nftBurnedAt: timestamp("nft_burned_at"), // When NFT was burned (paid/cancelled)
+  
   // Metadata
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -267,6 +276,109 @@ export const x402Micropayments = pgTable("x402_micropayments", {
 });
 
 // ============================================
+// pNFT TABLES (Programmable NFTs for Invoicing)
+// ============================================
+
+/**
+ * Payment Receipt NFTs - NFT proof of payment for tax/audit
+ * Minted when a payment is recorded to provide immutable receipts
+ */
+export const paymentReceiptNFTs = pgTable("payment_receipt_nfts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  paymentId: varchar("payment_id").notNull().references(() => payments.id),
+  invoiceId: varchar("invoice_id").notNull().references(() => invoices.id),
+  
+  // NFT Details
+  nftMint: text("nft_mint").notNull().unique(), // NFT mint address
+  nftMetadataUri: text("nft_metadata_uri").notNull(), // Metadata URI
+  nftOwner: text("nft_owner").notNull(), // Current owner (payment recipient)
+  
+  // Receipt Information
+  receiptNumber: text("receipt_number").notNull().unique(), // Human-readable receipt #
+  amount: decimal("amount", { precision: 18, scale: 9 }).notNull(),
+  currency: text("currency").notNull(),
+  paymentDate: timestamp("payment_date").notNull(),
+  taxYear: integer("tax_year").notNull(), // For tax filing
+  
+  // Transaction Details
+  txSignature: text("tx_signature").notNull(), // Original payment tx
+  nftMintSignature: text("nft_mint_signature").notNull(), // NFT mint tx
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/**
+ * Business Identity NFTs - Verified business credentials
+ * Provides trust signals and KYB verification
+ */
+export const businessIdentityNFTs = pgTable("business_identity_nfts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  businessProfileId: varchar("business_profile_id").notNull()
+    .references(() => businessProfiles.id),
+  
+  // NFT Details
+  nftMint: text("nft_mint").notNull().unique(), // NFT mint address
+  nftMetadataUri: text("nft_metadata_uri").notNull(),
+  nftOwner: text("nft_owner").notNull(), // Business wallet
+  
+  // Verification Details
+  verificationLevel: text("verification_level").notNull().default("basic"), // basic, verified, premium
+  verifiedBy: text("verified_by"), // KYB provider (e.g., "Civic", "Synaps")
+  verificationDate: timestamp("verification_date").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"), // Optional expiration for reverification
+  
+  // Business Metrics (at time of minting)
+  totalInvoicesIssued: integer("total_invoices_issued").notNull().default(0),
+  totalRevenueProcessed: decimal("total_revenue_processed", { precision: 18, scale: 9 }),
+  businessRating: decimal("business_rating", { precision: 3, scale: 2 }), // e.g., 4.75
+  
+  // NFT Transaction
+  nftMintSignature: text("nft_mint_signature").notNull(),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+/**
+ * Invoice Marketplace - For selling invoices before payment (invoice financing)
+ * Enables businesses to sell invoices as NFTs for immediate cash flow
+ */
+export const invoiceMarketplace = pgTable("invoice_marketplace", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull().references(() => invoices.id),
+  
+  // NFT Details
+  nftMint: text("nft_mint").notNull(), // Invoice NFT mint
+  nftMerkleTree: text("nft_merkle_tree").notNull(),
+  nftLeafIndex: integer("nft_leaf_index").notNull(),
+  
+  // Listing Details
+  seller: text("seller").notNull(), // Original invoicer
+  faceValue: decimal("face_value", { precision: 18, scale: 9 }).notNull(), // Invoice total
+  askingPrice: decimal("asking_price", { precision: 18, scale: 9 }).notNull(), // Sale price
+  discountRate: decimal("discount_rate", { precision: 5, scale: 2 }).notNull(), // % discount
+  currency: text("currency").notNull(),
+  
+  // Listing Status
+  status: text("status").notNull().default("active"), // active, sold, cancelled
+  listedAt: timestamp("listed_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"), // Optional listing expiration
+  
+  // Sale Details
+  soldAt: timestamp("sold_at"),
+  soldTo: text("sold_to"), // Buyer wallet
+  salePrice: decimal("sale_price", { precision: 18, scale: 9 }),
+  saleTxSignature: text("sale_tx_signature"),
+  
+  // Metadata
+  listingDescription: text("listing_description"),
+  minBuyerRating: decimal("min_buyer_rating", { precision: 3, scale: 2 }), // e.g., 3.0 minimum
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// ============================================
 // RELATIONS
 // ============================================
 
@@ -285,6 +397,31 @@ export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) =
 export const paymentsRelations = relations(payments, ({ one }) => ({
   invoice: one(invoices, {
     fields: [payments.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const paymentReceiptNFTsRelations = relations(paymentReceiptNFTs, ({ one }) => ({
+  payment: one(payments, {
+    fields: [paymentReceiptNFTs.paymentId],
+    references: [payments.id],
+  }),
+  invoice: one(invoices, {
+    fields: [paymentReceiptNFTs.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const businessIdentityNFTsRelations = relations(businessIdentityNFTs, ({ one }) => ({
+  businessProfile: one(businessProfiles, {
+    fields: [businessIdentityNFTs.businessProfileId],
+    references: [businessProfiles.id],
+  }),
+}));
+
+export const invoiceMarketplaceRelations = relations(invoiceMarketplace, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceMarketplace.invoiceId],
     references: [invoices.id],
   }),
 }));
@@ -342,6 +479,40 @@ export const insertCustomerProfileSchema = createInsertSchema(customerProfiles).
   customerName: z.string().min(1, "Customer name required"),
 });
 
+export const insertPaymentReceiptNFTSchema = createInsertSchema(paymentReceiptNFTs).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  paymentId: z.string().uuid(),
+  invoiceId: z.string().uuid(),
+  nftMint: z.string().min(32, "Invalid NFT mint address"),
+  nftOwner: z.string().min(32, "Invalid owner wallet address"),
+  amount: z.string().refine(val => parseFloat(val) > 0, "Amount must be positive"),
+});
+
+export const insertBusinessIdentityNFTSchema = createInsertSchema(businessIdentityNFTs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  businessProfileId: z.string().uuid(),
+  nftMint: z.string().min(32, "Invalid NFT mint address"),
+  nftOwner: z.string().min(32, "Invalid owner wallet address"),
+  verificationLevel: z.enum(["basic", "verified", "premium"]),
+});
+
+export const insertInvoiceMarketplaceSchema = createInsertSchema(invoiceMarketplace).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  invoiceId: z.string().uuid(),
+  nftMint: z.string().min(32, "Invalid NFT mint address"),
+  seller: z.string().min(32, "Invalid seller wallet address"),
+  faceValue: z.string().refine(val => parseFloat(val) > 0, "Face value must be positive"),
+  askingPrice: z.string().refine(val => parseFloat(val) > 0, "Asking price must be positive"),
+});
+
 // ============================================
 // TYPE EXPORTS
 // ============================================
@@ -361,6 +532,21 @@ export type BusinessProfile = typeof businessProfiles.$inferSelect;
 export type InsertBusinessProfile = z.infer<typeof insertBusinessProfileSchema>;
 
 export type CustomerProfile = typeof customerProfiles.$inferSelect;
+export type InsertCustomerProfile = z.infer<typeof insertCustomerProfileSchema>;
+
+export type PaymentReceiptNFT = typeof paymentReceiptNFTs.$inferSelect;
+export type InsertPaymentReceiptNFT = z.infer<typeof insertPaymentReceiptNFTSchema>;
+
+export type BusinessIdentityNFT = typeof businessIdentityNFTs.$inferSelect;
+export type InsertBusinessIdentityNFT = z.infer<typeof insertBusinessIdentityNFTSchema>;
+
+export type InvoiceMarketplaceListing = typeof invoiceMarketplace.$inferSelect;
+export type InsertInvoiceMarketplaceListing = z.infer<typeof insertInvoiceMarketplaceSchema>;
+
+// Backwards compatibility aliases
+export type SelectInvoice = Invoice;
+export type SelectPayment = Payment;
+export type SelectBusinessProfile = BusinessProfile;
 export type InsertCustomerProfile = z.infer<typeof insertCustomerProfileSchema>;
 
 export type X402Micropayment = typeof x402Micropayments.$inferSelect;
