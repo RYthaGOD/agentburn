@@ -5,6 +5,11 @@ import { insertProjectSchema, insertTransactionSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import { 
+  requireWalletOwnership, 
+  sanitizeTransactionForPrivacy,
+  sanitizeProjectForPublic 
+} from "./security";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check
@@ -90,43 +95,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // TRANSACTION ROUTES (Burn History)
   // ===================================
   
-  // Get all transactions
+  // Get all transactions - REMOVED FOR PRIVACY
+  // This endpoint exposed all user transactions publicly
+  // Use wallet-specific endpoints with authentication instead
   app.get("/api/transactions", async (req, res) => {
-    try {
-      const transactions = await storage.getAllTransactions();
-      res.json(transactions);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
+    res.status(403).json({ 
+      message: "Public transaction listing disabled for privacy. Use /api/transactions/wallet/:walletAddress with authentication." 
+    });
   });
 
-  // Get recent transactions with limit
+  // Get recent transactions with limit - REMOVED FOR PRIVACY
+  // Public access to transaction details violates B2B privacy requirements
   app.get("/api/transactions/recent", async (req, res) => {
-    try {
-      const limit = parseInt(req.query.limit as string) || 10;
-      const transactions = await storage.getAllTransactions();
-      
-      const recentTransactions = transactions
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, limit);
-
-      res.json(recentTransactions);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
+    res.status(403).json({ 
+      message: "Public transaction listing disabled for privacy. Use wallet-specific authenticated endpoints." 
+    });
   });
 
-  // Get transactions for a project
+  // Get transactions for a project - REQUIRES AUTHENTICATION
   app.get("/api/projects/:id/transactions/recent", async (req, res) => {
     try {
+      const projectId = req.params.id;
+      const authenticatedWallet = req.query.wallet as string;
       const limit = parseInt(req.query.limit as string) || 10;
-      const transactions = await storage.getTransactionsByProject(req.params.id);
+      
+      // Get project to verify ownership and privacy settings
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      
+      // Verify wallet ownership
+      if (!authenticatedWallet || project.ownerWalletAddress !== authenticatedWallet) {
+        return res.status(403).json({ 
+          message: "Unauthorized: Provide 'wallet' parameter matching project owner to access transactions" 
+        });
+      }
+      
+      const transactions = await storage.getTransactionsByProject(projectId);
       
       const recentTransactions = transactions
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, limit);
 
       res.json(recentTransactions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get transactions for a wallet - REQUIRES AUTHENTICATION
+  app.get("/api/transactions/wallet/:walletAddress", requireWalletOwnership, async (req, res) => {
+    try {
+      const { walletAddress } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      // Get all projects owned by this wallet
+      const projects = await storage.getProjects(walletAddress);
+      const projectIds = projects.map(p => p.id);
+      
+      // Get transactions for all user's projects
+      let allTransactions: any[] = [];
+      for (const projectId of projectIds) {
+        const txs = await storage.getTransactionsByProject(projectId);
+        allTransactions = allTransactions.concat(txs);
+      }
+      
+      // Sort by date and limit
+      const sortedTransactions = allTransactions
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, limit);
+      
+      res.json(sortedTransactions);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -235,8 +275,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get agentic burn stats for a wallet
-  app.get("/api/agentic-burn/stats/:walletAddress", async (req, res) => {
+  // Get agentic burn stats for a wallet - REQUIRES AUTHENTICATION
+  app.get("/api/agentic-burn/stats/:walletAddress", requireWalletOwnership, async (req, res) => {
     try {
       const { walletAddress } = req.params;
       const { agenticBurns } = await import("../shared/schema");
@@ -279,8 +319,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // x402 MICROPAYMENT ROUTES (Hackathon Feature)
   // ================================================
   
-  // Get x402 payments for a wallet
-  app.get("/api/x402/payments/:walletAddress", async (req, res) => {
+  // Get x402 payments for a wallet - REQUIRES AUTHENTICATION
+  app.get("/api/x402/payments/:walletAddress", requireWalletOwnership, async (req, res) => {
     try {
       const { walletAddress } = req.params;
       const { x402Micropayments } = await import("../shared/schema");
@@ -300,8 +340,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // JITO BAM BUNDLE ROUTES (Hackathon Feature)
   // ================================================
   
-  // Get BAM bundles for a wallet
-  app.get("/api/bam/bundles/:walletAddress", async (req, res) => {
+  // Get BAM bundles for a wallet - REQUIRES AUTHENTICATION
+  app.get("/api/bam/bundles/:walletAddress", requireWalletOwnership, async (req, res) => {
     try {
       const { walletAddress } = req.params;
       const { bamBundles } = await import("../shared/schema");
@@ -317,10 +357,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get bundle status by bundle ID
+  // Get bundle status by bundle ID - REQUIRES AUTHENTICATION
   app.get("/api/bam/bundles/status/:bundleId", async (req, res) => {
     try {
       const { bundleId } = req.params;
+      const authenticatedWallet = req.query.wallet as string;
       const { bamBundles } = await import("../shared/schema");
       
       const bundle = await db.select()
@@ -332,9 +373,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Bundle not found" });
       }
 
+      // Verify wallet ownership
+      if (!authenticatedWallet || bundle[0].ownerWalletAddress !== authenticatedWallet) {
+        return res.status(403).json({ 
+          message: "Unauthorized: Provide 'wallet' parameter matching bundle owner" 
+        });
+      }
+
       res.json(bundle[0]);
     } catch (error: any) {
       console.error("Error fetching bundle status:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ================================================
+  // PUBLIC STATS ENDPOINTS (Sanitized for Privacy)
+  // ================================================
+  
+  // Get aggregated public stats (no personal data)
+  app.get("/api/public/stats", async (req, res) => {
+    try {
+      const { projects: projectsTable, transactions: transactionsTable, agenticBurns } = await import("../shared/schema");
+      
+      // Get counts only - no personal information
+      const allProjects = await db.select().from(projectsTable);
+      const allTransactions = await db.select().from(transactionsTable);
+      const allBurns = await db.select().from(agenticBurns);
+      
+      // Only public projects (isPrivate = false)
+      const publicProjects = allProjects.filter(p => !p.isPrivate);
+      
+      // Calculate aggregated stats - no wallet addresses or amounts
+      const stats = {
+        totalPublicProjects: publicProjects.length,
+        totalBurns: allBurns.filter(b => b.status === "completed").length,
+        avgAIConfidence: allBurns.length > 0 
+          ? Math.round(allBurns.reduce((sum, b) => sum + (b.aiConfidence || 0), 0) / allBurns.length)
+          : 0,
+        totalTransactions: allTransactions.filter(t => t.status === "completed").length,
+        // No amounts, no wallet addresses - just counts
+      };
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error fetching public stats:", error);
       res.status(500).json({ message: error.message });
     }
   });

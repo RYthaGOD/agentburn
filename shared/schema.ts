@@ -21,6 +21,11 @@ export const projects = pgTable("projects", {
   requirePositiveSentiment: boolean("require_positive_sentiment").notNull().default(true),
   burnServiceFeeUSD: decimal("burn_service_fee_usd", { precision: 18, scale: 6 }).notNull().default("0.005"), // x402 micropayment fee
   
+  // Privacy Settings - Critical for B2B invoicing privacy
+  isPrivate: boolean("is_private").notNull().default(true), // Private by default for B2B
+  hideTransactionDetails: boolean("hide_transaction_details").notNull().default(true), // Hide amounts and signatures
+  hideWalletAddresses: boolean("hide_wallet_addresses").notNull().default(true), // Hide invoicer/invoicee addresses
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

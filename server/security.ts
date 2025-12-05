@@ -423,6 +423,117 @@ export async function requireWalletAuth(
 }
 
 /**
+ * Middleware to require wallet authentication for sensitive data
+ * Ensures only the wallet owner can access their transaction data
+ */
+export async function requireWalletOwnership(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const requestedWallet = req.params.walletAddress || req.query.ownerWalletAddress as string;
+    const authenticatedWallet = req.query.wallet as string || req.body.wallet as string;
+    
+    if (!requestedWallet) {
+      return res.status(400).json({ 
+        message: "Wallet address required in request" 
+      });
+    }
+    
+    if (!authenticatedWallet) {
+      return res.status(401).json({ 
+        message: "Authentication required: provide 'wallet' parameter to verify ownership" 
+      });
+    }
+    
+    // Verify the authenticated wallet matches the requested resource
+    if (authenticatedWallet !== requestedWallet) {
+      return res.status(403).json({ 
+        message: "Unauthorized: You can only access your own data" 
+      });
+    }
+    
+    // Attach verified wallet to request
+    (req as any).authenticatedWallet = authenticatedWallet;
+    
+    auditLog("wallet_ownership_verified", {
+      walletAddress: authenticatedWallet,
+      resource: req.path,
+      ip: getClientIp(req),
+    });
+    
+    next();
+  } catch (error: any) {
+    console.error("Wallet ownership verification error:", error);
+    res.status(500).json({ message: "Authorization check failed" });
+  }
+}
+
+/**
+ * Helper function to sanitize transaction data based on privacy settings
+ * Removes sensitive information if privacy is enabled
+ */
+export function sanitizeTransactionForPrivacy(
+  transaction: any,
+  project: any
+): any {
+  if (!project) {
+    return transaction;
+  }
+  
+  const sanitized = { ...transaction };
+  
+  // If project is private or has specific privacy settings, redact sensitive data
+  if (project.isPrivate || project.hideTransactionDetails) {
+    // Redact amounts for privacy
+    if (sanitized.amount) {
+      sanitized.amount = "***PRIVATE***";
+    }
+    if (sanitized.tokenAmount) {
+      sanitized.tokenAmount = "***PRIVATE***";
+    }
+    // Redact transaction signature (blockchain explorer link)
+    if (sanitized.txSignature && project.hideTransactionDetails) {
+      sanitized.txSignature = "***PRIVATE***";
+    }
+  }
+  
+  // Redact wallet addresses if configured
+  if (project.hideWalletAddresses) {
+    if (sanitized.ownerWalletAddress) {
+      sanitized.ownerWalletAddress = "***PRIVATE***";
+    }
+  }
+  
+  return sanitized;
+}
+
+/**
+ * Helper function to sanitize project data for public view
+ * Removes sensitive information from projects
+ */
+export function sanitizeProjectForPublic(project: any): any {
+  const sanitized = { ...project };
+  
+  // Always hide wallet addresses in public view
+  if (sanitized.ownerWalletAddress) {
+    sanitized.ownerWalletAddress = "***PRIVATE***";
+  }
+  if (sanitized.treasuryWalletAddress) {
+    sanitized.treasuryWalletAddress = "***PRIVATE***";
+  }
+  
+  // Hide token details if private
+  if (sanitized.isPrivate) {
+    sanitized.tokenMintAddress = "***PRIVATE***";
+    sanitized.burnAddress = "***PRIVATE***";
+  }
+  
+  return sanitized;
+}
+
+/**
  * Environment variable security check
  * Ensures critical security variables are set
  */
