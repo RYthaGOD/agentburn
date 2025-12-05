@@ -11,6 +11,11 @@ import {
   checkSecurityEnvVars,
   requestSizeLimit,
 } from "./security";
+import { validateEnvironment } from "./env-validator";
+import { healthCheck, liveness, readiness } from "./health";
+
+// Validate environment variables on startup (before security check)
+validateEnvironment();
 
 // Check security environment variables on startup
 checkSecurityEnvVars();
@@ -61,6 +66,11 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// Health check endpoints (no authentication required)
+app.get("/health", healthCheck);
+app.get("/health/live", liveness);
+app.get("/health/ready", readiness);
 
 // Global rate limiting for all API routes
 app.use("/api", globalRateLimit);

@@ -1,0 +1,1154 @@
+/**
+ * Invoice API Routes
+ * 
+ * Complete REST API for B2B invoicing system
+ */
+
+import type { Express } from "express";
+import { invoiceStorage } from "./invoice-storage";
+import { 
+  insertInvoiceSchema, 
+  insertLineItemSchema, 
+  insertPaymentSchema,
+  insertBusinessProfileSchema,
+  insertCustomerProfileSchema,
+  payments,
+  businessProfiles,
+  businessIdentityNFTs,
+  type Invoice 
+} from "@shared/invoice-schema";
+import { fromZodError } from "zod-validation-error";
+import { requireWalletOwnership, strictRateLimit } from "./security";
+import { getArciumService, loadKeypairFromPrivateKey } from "./arcium-service";
+import { getInvoiceNFTService } from "./nft-service";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
+
+/**
+ * Register invoice-related API routes
+ */
+export function registerInvoiceRoutes(app: Express): void {
+  
+  // ============================================
+  // INVOICE ROUTES
+  // ============================================
+  
+  /**
+   * Create a new invoice
+   * POST /api/invoices
+   */
+  app.post("/api/invoices", strictRateLimit, async (req, res) => {
+    try {
+      const validatedData = insertInvoiceSchema.parse(req.body);
+      
+      // Auto-calculate remaining amount
+      const totalAmount = parseFloat(validatedData.totalAmount);
+      const paidAmount = parseFloat(validatedData.paidAmount || "0");
+      const remainingAmount = totalAmount - paidAmount;
+      
+      // Create invoice
+      const invoice = await invoiceStorage.createInvoice({
+        ...validatedData,
+        remainingAmount: remainingAmount.toString(),
+      });
+      
+      // If Arcium encryption is requested, encrypt sensitive data
+      if (req.body.encryptWithArcium && req.body.allowedParties) {
+        const arciumService = getArciumService();
+        if (arciumService.isAvailable()) {
+          const encryptedResult = await arciumService.encryptTransaction(
+            {
+              amount: invoice.totalAmount,
+              tokenAmount: invoice.totalAmount,
+              fromAddress: invoice.invoicerWalletAddress,
+              toAddress: invoice.invoiceeWalletAddress,
+              txSignature: invoice.invoiceNumber,
+              timestamp: Date.now(),
+            },
+            req.body.allowedParties
+          );
+          
+          if (encryptedResult.success) {
+            await invoiceStorage.updateInvoice(invoice.id, {
+              isArciumEncrypted: true,
+              arciumEncryptedData: encryptedResult.encryptedData,
+              arciumEncryptionKey: encryptedResult.encryptionKey,
+              arciumComputationId: encryptedResult.mxeComputationId,
+              arciumAllowedParties: req.body.allowedParties,
+            });
+          }
+        }
+      }
+      
+      // AUTO-MINT Invoice NFT (unless explicitly disabled)
+      if (req.body.mintNFT !== false) {
+        try {
+          const nftService = getInvoiceNFTService();
+          if (nftService.isReady()) {
+            const nftResult = await nftService.mintInvoiceNFT(
+              invoice,
+              invoice.invoicerWalletAddress
+            );
+            
+            // Update invoice with NFT details
+            await invoiceStorage.updateInvoice(invoice.id, {
+              nftMint: nftResult.mint,
+              nftMerkleTree: nftResult.merkleTree,
+              nftLeafIndex: nftResult.leafIndex,
+              nftMintedAt: new Date(),
+            });
+            
+            // Update invoice object for response
+            invoice.nftMint = nftResult.mint;
+            invoice.nftMerkleTree = nftResult.merkleTree;
+            invoice.nftLeafIndex = nftResult.leafIndex;
+            invoice.nftMintedAt = new Date();
+            
+            console.log(`✅ Auto-minted Invoice NFT: ${nftResult.mint}`);
+          }
+        } catch (nftError: any) {
+          // Non-blocking: log error but continue
+          console.error("Failed to auto-mint invoice NFT:", nftError.message);
+        }
+      }
+      
+      res.status(201).json({
+        success: true,
+        invoice,
+        nftMinted: !!invoice.nftMint,
+        message: "Invoice created successfully" + (invoice.nftMint ? " with NFT" : ""),
+      });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Get invoices for authenticated wallet
+   * GET /api/invoices?wallet=xxx&status=xxx&limit=xxx
+   */
+  app.get("/api/invoices", requireWalletOwnership, async (req, res) => {
+    try {
+      const walletAddress = req.query.wallet as string;
+      const filters = {
+        status: req.query.status as string | undefined,
+        currency: req.query.currency as string | undefined,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
+      };
+      
+      // Get invoices where user is invoicer OR invoicee
+      const sentInvoices = await invoiceStorage.getInvoices(walletAddress, filters);
+      const receivedInvoices = await invoiceStorage.getInvoicesForCustomer(walletAddress, filters);
+      
+      // Combine and deduplicate
+      const allInvoices = [...sentInvoices, ...receivedInvoices];
+      const uniqueInvoices = Array.from(
+        new Map(allInvoices.map(inv => [inv.id, inv])).values()
+      );
+      
+      res.json({
+        success: true,
+        invoices: uniqueInvoices,
+        count: uniqueInvoices.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Get single invoice by ID
+   * GET /api/invoices/:id?wallet=xxx
+   */
+  app.get("/api/invoices/:id", requireWalletOwnership, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const walletAddress = req.query.wallet as string;
+      
+      const invoice = await invoiceStorage.getInvoice(id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Verify wallet has access (either invoicer or invoicee)
+      if (walletAddress) {
+        const hasAccess = 
+          invoice.invoicerWalletAddress === walletAddress ||
+          invoice.invoiceeWalletAddress === walletAddress;
+        
+        if (!hasAccess) {
+          return res.status(403).json({ 
+            message: "Unauthorized: You don't have access to this invoice" 
+          });
+        }
+      } else if (invoice.isPrivate) {
+        // If private and no wallet provided, hide sensitive data
+        return res.status(403).json({ 
+          message: "Authentication required: This invoice is private" 
+        });
+      }
+      
+      // Get line items
+      const lineItems = await invoiceStorage.getLineItems(id);
+      
+      res.json({
+        success: true,
+        invoice: {
+          ...invoice,
+          lineItems,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Get invoice by invoice number
+   * GET /api/invoices/number/:invoiceNumber?wallet=xxx
+   * NOTE: Requires authentication to prevent invoice number guessing attacks
+   */
+  app.get("/api/invoices/number/:invoiceNumber", requireWalletOwnership, async (req, res) => {
+    try {
+      const { invoiceNumber } = req.params;
+      const walletAddress = req.query.wallet as string;
+      
+      const invoice = await invoiceStorage.getInvoiceByNumber(invoiceNumber);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Verify access
+      if (walletAddress) {
+        const hasAccess = 
+          invoice.invoicerWalletAddress === walletAddress ||
+          invoice.invoiceeWalletAddress === walletAddress;
+        
+        if (!hasAccess) {
+          return res.status(403).json({ 
+            message: "Unauthorized: You don't have access to this invoice" 
+          });
+        }
+      } else if (invoice.isPrivate) {
+        return res.status(403).json({ 
+          message: "Authentication required: This invoice is private" 
+        });
+      }
+      
+      const lineItems = await invoiceStorage.getLineItems(invoice.id);
+      
+      res.json({
+        success: true,
+        invoice: {
+          ...invoice,
+          lineItems,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Update invoice
+   * PATCH /api/invoices/:id?wallet=xxx
+   */
+  app.patch("/api/invoices/:id", requireWalletOwnership, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const walletAddress = req.query.wallet as string;
+      
+      const invoice = await invoiceStorage.getInvoice(id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Only invoicer can update
+      if (invoice.invoicerWalletAddress !== walletAddress) {
+        return res.status(403).json({ 
+          message: "Unauthorized: Only the invoicer can update this invoice" 
+        });
+      }
+      
+      // Don't allow updating paid invoices
+      if (invoice.status === "paid") {
+        return res.status(400).json({ 
+          message: "Cannot update a paid invoice" 
+        });
+      }
+      
+      const updated = await invoiceStorage.updateInvoice(id, req.body);
+      
+      res.json({
+        success: true,
+        invoice: updated,
+        message: "Invoice updated successfully",
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Delete/Cancel invoice
+   * DELETE /api/invoices/:id?wallet=xxx
+   */
+  app.delete("/api/invoices/:id", requireWalletOwnership, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const walletAddress = req.query.wallet as string;
+      
+      const invoice = await invoiceStorage.getInvoice(id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Only invoicer can delete
+      if (invoice.invoicerWalletAddress !== walletAddress) {
+        return res.status(403).json({ 
+          message: "Unauthorized: Only the invoicer can delete this invoice" 
+        });
+      }
+      
+      // Can only delete draft invoices
+      if (invoice.status !== "draft") {
+        // Instead of deleting, mark as cancelled
+        await invoiceStorage.updateInvoice(id, {
+          status: "cancelled",
+          cancelledAt: new Date(),
+        });
+        
+        return res.json({
+          success: true,
+          message: "Invoice cancelled successfully",
+        });
+      }
+      
+      const success = await invoiceStorage.deleteInvoice(id);
+      
+      res.json({
+        success,
+        message: success ? "Invoice deleted successfully" : "Failed to delete invoice",
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Get invoice statistics for a wallet
+   * GET /api/invoices/stats?wallet=xxx
+   */
+  app.get("/api/invoices/stats", requireWalletOwnership, async (req, res) => {
+    try {
+      const walletAddress = req.query.wallet as string;
+      const stats = await invoiceStorage.getInvoiceStats(walletAddress);
+      
+      res.json({
+        success: true,
+        stats,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // ============================================
+  // LINE ITEM ROUTES
+  // ============================================
+  
+  /**
+   * Add line item to invoice
+   * POST /api/invoices/:id/line-items
+   */
+  app.post("/api/invoices/:id/line-items", requireWalletOwnership, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const walletAddress = req.query.wallet as string;
+      
+      const invoice = await invoiceStorage.getInvoice(id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Only invoicer can add line items
+      if (invoice.invoicerWalletAddress !== walletAddress) {
+        return res.status(403).json({ 
+          message: "Unauthorized: Only the invoicer can add line items" 
+        });
+      }
+      
+      const validatedData = insertLineItemSchema.parse({
+        ...req.body,
+        invoiceId: id,
+      });
+      
+      const lineItem = await invoiceStorage.createLineItem(validatedData);
+      
+      res.status(201).json({
+        success: true,
+        lineItem,
+        message: "Line item added successfully",
+      });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Update line item
+   * PATCH /api/line-items/:id?wallet=xxx
+   */
+  app.patch("/api/line-items/:id", requireWalletOwnership, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await invoiceStorage.updateLineItem(id, req.body);
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Line item not found" });
+      }
+      
+      res.json({
+        success: true,
+        lineItem: updated,
+        message: "Line item updated successfully",
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Delete line item
+   * DELETE /api/line-items/:id?wallet=xxx
+   */
+  app.delete("/api/line-items/:id", requireWalletOwnership, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await invoiceStorage.deleteLineItem(id);
+      
+      res.json({
+        success,
+        message: success ? "Line item deleted successfully" : "Failed to delete line item",
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // ============================================
+  // PAYMENT ROUTES
+  // ============================================
+  
+  /**
+   * Record a payment for an invoice
+   * POST /api/payments
+   */
+  app.post("/api/payments", strictRateLimit, async (req, res) => {
+    try {
+      const validatedData = insertPaymentSchema.parse(req.body);
+      
+      // Verify invoice exists
+      const invoice = await invoiceStorage.getInvoice(validatedData.invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Verify payment currency matches invoice
+      if (validatedData.currency !== invoice.currency) {
+        return res.status(400).json({ 
+          message: `Payment currency (${validatedData.currency}) must match invoice currency (${invoice.currency})` 
+        });
+      }
+      
+      // Create payment (this auto-updates invoice status)
+      const payment = await invoiceStorage.createPayment(validatedData);
+      
+      // Get updated invoice
+      const updatedInvoice = await invoiceStorage.getInvoice(validatedData.invoiceId);
+      
+      // AUTO-MINT Payment Receipt NFT (unless explicitly disabled)
+      let receiptNFT = null;
+      if (req.body.mintReceiptNFT !== false) {
+        try {
+          const nftService = getInvoiceNFTService();
+          if (nftService.isReady()) {
+            const receiptResult = await nftService.mintPaymentReceiptNFT(
+              payment,
+              invoice,
+              payment.toAddress  // Recipient gets the receipt NFT
+            );
+            
+            receiptNFT = {
+              mint: receiptResult.mint,
+              signature: receiptResult.signature,
+              owner: payment.toAddress,
+            };
+            
+            console.log(`✅ Auto-minted Payment Receipt NFT: ${receiptResult.mint}`);
+            
+            // Store receipt NFT in database
+            await invoiceStorage.createPaymentReceiptNFT({
+              paymentId: payment.id,
+              invoiceId: invoice.id,
+              nftMint: receiptResult.mint,
+              nftMetadataUri: `${process.env.API_URL}/nft-metadata/payment-${payment.id}`,
+              nftOwner: payment.toAddress,
+              receiptNumber: `RCPT-${payment.id.slice(0, 8)}`,
+              amount: payment.amount,
+              currency: payment.currency,
+              paymentDate: payment.paidAt,
+              taxYear: payment.paidAt.getFullYear(),
+              txSignature: payment.txSignature,
+              nftMintSignature: receiptResult.signature,
+            });
+          }
+        } catch (nftError: any) {
+          // Non-blocking: log error but continue
+          console.error("Failed to auto-mint payment receipt NFT:", nftError.message);
+        }
+      }
+      
+      res.status(201).json({
+        success: true,
+        payment,
+        invoice: updatedInvoice,
+        receiptNFT,
+        message: "Payment recorded successfully" + (receiptNFT ? " with receipt NFT" : ""),
+      });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Get payments for an invoice
+   * GET /api/invoices/:id/payments?wallet=xxx
+   */
+  app.get("/api/invoices/:id/payments", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const walletAddress = req.query.wallet as string;
+      
+      const invoice = await invoiceStorage.getInvoice(id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Verify access
+      const hasAccess = 
+        invoice.invoicerWalletAddress === walletAddress ||
+        invoice.invoiceeWalletAddress === walletAddress;
+      
+      if (!hasAccess) {
+        return res.status(403).json({ 
+          message: "Unauthorized: You don't have access to this invoice's payments" 
+        });
+      }
+      
+      const payments = await invoiceStorage.getPaymentsByInvoice(id);
+      
+      res.json({
+        success: true,
+        payments,
+        count: payments.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Get payments for a wallet
+   * GET /api/payments?wallet=xxx
+   * Already has requireWalletOwnership middleware
+   */
+  app.get("/api/payments", requireWalletOwnership, async (req, res) => {
+    try {
+      const walletAddress = req.query.wallet as string;
+      const payments = await invoiceStorage.getPaymentsByWallet(walletAddress);
+      
+      res.json({
+        success: true,
+        payments,
+        count: payments.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // ============================================
+  // BUSINESS PROFILE ROUTES
+  // ============================================
+  
+  /**
+   * Create or update business profile
+   * POST /api/business/profile?wallet=xxx
+   */
+  app.post("/api/business/profile", requireWalletOwnership, async (req, res) => {
+    try {
+      const validatedData = insertBusinessProfileSchema.parse(req.body);
+      
+      // Check if profile exists
+      const existing = await invoiceStorage.getBusinessProfile(validatedData.ownerWalletAddress);
+      
+      if (existing) {
+        // Update existing
+        const updated = await invoiceStorage.updateBusinessProfile(
+          validatedData.ownerWalletAddress,
+          validatedData
+        );
+        
+        return res.json({
+          success: true,
+          profile: updated,
+          message: "Business profile updated successfully",
+        });
+      }
+      
+      // Create new
+      const profile = await invoiceStorage.createBusinessProfile(validatedData);
+      
+      res.status(201).json({
+        success: true,
+        profile,
+        message: "Business profile created successfully",
+      });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Get business profile
+   * GET /api/business/profile?wallet=xxx
+   */
+  app.get("/api/business/profile", requireWalletOwnership, async (req, res) => {
+    try {
+      const walletAddress = req.query.wallet as string;
+      const profile = await invoiceStorage.getBusinessProfile(walletAddress);
+      
+      if (!profile) {
+        return res.status(404).json({ message: "Business profile not found" });
+      }
+      
+      res.json({
+        success: true,
+        profile,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Mint Business Identity NFT
+   * POST /api/business/mint-identity-nft?wallet=xxx
+   * 
+   * Mints a verified business credential NFT for the authenticated business
+   */
+  app.post("/api/business/mint-identity-nft", requireWalletOwnership, strictRateLimit, async (req, res) => {
+    try {
+      const walletAddress = req.query.wallet as string;
+      const verificationLevel = req.body.verificationLevel || "basic"; // basic, verified, premium
+      
+      // Get business profile
+      const profile = await invoiceStorage.getBusinessProfile(walletAddress);
+      if (!profile) {
+        return res.status(404).json({ message: "Business profile not found. Create a profile first." });
+      }
+      
+      // Check if already has identity NFT (duplicate check)
+      const hasExistingNFT = await invoiceStorage.hasBusinessIdentityNFT(profile.id);
+      if (hasExistingNFT) {
+        return res.status(400).json({ 
+          message: "Business already has an identity NFT. Only one identity NFT per business is allowed." 
+        });
+      }
+      
+      // Mint Business Identity NFT
+      const nftService = getInvoiceNFTService();
+      if (!nftService.isReady()) {
+        return res.status(503).json({ 
+          message: "NFT service not available. Please try again later." 
+        });
+      }
+      
+      const identityResult = await nftService.mintBusinessIdentityNFT(
+        profile,
+        verificationLevel
+      );
+      
+      // Get business stats for NFT metadata
+      const stats = await invoiceStorage.getInvoiceStats(profile.walletAddress);
+      
+      // Store identity NFT in database
+      await invoiceStorage.createBusinessIdentityNFT({
+        businessProfileId: profile.id,
+        nftMint: identityResult.mint,
+        nftMetadataUri: `${process.env.API_URL}/nft-metadata/business-${profile.id}`,
+        nftOwner: profile.walletAddress,
+        verificationLevel,
+        verifiedBy: req.body.verifiedBy || "Self-Verified",
+        verificationDate: new Date(),
+        expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : undefined,
+        totalInvoicesIssued: stats.totalInvoicesSent,
+        totalRevenueProcessed: stats.totalAmountInvoiced.toString(),
+        businessRating: undefined, // Could be calculated from payment history
+        nftMintSignature: identityResult.signature,
+      });
+      
+      res.status(201).json({
+        success: true,
+        identityNFT: {
+          mint: identityResult.mint,
+          signature: identityResult.signature,
+          owner: profile.walletAddress,
+          verificationLevel,
+        },
+        message: `Business identity NFT minted successfully (${verificationLevel} verification)`,
+      });
+    } catch (error: any) {
+      console.error("Failed to mint business identity NFT:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // ============================================
+  // CUSTOMER PROFILE ROUTES
+  // ============================================
+  
+  /**
+   * Create customer profile
+   * POST /api/customers?wallet=xxx
+   */
+  app.post("/api/customers", requireWalletOwnership, async (req, res) => {
+    try {
+      const validatedData = insertCustomerProfileSchema.parse(req.body);
+      
+      // Check if customer already exists
+      const existing = await invoiceStorage.getCustomerProfile(
+        validatedData.businessWalletAddress,
+        validatedData.customerWalletAddress
+      );
+      
+      if (existing) {
+        return res.status(400).json({ 
+          message: "Customer already exists for this business" 
+        });
+      }
+      
+      const customer = await invoiceStorage.createCustomerProfile(validatedData);
+      
+      res.status(201).json({
+        success: true,
+        customer,
+        message: "Customer profile created successfully",
+      });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Get all customers for a business
+   * GET /api/customers?wallet=xxx
+   */
+  app.get("/api/customers", requireWalletOwnership, async (req, res) => {
+    try {
+      const businessWallet = req.query.wallet as string;
+      const customers = await invoiceStorage.getCustomerProfiles(businessWallet);
+      
+      res.json({
+        success: true,
+        customers,
+        count: customers.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Get customer statistics
+   * GET /api/customers/:customerWallet/stats?wallet=xxx
+   */
+  app.get("/api/customers/:customerWallet/stats", requireWalletOwnership, async (req, res) => {
+    try {
+      const { customerWallet } = req.params;
+      const businessWallet = req.query.wallet as string;
+      
+      const stats = await invoiceStorage.getCustomerStats(businessWallet, customerWallet);
+      
+      res.json({
+        success: true,
+        stats,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Update customer profile
+   * PATCH /api/customers/:id?wallet=xxx
+   */
+  app.patch("/api/customers/:id", requireWalletOwnership, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await invoiceStorage.updateCustomerProfile(id, req.body);
+      
+      if (!updated) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+      
+      res.json({
+        success: true,
+        customer: updated,
+        message: "Customer profile updated successfully",
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  /**
+   * Delete customer profile
+   * DELETE /api/customers/:id?wallet=xxx
+   */
+  app.delete("/api/customers/:id", requireWalletOwnership, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await invoiceStorage.deleteCustomerProfile(id);
+      
+      res.json({
+        success,
+        message: success ? "Customer deleted successfully" : "Failed to delete customer",
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // ============================================
+  // PUBLIC STATS (ANONYMIZED)
+  // ============================================
+  
+  /**
+   * Get public invoice statistics
+   * GET /api/public/invoice-stats
+   */
+  app.get("/api/public/invoice-stats", async (req, res) => {
+    try {
+      // Return only aggregated, anonymized stats
+      // This would need to be implemented in storage layer
+      res.json({
+        success: true,
+        stats: {
+          message: "Public stats endpoint - to be implemented",
+          // totalPublicInvoices: 0,
+          // totalPaymentsProcessed: 0,
+          // averagePaymentTime: 0,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================
+  // NFT QUERY ENDPOINTS
+  // ============================================
+
+  /**
+   * Get all NFTs for a user
+   * GET /api/nfts?wallet=xxx
+   */
+  app.get("/api/nfts", requireWalletOwnership, async (req, res) => {
+    try {
+      const walletAddress = req.query.wallet as string;
+      const nfts = await invoiceStorage.getAllUserNFTs(walletAddress);
+      
+      res.json({
+        success: true,
+        nfts,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  /**
+   * Get payment receipt NFTs for a user
+   * GET /api/nfts/receipts?wallet=xxx
+   */
+  app.get("/api/nfts/receipts", requireWalletOwnership, async (req, res) => {
+    try {
+      const walletAddress = req.query.wallet as string;
+      const receipts = await invoiceStorage.getPaymentReceiptNFTs(walletAddress);
+      
+      res.json({
+        success: true,
+        receipts,
+        count: receipts.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  /**
+   * Get business identity NFT
+   * GET /api/nfts/identity?wallet=xxx
+   */
+  app.get("/api/nfts/identity", requireWalletOwnership, async (req, res) => {
+    try {
+      const walletAddress = req.query.wallet as string;
+      const identity = await invoiceStorage.getBusinessIdentityNFT(walletAddress);
+      
+      if (!identity) {
+        return res.status(404).json({ message: "No business identity NFT found" });
+      }
+      
+      res.json({
+        success: true,
+        identity,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================
+  // NFT METADATA ENDPOINTS
+  // ============================================
+
+  /**
+   * Get NFT metadata for invoice
+   * GET /nft-metadata/invoice/:id
+   */
+  app.get("/nft-metadata/invoice/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const invoice = await invoiceStorage.getInvoice(id);
+      
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+      
+      // Return NFT-compatible metadata
+      res.json({
+        name: `Invoice ${invoice.invoiceNumber}`,
+        symbol: "INV",
+        description: `B2B Invoice from ${invoice.invoicerWalletAddress} to ${invoice.invoiceeWalletAddress}`,
+        image: `${process.env.API_URL || "https://api.solanainvoice.com"}/images/invoice-nft.png`,
+        external_url: `${process.env.APP_URL || "https://solanainvoice.com"}/invoices/${id}`,
+        attributes: [
+          {
+            trait_type: "Invoice Number",
+            value: invoice.invoiceNumber,
+          },
+          {
+            trait_type: "Status",
+            value: invoice.status,
+          },
+          {
+            trait_type: "Currency",
+            value: invoice.currency,
+          },
+          {
+            trait_type: "Amount",
+            value: invoice.isArciumEncrypted ? "Encrypted" : invoice.totalAmount,
+            display_type: invoice.isArciumEncrypted ? undefined : "number",
+          },
+          {
+            trait_type: "Due Date",
+            value: invoice.dueDate.toISOString(),
+            display_type: "date",
+          },
+          {
+            trait_type: "Privacy",
+            value: invoice.isPrivate ? "Private" : "Public",
+          },
+          {
+            trait_type: "Encrypted",
+            value: invoice.isArciumEncrypted ? "Yes" : "No",
+          },
+        ],
+        properties: {
+          category: "invoice",
+          creators: [
+            {
+              address: invoice.invoicerWalletAddress,
+              share: 100,
+              verified: true,
+            },
+          ],
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * Get NFT metadata for payment receipt
+   * GET /nft-metadata/payment/:id
+   */
+  app.get("/nft-metadata/payment/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const paymentData = await db.select().from(payments).where(eq(payments.id, id)).limit(1).then(r => r[0]);
+      
+      if (!paymentData) {
+        return res.status(404).json({ error: "Payment not found" });
+      }
+      
+      const invoice = await invoiceStorage.getInvoice(paymentData.invoiceId);
+      
+      res.json({
+        name: `Payment Receipt #${id.slice(0, 8)}`,
+        symbol: "RCPT",
+        description: `Payment receipt for Invoice ${invoice?.invoiceNumber || "Unknown"}`,
+        image: `${process.env.API_URL || "https://api.solanainvoice.com"}/images/receipt-nft.png`,
+        external_url: `${process.env.APP_URL || "https://solanainvoice.com"}/invoices/${paymentData.invoiceId}`,
+        attributes: [
+          {
+            trait_type: "Invoice Number",
+            value: invoice?.invoiceNumber || "Unknown",
+          },
+          {
+            trait_type: "Amount",
+            value: paymentData.amount,
+            display_type: "number",
+          },
+          {
+            trait_type: "Currency",
+            value: paymentData.currency,
+          },
+          {
+            trait_type: "Paid By",
+            value: paymentData.fromAddress,
+          },
+          {
+            trait_type: "Paid To",
+            value: paymentData.toAddress,
+          },
+          {
+            trait_type: "Transaction",
+            value: paymentData.txSignature,
+          },
+          {
+            trait_type: "Payment Date",
+            value: paymentData.paidAt.toISOString(),
+            display_type: "date",
+          },
+          {
+            trait_type: "Tax Year",
+            value: paymentData.paidAt.getFullYear(),
+            display_type: "number",
+          },
+        ],
+        properties: {
+          category: "payment_receipt",
+          creators: [
+            {
+              address: paymentData.fromAddress,
+              share: 100,
+              verified: true,
+            },
+          ],
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * Get NFT metadata for business identity
+   * GET /nft-metadata/business/:id
+   */
+  app.get("/nft-metadata/business/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const businessData = await db.select().from(businessProfiles).where(eq(businessProfiles.id, id)).limit(1).then(r => r[0]);
+      
+      if (!businessData) {
+        return res.status(404).json({ error: "Business profile not found" });
+      }
+      
+      const identity = await db.select().from(businessIdentityNFTs)
+        .where(eq(businessIdentityNFTs.businessProfileId, id))
+        .orderBy(desc(businessIdentityNFTs.createdAt))
+        .limit(1).then(r => r[0]);
+      
+      const verificationLevel = identity?.verificationLevel || "basic";
+      
+      res.json({
+        name: `${businessData.businessName} - Verified Business`,
+        symbol: "BIZ",
+        description: `Verified business credentials for ${businessData.businessName}`,
+        image: `${process.env.API_URL || "https://api.solanainvoice.com"}/images/business-${verificationLevel}-nft.png`,
+        external_url: `${process.env.APP_URL || "https://solanainvoice.com"}/business/${businessData.walletAddress}`,
+        attributes: [
+          {
+            trait_type: "Business Name",
+            value: businessData.businessName,
+          },
+          {
+            trait_type: "Verification Level",
+            value: verificationLevel,
+          },
+          {
+            trait_type: "Industry",
+            value: businessData.industry || "Not specified",
+          },
+          {
+            trait_type: "Wallet",
+            value: businessData.walletAddress,
+          },
+          {
+            trait_type: "Registration Date",
+            value: businessData.createdAt.toISOString(),
+            display_type: "date",
+          },
+        ],
+        properties: {
+          category: "business_identity",
+          creators: [
+            {
+              address: businessData.walletAddress,
+              share: 100,
+              verified: true,
+            },
+          ],
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+}

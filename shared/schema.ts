@@ -21,6 +21,11 @@ export const projects = pgTable("projects", {
   requirePositiveSentiment: boolean("require_positive_sentiment").notNull().default(true),
   burnServiceFeeUSD: decimal("burn_service_fee_usd", { precision: 18, scale: 6 }).notNull().default("0.005"), // x402 micropayment fee
   
+  // Privacy Settings - Critical for B2B invoicing privacy
+  isPrivate: boolean("is_private").notNull().default(true), // Private by default for B2B
+  hideTransactionDetails: boolean("hide_transaction_details").notNull().default(true), // Hide amounts and signatures
+  hideWalletAddresses: boolean("hide_wallet_addresses").notNull().default(true), // Hide invoicer/invoicee addresses
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -35,6 +40,14 @@ export const transactions = pgTable("transactions", {
   txSignature: text("tx_signature").notNull(),
   status: text("status").notNull(), // "pending", "completed", "failed"
   errorMessage: text("error_message"),
+  
+  // Arcium v0.5 Confidential Computing Integration
+  isArciumEncrypted: boolean("is_arcium_encrypted").notNull().default(false),
+  arciumEncryptedData: text("arcium_encrypted_data"), // Base64 encoded encrypted transaction details
+  arciumEncryptionKey: text("arcium_encryption_key"), // Encryption key for Arcium MXE
+  arciumComputationId: text("arcium_computation_id"), // MXE computation ID
+  arciumAllowedParties: text("arcium_allowed_parties").array(), // Wallet addresses with decrypt access
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
