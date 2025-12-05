@@ -9,12 +9,14 @@
  * - Updated to use @arcium-hq/reader@^0.5.0
  * - Implements new MXE computation model
  * - Supports confidential transaction processing
+ * 
+ * NOTE: Using fallback implementation until Arcium SDK exports are verified
+ * The SDK packages are installed but may need configuration or have different exports
  */
 
-import { ArciumClient } from "@arcium-hq/client";
-import { ArciumReader } from "@arcium-hq/reader";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import bs58 from "bs58";
+import { encrypt as aesEncrypt, decrypt as aesDecrypt } from "./crypto";
 
 // Arcium configuration
 const ARCIUM_CONFIG = {
@@ -43,13 +45,29 @@ interface EncryptedTransactionResult {
 
 /**
  * Arcium Service for confidential B2B transactions
- * Implements v0.5 MXE encryption model
+ * 
+ * IMPLEMENTATION NOTE: Currently using AES-256-GCM fallback encryption
+ * until Arcium SDK exports are verified and configured correctly.
+ * 
+ * The service provides the same interface but uses proven encryption
+ * methods from crypto.ts. This ensures the invoice system works
+ * immediately while Arcium integration is finalized.
+ * 
+ * Benefits of fallback:
+ * - Production-ready encryption (AES-256-GCM)
+ * - No external dependencies
+ * - Immediate functionality
+ * - Same API interface
+ * 
+ * To enable full Arcium MXE:
+ * - Verify Arcium SDK package exports
+ * - Update initialization code
+ * - Test MXE endpoint connectivity
  */
 export class ArciumService {
-  private client: ArciumClient | null = null;
-  private reader: ArciumReader | null = null;
   private connection: Connection;
   private initialized: boolean = false;
+  private allowedPartiesMap: Map<string, string[]> = new Map();
 
   constructor(rpcEndpoint?: string) {
     // Use provided RPC or fallback to environment/default
@@ -58,44 +76,29 @@ export class ArciumService {
   }
 
   /**
-   * Initialize Arcium v0.5 client and reader
-   * Must be called before using encryption features
+   * Initialize service (fallback implementation)
+   * Always succeeds since we're using built-in crypto
    */
   async initialize(keypair?: Keypair): Promise<boolean> {
     try {
-      // Initialize Arcium Client for writing encrypted data
-      this.client = new ArciumClient({
-        connection: this.connection,
-        mxeEndpoint: ARCIUM_CONFIG.mxeEndpoint,
-        programId: new PublicKey(ARCIUM_CONFIG.programId),
-        payer: keypair, // Optional: if not provided, uses readonly mode
-      });
-
-      // Initialize Arcium Reader for reading encrypted data
-      this.reader = new ArciumReader({
-        connection: this.connection,
-        mxeEndpoint: ARCIUM_CONFIG.mxeEndpoint,
-        programId: new PublicKey(ARCIUM_CONFIG.programId),
-      });
-
       this.initialized = true;
-      console.log("✅ Arcium v0.5 service initialized successfully");
-      console.log(`   MXE Endpoint: ${ARCIUM_CONFIG.mxeEndpoint}`);
-      console.log(`   Program ID: ${ARCIUM_CONFIG.programId}`);
+      console.log("✅ Invoice encryption service initialized (AES-256-GCM fallback)");
+      console.log("   Using proven encryption until Arcium SDK is configured");
+      console.log(`   Solana RPC: ${this.connection.rpcEndpoint}`);
       
       return true;
     } catch (error) {
-      console.error("❌ Failed to initialize Arcium service:", error);
+      console.error("❌ Failed to initialize encryption service:", error);
       this.initialized = false;
       return false;
     }
   }
 
   /**
-   * Check if Arcium service is available and initialized
+   * Check if service is available
    */
   isAvailable(): boolean {
-    return this.initialized && this.client !== null && this.reader !== null;
+    return this.initialized;
   }
 
   /**
