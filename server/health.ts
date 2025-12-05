@@ -91,7 +91,13 @@ export async function healthCheck(req: Request, res: Response): Promise<void> {
   result.checks.environment.info = getEnvInfo();
   
   // Set HTTP status based on health
-  const httpStatus = result.status === "healthy" ? 200 : result.status === "degraded" ? 200 : 503;
+  const statusToHttpCode: Record<string, number> = {
+    healthy: 200,
+    degraded: 200,
+    unhealthy: 503,
+  };
+  
+  const httpStatus = statusToHttpCode[result.status] || 503;
   
   res.status(httpStatus).json(result);
 }

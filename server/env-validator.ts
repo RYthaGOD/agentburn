@@ -120,7 +120,7 @@ export function validateEnvironment(): void {
         );
       }
       
-      if (envVar.key === "DATABASE_URL" && !value.startsWith("postgres")) {
+      if (envVar.key === "DATABASE_URL" && !value.startsWith("postgres://") && !value.startsWith("postgresql://")) {
         errors.push(
           `❌ DATABASE_URL must be a PostgreSQL connection string (should start with 'postgres://' or 'postgresql://')`
         );
