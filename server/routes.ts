@@ -149,6 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { walletAddress } = req.params;
       const limit = parseInt(req.query.limit as string) || 50;
+      const includeEncrypted = req.query.includeEncrypted === "true";
       
       // Get all projects owned by this wallet
       const projects = await storage.getProjects(walletAddress);
@@ -166,8 +167,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, limit);
       
-      res.json(sortedTransactions);
+      // If Arcium-encrypted transactions exist and user wants them decrypted,
+      // attempt to decrypt with their wallet (requires private key in future enhancement)
+      // For now, just return with encryption metadata
+      const response = sortedTransactions.map(tx => {
+        if (tx.isArciumEncrypted && !includeEncrypted) {
+          // Hide encrypted data by default for privacy
+          return {
+            ...tx,
+            arciumEncryptedData: undefined,
+            amount: "***ENCRYPTED***",
+            tokenAmount: "***ENCRYPTED***",
+            txSignature: "***ENCRYPTED***",
+            isEncrypted: true,
+          };
+        }
+        return tx;
+      });
+      
+      res.json(response);
     } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Decrypt Arcium-encrypted transaction - REQUIRES AUTHENTICATION & PRIVATE KEY
+  app.post("/api/transactions/:id/decrypt", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { walletAddress, privateKey } = req.body;
+      
+      if (!walletAddress || !privateKey) {
+        return res.status(400).json({ 
+          message: "walletAddress and privateKey required for decryption" 
+        });
+      }
+      
+      // Get transaction
+      const transaction = await storage.getTransaction(id);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+      
+      // Check if it's Arcium encrypted
+      if (!transaction.isArciumEncrypted || !transaction.arciumEncryptedData) {
+        return res.status(400).json({ 
+          message: "Transaction is not Arcium encrypted" 
+        });
+      }
+      
+      // Verify the requesting wallet is in allowed parties
+      if (!transaction.arciumAllowedParties?.includes(walletAddress)) {
+        return res.status(403).json({ 
+          message: "Unauthorized: Your wallet does not have decrypt access" 
+        });
+      }
+      
+      // Decrypt using Arcium v0.5
+      const { getArciumService, loadKeypairFromPrivateKey } = await import("./arcium-service");
+      const arciumService = getArciumService();
+      
+      if (!arciumService.isAvailable()) {
+        return res.status(503).json({ 
+          message: "Arcium service not available. Transaction remains encrypted." 
+        });
+      }
+      
+      const keypair = loadKeypairFromPrivateKey(privateKey);
+      const decryptedData = await arciumService.decryptTransaction(
+        transaction.arciumEncryptedData,
+        transaction.arciumEncryptionKey!,
+        keypair
+      );
+      
+      if (!decryptedData) {
+        return res.status(403).json({ 
+          message: "Failed to decrypt: Invalid credentials or insufficient permissions" 
+        });
+      }
+      
+      // Return decrypted transaction details
+      res.json({
+        success: true,
+        transaction: {
+          id: transaction.id,
+          ...decryptedData,
+          decryptedAt: new Date().toISOString(),
+        },
+      });
+    } catch (error: any) {
+      console.error("Transaction decryption error:", error);
       res.status(500).json({ message: error.message });
     }
   });

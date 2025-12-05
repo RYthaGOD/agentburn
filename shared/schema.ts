@@ -40,6 +40,14 @@ export const transactions = pgTable("transactions", {
   txSignature: text("tx_signature").notNull(),
   status: text("status").notNull(), // "pending", "completed", "failed"
   errorMessage: text("error_message"),
+  
+  // Arcium v0.5 Confidential Computing Integration
+  isArciumEncrypted: boolean("is_arcium_encrypted").notNull().default(false),
+  arciumEncryptedData: text("arcium_encrypted_data"), // Base64 encoded encrypted transaction details
+  arciumEncryptionKey: text("arcium_encryption_key"), // Encryption key for Arcium MXE
+  arciumComputationId: text("arcium_computation_id"), // MXE computation ID
+  arciumAllowedParties: text("arcium_allowed_parties").array(), // Wallet addresses with decrypt access
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
