@@ -126,7 +126,7 @@ export function registerInvoiceRoutes(app: Express): void {
    * Get single invoice by ID
    * GET /api/invoices/:id?wallet=xxx
    */
-  app.get("/api/invoices/:id", async (req, res) => {
+  app.get("/api/invoices/:id", requireWalletOwnership, async (req, res) => {
     try {
       const { id } = req.params;
       const walletAddress = req.query.wallet as string;
@@ -218,7 +218,7 @@ export function registerInvoiceRoutes(app: Express): void {
    * Update invoice
    * PATCH /api/invoices/:id?wallet=xxx
    */
-  app.patch("/api/invoices/:id", async (req, res) => {
+  app.patch("/api/invoices/:id", requireWalletOwnership, async (req, res) => {
     try {
       const { id } = req.params;
       const walletAddress = req.query.wallet as string;
@@ -258,7 +258,7 @@ export function registerInvoiceRoutes(app: Express): void {
    * Delete/Cancel invoice
    * DELETE /api/invoices/:id?wallet=xxx
    */
-  app.delete("/api/invoices/:id", async (req, res) => {
+  app.delete("/api/invoices/:id", requireWalletOwnership, async (req, res) => {
     try {
       const { id } = req.params;
       const walletAddress = req.query.wallet as string;
@@ -326,7 +326,7 @@ export function registerInvoiceRoutes(app: Express): void {
    * Add line item to invoice
    * POST /api/invoices/:id/line-items
    */
-  app.post("/api/invoices/:id/line-items", async (req, res) => {
+  app.post("/api/invoices/:id/line-items", requireWalletOwnership, async (req, res) => {
     try {
       const { id } = req.params;
       const walletAddress = req.query.wallet as string;
@@ -366,9 +366,9 @@ export function registerInvoiceRoutes(app: Express): void {
   
   /**
    * Update line item
-   * PATCH /api/line-items/:id
+   * PATCH /api/line-items/:id?wallet=xxx
    */
-  app.patch("/api/line-items/:id", async (req, res) => {
+  app.patch("/api/line-items/:id", requireWalletOwnership, async (req, res) => {
     try {
       const { id } = req.params;
       const updated = await invoiceStorage.updateLineItem(id, req.body);
@@ -389,9 +389,9 @@ export function registerInvoiceRoutes(app: Express): void {
   
   /**
    * Delete line item
-   * DELETE /api/line-items/:id
+   * DELETE /api/line-items/:id?wallet=xxx
    */
-  app.delete("/api/line-items/:id", async (req, res) => {
+  app.delete("/api/line-items/:id", requireWalletOwnership, async (req, res) => {
     try {
       const { id } = req.params;
       const success = await invoiceStorage.deleteLineItem(id);
@@ -513,9 +513,9 @@ export function registerInvoiceRoutes(app: Express): void {
   
   /**
    * Create or update business profile
-   * POST /api/business/profile
+   * POST /api/business/profile?wallet=xxx
    */
-  app.post("/api/business/profile", async (req, res) => {
+  app.post("/api/business/profile", requireWalletOwnership, async (req, res) => {
     try {
       const validatedData = insertBusinessProfileSchema.parse(req.body);
       
@@ -581,9 +581,9 @@ export function registerInvoiceRoutes(app: Express): void {
   
   /**
    * Create customer profile
-   * POST /api/customers
+   * POST /api/customers?wallet=xxx
    */
-  app.post("/api/customers", async (req, res) => {
+  app.post("/api/customers", requireWalletOwnership, async (req, res) => {
     try {
       const validatedData = insertCustomerProfileSchema.parse(req.body);
       
@@ -656,9 +656,9 @@ export function registerInvoiceRoutes(app: Express): void {
   
   /**
    * Update customer profile
-   * PATCH /api/customers/:id
+   * PATCH /api/customers/:id?wallet=xxx
    */
-  app.patch("/api/customers/:id", async (req, res) => {
+  app.patch("/api/customers/:id", requireWalletOwnership, async (req, res) => {
     try {
       const { id } = req.params;
       const updated = await invoiceStorage.updateCustomerProfile(id, req.body);
@@ -679,9 +679,9 @@ export function registerInvoiceRoutes(app: Express): void {
   
   /**
    * Delete customer profile
-   * DELETE /api/customers/:id
+   * DELETE /api/customers/:id?wallet=xxx
    */
-  app.delete("/api/customers/:id", async (req, res) => {
+  app.delete("/api/customers/:id", requireWalletOwnership, async (req, res) => {
     try {
       const { id } = req.params;
       const success = await invoiceStorage.deleteCustomerProfile(id);

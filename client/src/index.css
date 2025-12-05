@@ -411,6 +411,7 @@
     animation: smoke-expand 0.6s ease-out;
     pointer-events: none;
     z-index: -1;
+    will-change: box-shadow;
   }
 
   /* Smoke particles effect */
@@ -427,6 +428,7 @@
     animation: smoke-rise 0.8s ease-out;
     pointer-events: none;
     z-index: -1;
+    will-change: transform, opacity;
   }
 
   .smoke-shadow {
