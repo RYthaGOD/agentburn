@@ -11,6 +11,8 @@ import {
   invoiceTemplates,
   businessProfiles,
   customerProfiles,
+  paymentReceiptNFTs,
+  businessIdentityNFTs,
   type Invoice,
   type InsertInvoice,
   type InvoiceLineItem,
@@ -23,7 +25,7 @@ import {
   type InsertCustomerProfile,
 } from "@shared/invoice-schema";
 import { db } from "./db";
-import { eq, and, or, desc, asc, sql } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql, isNotNull } from "drizzle-orm";
 
 export interface IInvoiceStorage {
   // Invoice operations
@@ -429,6 +431,170 @@ class InvoiceStorage implements IInvoiceStorage {
       averagePaymentDays: Math.round(averagePaymentDays),
       lastInvoiceDate,
       lastPaymentDate,
+    };
+  }
+
+  // ============================================
+  // NFT STORAGE METHODS
+  // ============================================
+
+  /**
+   * Store payment receipt NFT
+   */
+  async createPaymentReceiptNFT(data: {
+    paymentId: string;
+    invoiceId: string;
+    nftMint: string;
+    nftMetadataUri: string;
+    nftOwner: string;
+    receiptNumber: string;
+    amount: string;
+    currency: string;
+    paymentDate: Date;
+    taxYear: number;
+    txSignature: string;
+    nftMintSignature: string;
+  }) {
+    const [nft] = await db
+      .insert(paymentReceiptNFTs)
+      .values(data)
+      .returning();
+    return nft;
+  }
+
+  /**
+   * Get payment receipt NFTs for a wallet
+   */
+  async getPaymentReceiptNFTs(walletAddress: string) {
+    return db
+      .select()
+      .from(paymentReceiptNFTs)
+      .where(eq(paymentReceiptNFTs.nftOwner, walletAddress))
+      .orderBy(desc(paymentReceiptNFTs.createdAt));
+  }
+
+  /**
+   * Store business identity NFT
+   */
+  async createBusinessIdentityNFT(data: {
+    businessProfileId: string;
+    nftMint: string;
+    nftMetadataUri: string;
+    nftOwner: string;
+    verificationLevel: string;
+    verifiedBy?: string;
+    verificationDate: Date;
+    expiresAt?: Date;
+    totalInvoicesIssued?: number;
+    totalRevenueProcessed?: string;
+    businessRating?: string;
+    nftMintSignature: string;
+  }) {
+    const [nft] = await db
+      .insert(businessIdentityNFTs)
+      .values(data)
+      .returning();
+    return nft;
+  }
+
+  /**
+   * Get business identity NFT for a wallet
+   * Returns the most recent one if multiple exist
+   */
+  async getBusinessIdentityNFT(walletAddress: string) {
+    const nfts = await db
+      .select()
+      .from(businessIdentityNFTs)
+      .where(eq(businessIdentityNFTs.nftOwner, walletAddress))
+      .orderBy(desc(businessIdentityNFTs.createdAt))
+      .limit(1);
+    
+    return nfts[0] || null;
+  }
+
+  /**
+   * Check if business already has an identity NFT
+   */
+  async hasBusinessIdentityNFT(businessProfileId: string): Promise<boolean> {
+    const nfts = await db
+      .select({ id: businessIdentityNFTs.id })
+      .from(businessIdentityNFTs)
+      .where(eq(businessIdentityNFTs.businessProfileId, businessProfileId))
+      .limit(1);
+    
+    return nfts.length > 0;
+  }
+
+  /**
+   * Get all NFTs for a user (invoices, receipts, identity)
+   */
+  async getAllUserNFTs(walletAddress: string) {
+    // Get invoice NFTs (where user is invoicer or invoicee)
+    const invoiceNFTs = await db
+      .select({
+        type: sql<string>`'invoice'`,
+        nftMint: invoices.nftMint,
+        nftMerkleTree: invoices.nftMerkleTree,
+        nftLeafIndex: invoices.nftLeafIndex,
+        nftMintedAt: invoices.nftMintedAt,
+        metadata: sql<any>`json_build_object(
+          'invoiceNumber', ${invoices.invoiceNumber},
+          'totalAmount', ${invoices.totalAmount},
+          'currency', ${invoices.currency},
+          'status', ${invoices.status}
+        )`,
+      })
+      .from(invoices)
+      .where(
+        and(
+          or(
+            eq(invoices.invoicerWalletAddress, walletAddress),
+            eq(invoices.invoiceeWalletAddress, walletAddress)
+          ),
+          isNotNull(invoices.nftMint)
+        )
+      );
+
+    // Get payment receipt NFTs
+    const receiptNFTs = await db
+      .select({
+        type: sql<string>`'receipt'`,
+        nftMint: paymentReceiptNFTs.nftMint,
+        nftMerkleTree: sql<string>`NULL`,
+        nftLeafIndex: sql<number>`NULL`,
+        nftMintedAt: paymentReceiptNFTs.createdAt,
+        metadata: sql<any>`json_build_object(
+          'receiptNumber', ${paymentReceiptNFTs.receiptNumber},
+          'amount', ${paymentReceiptNFTs.amount},
+          'currency', ${paymentReceiptNFTs.currency},
+          'taxYear', ${paymentReceiptNFTs.taxYear}
+        )`,
+      })
+      .from(paymentReceiptNFTs)
+      .where(eq(paymentReceiptNFTs.nftOwner, walletAddress));
+
+    // Get business identity NFT
+    const identityNFTs = await db
+      .select({
+        type: sql<string>`'identity'`,
+        nftMint: businessIdentityNFTs.nftMint,
+        nftMerkleTree: sql<string>`NULL`,
+        nftLeafIndex: sql<number>`NULL`,
+        nftMintedAt: businessIdentityNFTs.createdAt,
+        metadata: sql<any>`json_build_object(
+          'verificationLevel', ${businessIdentityNFTs.verificationLevel},
+          'verifiedBy', ${businessIdentityNFTs.verifiedBy},
+          'businessRating', ${businessIdentityNFTs.businessRating}
+        )`,
+      })
+      .from(businessIdentityNFTs)
+      .where(eq(businessIdentityNFTs.nftOwner, walletAddress));
+
+    return {
+      invoiceNFTs,
+      receiptNFTs,
+      identityNFTs,
+      total: invoiceNFTs.length + receiptNFTs.length + identityNFTs.length,
     };
   }
 }
