@@ -425,6 +425,20 @@ export async function requireWalletAuth(
 /**
  * Middleware to require wallet authentication for sensitive data
  * Ensures only the wallet owner can access their transaction data
+ * 
+ * NOTE: This is a simplified authentication check that verifies wallet address matching.
+ * For production use with highly sensitive data, use requireWalletAuth() instead,
+ * which requires cryptographic signature verification to prove wallet ownership.
+ * 
+ * Use this middleware for:
+ * - Read-only operations
+ * - Less sensitive data
+ * - Development/testing
+ * 
+ * Use requireWalletAuth() for:
+ * - Write operations
+ * - Financial transactions
+ * - Highly sensitive data
  */
 export async function requireWalletOwnership(
   req: Request,
@@ -454,13 +468,18 @@ export async function requireWalletOwnership(
       });
     }
     
+    // WARNING: This middleware only checks wallet address matching without cryptographic proof.
+    // The wallet parameter could be spoofed. For write operations or highly sensitive data,
+    // use requireWalletAuth() middleware which requires signature verification.
+    
     // Attach verified wallet to request
     (req as any).authenticatedWallet = authenticatedWallet;
     
-    auditLog("wallet_ownership_verified", {
+    auditLog("wallet_ownership_verified_simple", {
       walletAddress: authenticatedWallet,
       resource: req.path,
       ip: getClientIp(req),
+      warning: "Simple verification - no cryptographic proof",
     });
     
     next();

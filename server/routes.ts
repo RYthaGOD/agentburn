@@ -10,6 +10,8 @@ import {
   sanitizeTransactionForPrivacy,
   sanitizeProjectForPublic 
 } from "./security";
+// Import crypto functions at module level for security
+import { getArciumService, loadKeypairFromPrivateKey } from "./arcium-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check
@@ -223,8 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Decrypt using Arcium v0.5
-      const { getArciumService, loadKeypairFromPrivateKey } = await import("./arcium-service");
+      // Decrypt using Arcium v0.5 (functions imported at module level)
       const arciumService = getArciumService();
       
       if (!arciumService.isAvailable()) {

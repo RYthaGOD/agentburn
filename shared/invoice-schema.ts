@@ -319,7 +319,7 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({
   createdAt: true,
 }).extend({
   invoiceId: z.string().uuid(),
-  txSignature: z.string().min(87, "Invalid Solana transaction signature"),
+  txSignature: z.string().min(88, "Invalid Solana transaction signature"), // Fixed: Solana signatures are 88 chars
   amount: z.string().refine(val => parseFloat(val) > 0, "Payment amount must be positive"),
 });
 

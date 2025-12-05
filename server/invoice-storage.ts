@@ -251,6 +251,11 @@ class InvoiceStorage implements IInvoiceStorage {
     // Update invoice paid amount and status
     const invoice = await this.getInvoice(payment.invoiceId);
     if (invoice) {
+      // NOTE: Using parseFloat for financial calculations
+      // For production with high-precision requirements, consider:
+      // - Using decimal.js or bignumber.js library
+      // - Storing amounts as integers (e.g., cents/lamports)
+      // - Using database NUMERIC type with adequate precision
       const newPaidAmount = parseFloat(invoice.paidAmount) + parseFloat(payment.amount);
       const totalAmount = parseFloat(invoice.totalAmount);
       const remainingAmount = totalAmount - newPaidAmount;
